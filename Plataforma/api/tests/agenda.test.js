@@ -287,6 +287,19 @@ describe('ciclo de vida do status', () => {
     assert.match(res.json().erro.mensagem, /nao pode virar/i);
   });
 
+  it('o detalhe da OS traz o contexto do cliente, as vendas e a linha do tempo', async () => {
+    const res = await app.inject({ method: 'GET', url: `/api/agenda/${ctx.agendamentoId}`, headers: cab });
+    assert.equal(res.statusCode, 200, res.body);
+    const a = res.json().agendamento;
+    assert.ok(a.duracaoMinutos > 0);
+    assert.ok(a.confirmadoEm, 'passou por confirmado');
+    assert.ok(a.concluidoEm);
+    const c = a.contexto.cliente;
+    assert.equal(typeof c.visitas, 'number', 'visitas ANTERIORES (sem contar esta OS)');
+    assert.ok(Array.isArray(c.tags));
+    assert.ok(Array.isArray(a.contexto.vendas));
+  });
+
   it('nao deixa remarcar um agendamento concluido', async () => {
     const res = await app.inject({
       method: 'PATCH',

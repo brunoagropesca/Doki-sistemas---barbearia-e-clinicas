@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import { useAuth } from '../../lib/autenticacao.jsx';
@@ -123,7 +123,7 @@ export function FichaContato() {
 
   const abrirConversa = useMutation({
     mutationFn: () => api.post('/api/conversas/abrir', { leadId: id }),
-    onSuccess: (r) => navegar(`/conversas/${r.conversa.id}`),
+    onSuccess: (r) => navegar(`/conversas?id=${r.conversa.id}`),
     onError: (err) => setRecado({ tom: 'alerta', texto: err.message })
   });
 
@@ -339,44 +339,13 @@ export function FichaContato() {
             </div>
           </section>
 
-          <section className="cartao">
-            <header className="cartao__topo">
-              <h2 className="cartao__titulo">Histórico de agendamentos</h2>
-              <span className="texto-fraco">{agendamentos.length} registro(s)</span>
-            </header>
-
-            <div className="cartao__corpo">
-              {agendamentos.length === 0 ? (
-                <Vazio
-                  titulo="Ainda não veio nenhuma vez"
-                  descricao="Quando este cliente marcar um horário, ele aparece aqui."
-                  acao={<Botao onClick={() => setAgendando(true)}>Marcar o primeiro horário</Botao>}
-                />
-              ) : (
-                <ol className="historico">
-                  {agendamentos.map((a) => (
-                    <li key={a.id} className={`historico__item historico__item--${a.status}`}>
-                      <div className="historico__quando">
-                        <strong>{new Date(a.inicioEm).toLocaleDateString('pt-BR')}</strong>
-                        <span className="mono texto-fraco">
-                          {new Date(a.inicioEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      <div className="historico__corpo">
-                        <strong>{a.profissionalNome ?? 'Sem profissional'}</strong>
-                        {a.precoCentavos > 0 && (
-                          <span className="texto-fraco mono">
-                            {(a.precoCentavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                          </span>
-                        )}
-                      </div>
-                      <Status valor={a.status} />
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-          </section>
+          <HistoricoCliente
+            agendamentos={agendamentos}
+            conversas={lead.historico?.conversas ?? []}
+            aoAgendar={() => setAgendando(true)}
+            aoEnviarMensagem={() => abrirConversa.mutate()}
+            enviando={abrirConversa.isPending}
+          />
         </div>
       </div>
 
@@ -393,5 +362,205 @@ export function FichaContato() {
         />
       )}
     </div>
+  );
+}
+
+/* ─── HISTORICO: agendamentos e atendimentos, por chips ────────────────── */
+
+const ABAS_HISTORICO = [
+  { chave: 'agendamentos', rotulo: 'Agendamentos' },
+  { chave: 'atendimentos', rotulo: 'Atendimentos' }
+];
+
+const hora = (valor) => new Date(valor).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+const dia = (valor) => new Date(valor).toLocaleDateString('pt-BR');
+const reais = (centavos) => (centavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+/** "12 min", "3 h", "2 dias": quanto tempo o atendimento ficou aberto. */
+function duracao(inicio, fim) {
+  const min = Math.round((new Date(fim) - new Date(inicio)) / 60_000);
+  if (!Number.isFinite(min) || min < 1) return null;
+  if (min < 60) return `${min} min`;
+  const horas = Math.round(min / 60);
+  if (horas < 24) return `${horas} h`;
+  const dias = Math.round(horas / 24);
+  return `${dias} dia${dias > 1 ? 's' : ''}`;
+}
+
+/** Quem cuidou do atendimento, em palavras. */
+function quemAtendeu(c) {
+  if (c.atendenteNome) return c.atendenteNome;
+  if (c.status === 'na_fila') return 'Esperando um atendente';
+  return 'Sofia (IA)';
+}
+
+/**
+ * Historico do cliente, com dois lados navegaveis por chips:
+ *
+ *  - Agendamentos: os horarios marcados (o que ele fez, com quem, quanto).
+ *  - Atendimentos: as conversas (quem atendeu, o resumo que a IA escreveu ao
+ *    fechar, as anotacoes da equipe). E o lado que responde "o que ele queria
+ *    da ultima vez?" — inclusive quando a conversa nao virou horario nenhum.
+ *
+ * O chip escolhido fica no endereco (`?historico=`): voltar de uma conversa
+ * aberta daqui cai de novo no lado certo.
+ */
+function HistoricoCliente({ agendamentos, conversas, aoAgendar, aoEnviarMensagem, enviando }) {
+  const [params, setParams] = useSearchParams();
+  const aba = params.get('historico') === 'atendimentos' ? 'atendimentos' : 'agendamentos';
+  const total = { agendamentos: agendamentos.length, atendimentos: conversas.length };
+
+  function trocar(chave) {
+    const novos = new URLSearchParams(params);
+    if (chave === 'agendamentos') novos.delete('historico');
+    else novos.set('historico', chave);
+    setParams(novos, { replace: true });
+  }
+
+  return (
+    <section className="cartao">
+      <header className="cartao__topo">
+        <h2 className="cartao__titulo">Histórico</h2>
+        <div className="historico-chips" role="tablist" aria-label="Tipo de histórico">
+          {ABAS_HISTORICO.map((a) => (
+            <button
+              key={a.chave}
+              type="button"
+              role="tab"
+              aria-selected={aba === a.chave}
+              className={`filtro-crm${aba === a.chave ? ' filtro-crm--ativo' : ''}`}
+              onClick={() => trocar(a.chave)}
+            >
+              {a.rotulo} <small>{total[a.chave]}</small>
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <div className="cartao__corpo" role="tabpanel">
+        {aba === 'agendamentos' ? (
+          <ListaAgendamentos agendamentos={agendamentos} aoAgendar={aoAgendar} />
+        ) : (
+          <ListaAtendimentos conversas={conversas} aoEnviarMensagem={aoEnviarMensagem} enviando={enviando} />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ListaAgendamentos({ agendamentos, aoAgendar }) {
+  if (agendamentos.length === 0) {
+    return (
+      <Vazio
+        titulo="Ainda não veio nenhuma vez"
+        descricao="Quando este cliente marcar um horário, ele aparece aqui."
+        acao={<Botao onClick={aoAgendar}>Marcar o primeiro horário</Botao>}
+      />
+    );
+  }
+
+  return (
+    <ol className="historico">
+      {agendamentos.map((a) => {
+        const valor = (a.precoCentavos ?? 0) - (a.descontoCentavos ?? 0);
+        return (
+          <li key={a.id} className={`historico__item historico__item--${a.status}`}>
+            <div className="historico__quando">
+              <strong>{dia(a.inicioEm)}</strong>
+              <span className="mono texto-fraco">
+                {hora(a.inicioEm)}
+                {a.fimEm ? ` – ${hora(a.fimEm)}` : ''}
+              </span>
+            </div>
+            <div className="historico__corpo">
+              <strong>{a.servicoNome ?? 'Serviço removido'}</strong>
+              <span className="texto-fraco">
+                com {a.profissionalNome ?? 'profissional removido'}
+                {valor > 0 && <span className="mono"> · {reais(valor)}</span>}
+              </span>
+            </div>
+            <div className="historico__lado">
+              <Status valor={a.status} />
+              {a.conversationId && (
+                <Link className="historico__link" to={`/conversas?id=${a.conversationId}`}>
+                  Ver conversa
+                </Link>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function ListaAtendimentos({ conversas, aoEnviarMensagem, enviando }) {
+  if (conversas.length === 0) {
+    return (
+      <Vazio
+        titulo="Nenhum atendimento ainda"
+        descricao="Cada conversa com este cliente — com a Sofia ou com a equipe — aparece aqui, com o resumo do que foi tratado."
+        acao={
+          <Botao variante="secundario" carregando={enviando} onClick={aoEnviarMensagem}>
+            Enviar mensagem
+          </Botao>
+        }
+      />
+    );
+  }
+
+  return (
+    <ol className="historico">
+      {conversas.map((c) => (
+        <ItemAtendimento key={c.id} c={c} />
+      ))}
+    </ol>
+  );
+}
+
+function ItemAtendimento({ c }) {
+  const [aberto, setAberto] = useState(false);
+  const inicio = c.iniciadaEm ?? c.ultimaMensagemEm;
+  const tempo = c.finalizadaEm && inicio ? duracao(inicio, c.finalizadaEm) : null;
+  const humor = HUMORES[c.humor];
+  // Sem resumo (conversa ainda aberta, ou fechada antes do resumo existir):
+  // a ultima mensagem ao menos diz do que se tratava.
+  const texto = c.resumo || (c.ultimaMensagemPreview ? `Última mensagem: “${c.ultimaMensagemPreview}”` : '');
+  const longo = texto.length > 160 || Boolean(c.anotacoesHumanas);
+
+  return (
+    <li className={`historico__item historico__item--atendimento historico__item--${c.status}`}>
+      <div className="historico__quando">
+        <strong>{inicio ? dia(inicio) : '—'}</strong>
+        {inicio && <span className="mono texto-fraco">{hora(inicio)}</span>}
+      </div>
+
+      <div className="historico__corpo">
+        <strong>{quemAtendeu(c)}</strong>
+        <span className="texto-fraco">
+          {c.totalMensagensCliente ?? 0} mensage{c.totalMensagensCliente === 1 ? 'm' : 'ns'} do cliente
+          {tempo && ` · durou ${tempo}`}
+          {humor && ` · ${humor.icone} ${humor.rotulo}`}
+        </span>
+        {texto && <p className={`historico__resumo${aberto ? ' historico__resumo--aberto' : ''}`}>{texto}</p>}
+        {aberto && c.anotacoesHumanas && (
+          <p className="historico__anotacao">
+            <strong>Anotação da equipe:</strong> {c.anotacoesHumanas}
+          </p>
+        )}
+        {longo && (
+          <button type="button" className="historico__mais" onClick={() => setAberto((a) => !a)} aria-expanded={aberto}>
+            {aberto ? 'Mostrar menos' : c.anotacoesHumanas ? 'Ver resumo e anotações' : 'Ver resumo inteiro'}
+          </button>
+        )}
+      </div>
+
+      <div className="historico__lado">
+        <Status valor={c.status} />
+        <Link className="historico__link" to={`/conversas?id=${c.id}`}>
+          Abrir conversa
+        </Link>
+      </div>
+    </li>
   );
 }

@@ -326,9 +326,14 @@ export async function primeiraMensagemNaoRespondida(tenantId, conversationId) {
  *     carga para a escolha ser informada.
  */
 export async function atendentesDisponiveis(tenantId, { presencas, cargos } = {}) {
+  // `"users"."id"` escrito por extenso, e nao `${users.id}`: numa consulta de
+  // tabela so, o Drizzle escreve a coluna SEM o nome da tabela ("id") — e
+  // dentro da subconsulta o banco lia como o id da CONVERSA. A carga saia
+  // sempre 0: ninguem batia no limite e a distribuicao nao sabia quem estava
+  // mais ocupado.
   const carga = sql`(
     SELECT COUNT(*) FROM ${conversations}
-    WHERE ${conversations.assignedUserId} = ${users.id}
+    WHERE ${conversations.assignedUserId} = ${sql.identifier('users')}.${sql.identifier('id')}
       AND ${conversations.status} != 'finalizada'
       AND ${conversations.deletedAt} IS NULL
   )`;

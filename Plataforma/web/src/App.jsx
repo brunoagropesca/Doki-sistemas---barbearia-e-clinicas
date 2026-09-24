@@ -4,6 +4,7 @@ import { Carregando } from './componentes/ui.jsx';
 import { Layout } from './componentes/Layout.jsx';
 import { Login } from './telas/Login.jsx';
 import { Painel } from './telas/Painel.jsx';
+import { Dashboard } from './telas/Dashboard.jsx';
 import { Conversas } from './telas/Conversas.jsx';
 import { Contatos } from './telas/Contatos.jsx';
 import { FichaContato } from './telas/contatos/FichaContato.jsx';
@@ -116,6 +117,14 @@ export function App() {
               <ExigeFuncao chave="campanhas">
                 <PaginaCampanha />
               </ExigeFuncao>
+            </Protegida>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <Protegida cargoMinimo="owner">
+              <Dashboard />
             </Protegida>
           }
         />

@@ -2,7 +2,8 @@ import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, ne, or, sql } from '
 import { db } from '../../db/client.js';
 import { appointments } from '../../db/schema/scheduling.js';
 import { leads, professionals, scheduleBlocks } from '../../db/schema/crm.js';
-import { services } from '../../db/schema/catalog.js';
+import { products, services } from '../../db/schema/catalog.js';
+import { productSales, serviceHistory } from '../../db/schema/scheduling.js';
 import { professionalServices } from '../../db/schema/catalog.js';
 import { conversations } from '../../db/schema/conversations.js';
 import { users } from '../../db/schema/auth.js';
@@ -68,6 +69,60 @@ function comRelacionados(consulta) {
 
 export function buscarTenant(tenantId) {
   return db.query.tenants.findFirst({ where: eq(tenants.id, tenantId) });
+}
+
+/**
+ * O que ajuda quem vai atender, alem da OS em si: quem e o cliente na casa
+ * (visitas, ultima vez, quanto ja gastou, etiquetas e observacoes) e o que
+ * foi vendido junto deste atendimento.
+ */
+export async function contextoDaOS(tenantId, a) {
+  const [lead] = await db
+    .select({ tags: leads.tags, observacoes: leads.observacoes, createdAt: leads.createdAt })
+    .from(leads)
+    .where(and(eq(leads.tenantId, tenantId), eq(leads.id, a.leadId)))
+    .limit(1);
+
+  // Historico do cliente SEM esta OS: "visitas anteriores" e o que interessa.
+  const [hist] = await db
+    .select({
+      visitas: sql`sum(case when ${serviceHistory.resultado} = 'concluido' then 1 else 0 end)`,
+      faltas: sql`sum(case when ${serviceHistory.resultado} = 'faltou' then 1 else 0 end)`,
+      gastoCentavos: sql`coalesce(sum(${serviceHistory.valorCentavos}), 0)`,
+      ultimaVisita: sql`max(case when ${serviceHistory.resultado} = 'concluido' then ${serviceHistory.dataLocal} end)`
+    })
+    .from(serviceHistory)
+    .where(
+      and(
+        eq(serviceHistory.tenantId, tenantId),
+        eq(serviceHistory.leadId, a.leadId),
+        or(isNull(serviceHistory.appointmentId), ne(serviceHistory.appointmentId, a.id))
+      )
+    );
+
+  const vendas = await db
+    .select({ produto: products.nome, quantidade: productSales.quantidade, totalCentavos: productSales.totalCentavos })
+    .from(productSales)
+    .innerJoin(products, eq(products.id, productSales.productId))
+    .where(and(eq(productSales.tenantId, tenantId), eq(productSales.appointmentId, a.id), isNull(productSales.deletedAt)));
+
+  const [criador] = a.criadoPorUserId
+    ? await db.select({ nome: users.nome }).from(users).where(eq(users.id, a.criadoPorUserId)).limit(1)
+    : [];
+
+  return {
+    cliente: {
+      desde: lead?.createdAt?.getTime() ?? null,
+      tags: lead?.tags ?? [],
+      observacoes: lead?.observacoes || null,
+      visitas: Number(hist?.visitas ?? 0),
+      faltas: Number(hist?.faltas ?? 0),
+      gastoCentavos: Number(hist?.gastoCentavos ?? 0),
+      ultimaVisita: hist?.ultimaVisita ?? null
+    },
+    vendas,
+    criadoPorNome: criador?.nome ?? null
+  };
 }
 
 export async function buscarPorId(tenantId, id) {

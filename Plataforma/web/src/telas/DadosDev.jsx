@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import { Aviso, Botao, Carregando, Entrada } from '../componentes/ui.jsx';
+import { PainelDemonstracao } from './dados/PainelDemonstracao.jsx';
 import './DadosDev.css';
 
 /**
@@ -93,6 +94,8 @@ export function DadosDev() {
       )}
 
       {/* ---------------- Backups ---------------- */}
+      <PainelDemonstracao />
+
       <section className="dados-dev__secao">
         <div className="dados-dev__cabeca">
           <div>

@@ -5,7 +5,8 @@ import { NOME_SESSAO_MAX, NOME_SESSAO_MIN, formatarTelefone } from './formatar.j
 import { useCriarSessao } from './hooks.js';
 
 /**
- * Coluna "SESSÕES 1/5": uma linha por conta de WhatsApp.
+ * Faixa "NÚMEROS 1/5": um botao por conta de WhatsApp, lado a lado acima do
+ * painel. (Era uma coluna lateral inteira para, quase sempre, um numero so.)
  *
  * So o perfil tecnico ve "Nova sessão" e a etiqueta dele. Para o dono, a
  * lista e so isso: escolher qual conta operar. Ele nao ve botao desabilitado
@@ -15,7 +16,7 @@ export function ListaSessoes({ canais, limite, selecionada, aoEscolher, ehDev })
   return (
     <aside className="cx-sessoes" aria-label="Sessões de WhatsApp">
       <div className="cx-sessoes__topo">
-        <span className="cx-sessoes__titulo">Sessões</span>
+        <span className="cx-sessoes__titulo">Números</span>
         <span className="cx-sessoes__contagem" aria-label={`${canais.length} de ${limite} sessões`}>
           {canais.length}/{limite}
         </span>
@@ -36,8 +37,8 @@ export function ListaSessoes({ canais, limite, selecionada, aoEscolher, ehDev })
                 <span className="cx-sessao__chave">{c.chave}</span>
                 <span className="cx-sessao__corpo">
                   <span className="cx-sessao__nome">{c.nome}</span>
-                  <span className="cx-sessao__numero">{formatarTelefone(c.identificador) || 'Sem número pareado'}</span>
                   <EstadoSessao canal={c} />
+                  {c.identificador && <span className="cx-sessao__numero">{formatarTelefone(c.identificador)}</span>}
                 </span>
               </button>
             </li>
@@ -48,7 +49,7 @@ export function ListaSessoes({ canais, limite, selecionada, aoEscolher, ehDev })
       {ehDev ? (
         <NovaSessao total={canais.length} limite={limite} aoCriada={aoEscolher} />
       ) : (
-        <p className="texto-fraco cx-sessoes__dica">Para adicionar ou remover sessões, fale com o suporte técnico.</p>
+        <p className="texto-fraco cx-sessoes__dica">Para adicionar outro número, fale com o suporte técnico.</p>
       )}
     </aside>
   );

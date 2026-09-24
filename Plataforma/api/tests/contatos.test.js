@@ -241,6 +241,55 @@ describe('a ficha mostra os mesmos numeros da lista', () => {
   });
 });
 
+describe('historico na ficha: agendamentos e atendimentos', () => {
+  it('cada agendamento diz QUAL servico foi, e nao so o profissional', async () => {
+    const leads = await import('../src/modules/leads/leads.service.js');
+    const [serv] = await ctx.db.select().from(ctx.s.services);
+    const ficha = await leads.obter(tenantId, ctx.fiel.id);
+
+    assert.ok(ficha.historico.agendamentos.length >= 2);
+    for (const a of ficha.historico.agendamentos) {
+      assert.equal(a.servicoNome, serv.nome);
+      assert.ok(a.fimEm, 'o fim do horario vem junto, para a ficha mostrar a faixa');
+    }
+  });
+
+  it('as conversas do cliente viram o historico de atendimentos, com resumo e anotacoes', async () => {
+    const { ID } = await import('../src/core/ids.js');
+    const leads = await import('../src/modules/leads/leads.service.js');
+    const cliente = await contato('Zt Atendido');
+    const agora = Date.now();
+
+    await ctx.db.insert(ctx.s.conversations).values([
+      {
+        id: ID.conversa(),
+        tenantId,
+        leadId: cliente.id,
+        status: 'finalizada',
+        resumo: 'Pediu o preço do corte e marcou para sábado.',
+        anotacoesHumanas: 'Prefere o fim da tarde.',
+        ultimaMensagemEm: new Date(agora - 86_400_000),
+        finalizadaEm: new Date(agora - 86_000_000)
+      },
+      {
+        id: ID.conversa(),
+        tenantId,
+        leadId: cliente.id,
+        status: 'bot',
+        ultimaMensagemEm: new Date(agora)
+      }
+    ]);
+
+    const { conversas } = (await leads.obter(tenantId, cliente.id)).historico;
+    assert.equal(conversas.length, 2);
+    // O mais recente primeiro: o atendimento em curso no topo.
+    assert.equal(conversas[0].status, 'bot');
+    assert.equal(conversas[1].resumo, 'Pediu o preço do corte e marcou para sábado.');
+    assert.equal(conversas[1].anotacoesHumanas, 'Prefere o fim da tarde.');
+    assert.ok(conversas[1].finalizadaEm);
+  });
+});
+
 describe('foto do perfil do WhatsApp', () => {
   /** Substitui o `fetch` global pelo que o teste quiser devolver. */
   async function comFetch(resposta, funcao) {

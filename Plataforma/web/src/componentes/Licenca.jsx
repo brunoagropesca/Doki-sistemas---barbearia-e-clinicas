@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/autenticacao.jsx';
 import { Aviso, Botao } from './ui.jsx';
+import { IconeGmail, IconeInstagram, IconeWhatsapp } from './IconesContato.jsx';
 import './Licenca.css';
 
 /**
@@ -12,6 +13,48 @@ import './Licenca.css';
  */
 
 const dataBR = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+
+/** Contato da Doki Sistemas: renovacao, serial e suporte. */
+const CONTATO = {
+  whatsapp: { texto: '+55 (92) 9 7400-3611', link: 'https://wa.me/5592974003611' },
+  email: { texto: 'dokisistemasinteligentes@gmail.com', link: 'mailto:dokisistemasinteligentes@gmail.com' },
+  instagram: { texto: '@doki.tecnologia', link: 'https://instagram.com/doki.tecnologia' }
+};
+
+/**
+ * Onde falar com o fornecedor. Fica na pagina de Licenca e na tela de
+ * bloqueio — e ali que o dono precisa do contato para pedir o serial.
+ */
+export function ContatoFornecedor({ codigo }) {
+  // No WhatsApp, a mensagem ja vai com o codigo da instalacao.
+  const texto = codigo ? `Olá! Quero renovar a licença do sistema. Código da instalação: ${codigo}` : 'Olá! Preciso de ajuda com a licença do sistema.';
+  const itens = [
+    ['whatsapp', 'WhatsApp', `${CONTATO.whatsapp.link}?text=${encodeURIComponent(texto)}`, <IconeWhatsapp tamanho={36} />, 'Resposta mais rápida'],
+    ['instagram', 'Instagram', CONTATO.instagram.link, <IconeInstagram tamanho={36} />, 'Novidades e dicas'],
+    ['email', 'Gmail', CONTATO.email.link, <IconeGmail tamanho={36} />, 'Para enviar documentos']
+  ];
+  return (
+    <ul className="licenca-contato">
+      {itens.map(([chave, rotulo, link, icone, dica]) => (
+        <li key={chave}>
+          <a href={link} target={chave === 'email' ? undefined : '_blank'} rel="noreferrer" className={`licenca-contato__item licenca-contato__item--${chave}`}>
+            <span className="licenca-contato__icone">{icone}</span>
+            <span className="licenca-contato__texto">
+              <small>
+                {rotulo} <span className="licenca-contato__dica">· {dica}</span>
+              </small>
+              <strong>
+                {/* E-mail pode quebrar linha no celular, mas so antes do @. */}
+                {chave === 'email' ? CONTATO.email.texto.split('@').map((p, i) => (i ? <span key={i}><wbr />@{p}</span> : p)) : CONTATO[chave].texto}
+              </strong>
+            </span>
+            <span className="licenca-contato__seta" aria-hidden="true">›</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export function useLicenca() {
   const { usuario } = useAuth();
@@ -131,6 +174,9 @@ export function GuardaLicenca({ children }) {
         ) : (
           <Aviso tom="info">Peça ao dono da empresa para renovar a licença.</Aviso>
         )}
+
+        <p className="texto-suave">Fale com a Doki Sistemas:</p>
+        <ContatoFornecedor codigo={licenca.codigoInstalacao} />
 
         <Botao variante="fantasma" onClick={sair}>
           Sair

@@ -91,7 +91,41 @@ async function requisitar(caminho, { metodo = 'GET', corpo, params } = {}) {
   return dados;
 }
 
+/**
+ * Baixa um arquivo (planilha, backup...) com a sessao do navegador e entrega
+ * ao usuario com o nome que o servidor mandou. Erro vem como ErroApi, igual
+ * ao resto — sem abrir uma aba com JSON de erro.
+ */
+async function baixar(caminho, params, nomePadrao = 'arquivo') {
+  const url = new URL(caminho, window.location.origin);
+  for (const [chave, valor] of Object.entries(params ?? {})) {
+    if (valor !== undefined && valor !== null && valor !== '') url.searchParams.set(chave, valor);
+  }
+  let resposta;
+  try {
+    resposta = await fetch(url, { credentials: 'include' });
+  } catch {
+    throw new ErroApi('Nao consegui falar com o servidor. Ele esta ligado?', { status: 0, codigo: 'SEM_CONEXAO' });
+  }
+  if (!resposta.ok) {
+    const dados = await resposta.json().catch(() => null);
+    if (resposta.status === 401) for (const cb of aoPerderSessao) cb();
+    throw new ErroApi(dados?.erro?.mensagem ?? 'Nao consegui gerar o arquivo.', { status: resposta.status, codigo: dados?.erro?.codigo });
+  }
+  const nome = /filename="([^"]+)"/.exec(resposta.headers.get('content-disposition') ?? '')?.[1] ?? nomePadrao;
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(await resposta.blob());
+  link.download = nome;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Da tempo do navegador comecar o download antes de soltar a memoria.
+  setTimeout(() => URL.revokeObjectURL(link.href), 10_000);
+  return nome;
+}
+
 export const api = {
+  baixar,
   get: (caminho, params) => requisitar(caminho, { params }),
   post: (caminho, corpo) => requisitar(caminho, { metodo: 'POST', corpo }),
   put: (caminho, corpo) => requisitar(caminho, { metodo: 'PUT', corpo }),

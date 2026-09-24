@@ -1,0 +1,216 @@
+/*
+ * ============================================================
+ * CELULAR — o sistema com cara (e toque) de aplicativo
+ * ============================================================
+ *
+ * Regras que valem para TODAS as telas no celular, para caber mais na tela
+ * e rolar menos. Carregado por ultimo (main.jsx), entao ajusta os
+ * componentes sem mexer no visual do computador. O que e so de uma tela
+ * fica no CSS dela.
+ */
+
+/* Toque sem o "flash" azul do Android nem o zoom de toque duplo. */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+button, a, [role='tab'], label { touch-action: manipulation; }
+
+/* Instalado (PWA): a pagina em si nunca "quica" nem puxa para atualizar —
+   so o conteudo de cada tela rola. */
+body { overscroll-behavior: none; }
+
+@media (max-width: 820px) {
+  /* Campo com letra menor que 16px faz o iPhone dar zoom na tela inteira ao
+     tocar nele — e nao desfaz sozinho. */
+  input, select, textarea, .entrada, .selecao__botao { font-size: 16px !important; }
+
+  /* O titulo da tela ja esta na barra do topo: o cabecalho grande da pagina
+     (titulo + frase de explicacao) so empurraria o conteudo para baixo.
+     Os botoes de acao que moram no cabecalho continuam. */
+  .conteudo > .coluna > header:first-child:not(.linha),
+  .conteudo > .coluna > header.linha:first-child > div:first-child:has(> h1) { display: none; }
+  .conteudo > .coluna > header.linha:first-child { justify-content: flex-start; }
+
+  .coluna { gap: var(--e3); }
+
+  /* ── Metricas: uma faixa que desliza para o lado, em vez de 5 cartoes
+        empilhados ocupando a tela inteira antes do que interessa. ── */
+  .grade:has(> .metrica) {
+    display: flex;
+    gap: var(--e2);
+    margin: 0 calc(-1 * var(--e3));
+    padding: 2px var(--e3);
+    overflow-x: auto;
+    /* A faixa ocupa a largura que o pai der, sem pedir mais: senao, dentro de
+       uma grade `1fr`, a coluna cresce ate caber a faixa inteira e a tela
+       passa da largura do celular. */
+    contain: inline-size;
+    scroll-snap-type: x proximity;
+    scroll-padding: 0 var(--e3);
+    scrollbar-width: none;
+  }
+  .grade:has(> .metrica)::-webkit-scrollbar { display: none; }
+  .grade > .metrica {
+    flex: 0 0 auto;
+    min-width: 128px;
+    max-width: 200px;
+    gap: 2px;
+    padding: 10px var(--e3);
+    border-radius: var(--raio);
+    scroll-snap-align: start;
+  }
+  .metrica:hover { transform: none; }
+  .metrica__rotulo { font-size: 10px; white-space: nowrap; }
+  .metrica__valor { font-size: 20px; white-space: nowrap; }
+  .metrica__detalhe { font-size: 11px; white-space: nowrap; }
+
+  /* ── Cartoes ── */
+  .cartao__topo { padding: var(--e3) var(--e4); }
+  .cartao__corpo { padding: var(--e4); }
+  .cartao:hover { box-shadow: var(--sombra); }
+
+  /* ── Tabelas viram lista de cartoes: cada linha um bloco, cada coluna
+        "rotulo  valor". O rotulo vem do cabecalho (ver `Tabela` no ui.jsx). ── */
+  .tabela__rolagem { overflow-x: visible; }
+  .tabela thead { display: none; }
+  .tabela,
+  .tabela tbody,
+  .tabela tr { display: block; width: 100%; }
+  .tabela tr {
+    padding: var(--e3) var(--e4);
+    border-bottom: 1px solid var(--borda);
+  }
+  .tabela tbody tr:last-child { border-bottom: 0; }
+  /* O rotulo "flutua" a esquerda e o conteudo da celula corre junto, a
+     direita — "10:30 ate 11:00" fica inteiro, nome e telefone empilham. */
+  .tabela td {
+    display: flow-root;
+    min-height: 26px;
+    padding: 3px 0;
+    border: 0;
+    text-align: right;
+  }
+  .tabela td::before {
+    float: left;
+    margin-right: var(--e3);
+    line-height: 22px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--texto-fraco);
+    text-align: left;
+  }
+  .tabela td:nth-child(1)::before { content: var(--rotulo-1, ''); }
+  .tabela td:nth-child(2)::before { content: var(--rotulo-2, ''); }
+  .tabela td:nth-child(3)::before { content: var(--rotulo-3, ''); }
+  .tabela td:nth-child(4)::before { content: var(--rotulo-4, ''); }
+  .tabela td:nth-child(5)::before { content: var(--rotulo-5, ''); }
+  .tabela td:nth-child(6)::before { content: var(--rotulo-6, ''); }
+  .tabela td:nth-child(7)::before { content: var(--rotulo-7, ''); }
+  .tabela td:nth-child(8)::before { content: var(--rotulo-8, ''); }
+  /* Linha de aviso ocupando a tabela toda ("nada encontrado"): sem rotulo. */
+  .tabela td[colspan]::before { content: none; }
+  .tabela td[colspan] { text-align: center; }
+  /* Grupos de botoes/etiquetas dentro da celula: alinhados a direita. */
+  .tabela td .linha { justify-content: flex-end; }
+
+  /* Faixa da licenca: aviso, nao manchete. */
+  .licenca-faixa {
+    margin-bottom: var(--e3);
+    padding: 6px var(--e3);
+    font-size: 12.5px;
+    line-height: 1.4;
+    gap: 2px var(--e3);
+  }
+
+  /* ── Abas e filtros: uma linha so, deslizando para o lado. ── */
+  .abas:not(.abas--compacta),
+  .filtros-crm {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 calc(-1 * var(--e3));
+    padding: 0 var(--e3);
+  }
+  .abas::-webkit-scrollbar,
+  .filtros-crm::-webkit-scrollbar { display: none; }
+  .abas__aba,
+  .filtro-crm { flex-shrink: 0; white-space: nowrap; }
+
+  /* ── Modais viram folhas que sobem de baixo, como nos apps. ── */
+  .modal__fundo {
+    align-items: flex-end;
+    padding: 0;
+    padding-top: calc(var(--e6) + env(safe-area-inset-top, 0px));
+  }
+  .modal {
+    max-width: 100% !important;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    border-radius: 20px 20px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    animation: folhaSobe 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .modal__topo { padding: var(--e3) var(--e4); flex-shrink: 0; }
+  .modal__corpo { padding: var(--e4); overflow-y: auto; overscroll-behavior: contain; }
+  .modal__rodape { padding: var(--e3) var(--e4); flex-shrink: 0; }
+  .modal__rodape .botao { flex: 1; }
+  .modal__fechar { padding: 6px 11px; }
+
+  /* Alvos de toque de pelo menos ~40px (o dedo nao e um mouse). */
+  .botao { min-height: 40px; }
+}
+
+@keyframes folhaSobe {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+
+@media (max-width: 820px) {
+  /* Telas de altura exata (a mesa de conversas): ocupam o que sobra abaixo
+     da faixa da licenca, sem empurrar a tela para rolar. */
+  .conteudo:has(> .mesa) { display: flex; flex-direction: column; }
+  .conteudo > .mesa { flex: 1; min-height: 0; height: auto; }
+}
+
+/* ─── Ajustes por tela (celular) ─────────────────────────── */
+@media (max-width: 820px) {
+  /* Conexoes e IA: o titulo ja esta no topo do app. Fica so a linha de
+     estado + Atualizar. */
+  .cx-topo > .crescer,
+  .ci-cabecalho__marca { display: none; }
+  .cx-topo { justify-content: space-between; }
+  .ci-cabecalho {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--e2);
+    padding: var(--e2) var(--e3);
+  }
+
+  /* Quadro: uma coluna quase inteira por vez, encaixando ao deslizar — e
+     aparece a beirada da proxima, para mostrar que tem mais para o lado. */
+  .quadro {
+    grid-auto-columns: 84%;
+    margin: 0 calc(-1 * var(--e3));
+    padding: 0 var(--e3) var(--e2);
+    scroll-snap-type: x mandatory;
+    scroll-padding: 0 var(--e3);
+  }
+  .quadro__coluna {
+    scroll-snap-align: start;
+    max-height: calc(100dvh - 300px);
+  }
+
+  /* Meu perfil: foto de tamanho de celular. */
+  .identidade__foto .avatar {
+    width: 84px !important;
+    height: 84px !important;
+    font-size: 32px !important;
+  }
+}

@@ -3,6 +3,7 @@ import { db } from '../../db/client.js';
 import { leads, professionals } from '../../db/schema/crm.js';
 import { appointments } from '../../db/schema/scheduling.js';
 import { conversations } from '../../db/schema/conversations.js';
+import { services } from '../../db/schema/catalog.js';
 import { users } from '../../db/schema/auth.js';
 import { ID } from '../../core/ids.js';
 
@@ -239,11 +240,15 @@ export async function historico(tenantId, leadId) {
         conversationId: appointments.conversationId,
         inicioEm: appointments.inicioEm,
         status: appointments.status,
+        fimEm: appointments.fimEm,
         precoCentavos: appointments.precoCentavos,
-        profissionalNome: professionals.nome
+        descontoCentavos: appointments.descontoCentavos,
+        profissionalNome: professionals.nome,
+        servicoNome: services.nome
       })
       .from(appointments)
       .leftJoin(professionals, eq(professionals.id, appointments.professionalId))
+      .leftJoin(services, eq(services.id, appointments.serviceId))
       .where(and(eq(appointments.tenantId, tenantId), eq(appointments.leadId, leadId), isNull(appointments.deletedAt)))
       .orderBy(desc(appointments.inicioEm))
       .limit(50),

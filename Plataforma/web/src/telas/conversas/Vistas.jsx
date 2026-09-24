@@ -72,7 +72,7 @@ function useAtendenteEscolhido() {
   };
 }
 
-export function VistaFinalizados({ aoAbrir }) {
+export function VistaFinalizados({ aoAbrir, aoVoltar }) {
   const [dia, setDia] = useState(hojeISO());
   const { atendenteId, seletor } = useAtendenteEscolhido();
 
@@ -86,7 +86,8 @@ export function VistaFinalizados({ aoAbrir }) {
   return (
     <div className="vista">
       <header className="vista__topo">
-        <div>
+        <BotaoVoltar aoVoltar={aoVoltar} />
+        <div className="crescer">
           <h2>Atendimentos finalizados</h2>
           <p className="texto-fraco">
             {lista.isSuccess ? `${itens.length} em ${rotuloDoDia(dia).toLowerCase()}` : 'Carregando...'}
@@ -152,7 +153,7 @@ export function VistaFinalizados({ aoAbrir }) {
   );
 }
 
-export function VistaAgendamentos({ aoAbrir }) {
+export function VistaAgendamentos({ aoAbrir, aoVoltar }) {
   const { podeAcessar } = useAuth();
   const { atendenteId, seletor } = useAtendenteEscolhido();
   const [osAberta, setOsAberta] = useState(null);
@@ -176,7 +177,8 @@ export function VistaAgendamentos({ aoAbrir }) {
   return (
     <div className="vista">
       <header className="vista__topo">
-        <div>
+        <BotaoVoltar aoVoltar={aoVoltar} />
+        <div className="crescer">
           <h2>Agendamentos</h2>
           <p className="texto-fraco">
             Horários por acontecer, para você falar com o cliente até o dia do serviço.
@@ -263,5 +265,15 @@ export function VistaAgendamentos({ aoAbrir }) {
         />
       )}
     </div>
+  );
+}
+
+/** No celular a vista ocupa a tela toda: sem este botao nao havia volta para a lista. */
+function BotaoVoltar({ aoVoltar }) {
+  if (!aoVoltar) return null;
+  return (
+    <button type="button" className="fio__voltar" onClick={aoVoltar} aria-label="Voltar para a lista" title="Voltar para a lista">
+      ‹
+    </button>
   );
 }

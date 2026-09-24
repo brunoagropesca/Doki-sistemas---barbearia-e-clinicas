@@ -6,11 +6,12 @@ import './ui.css';
  * Componentes basicos da interface — Glassmorphism Edition
  */
 
-export function Botao({ variante = 'primario', tamanho = 'md', carregando, filhos, children, ...resto }) {
+export function Botao({ variante = 'primario', tamanho = 'md', carregando, filhos, children, className, ...resto }) {
   const conteudo = children ?? filhos;
   return (
     <button
-      className={`botao botao--${variante} botao--${tamanho}`}
+      // `className` SOMA ao visual do botao (antes substituia e o botao perdia o estilo).
+      className={juntar('botao', `botao--${variante}`, `botao--${tamanho}`, className)}
       disabled={carregando || resto.disabled}
       {...resto}
     >
@@ -354,8 +355,9 @@ export const ROTULO_STATUS = {
   aguardando_qr: 'Aguardando QR', desconectado: 'Desconectado', erro: 'Com erro'
 };
 
-export function Status({ valor }) {
-  return <Etiqueta tom={TOM_STATUS[valor] ?? 'neutro'}>{ROTULO_STATUS[valor] ?? valor}</Etiqueta>;
+/** `rotulo`: troca o texto padrao mantendo a cor do status (ex.: "Com Camila"). */
+export function Status({ valor, rotulo }) {
+  return <Etiqueta tom={TOM_STATUS[valor] ?? 'neutro'}>{rotulo ?? ROTULO_STATUS[valor] ?? valor}</Etiqueta>;
 }
 
 export function Vazio({ titulo, descricao, acao }) {
@@ -426,10 +428,18 @@ export function Modal({ titulo, aberto, aoFechar, children, rodape, largura = 52
   );
 }
 
-export function Tabela({ cabecalho, children }) {
+export function Tabela({ cabecalho, children, className }) {
+  // No celular a tabela vira lista de cartoes e cada celula mostra o nome da
+  // coluna ao lado do valor (ver estilos/celular.css). O nome vai por variavel
+  // CSS: funciona ate com linhas que sao componentes proprios, sem precisar
+  // que cada tela repita o rotulo em todo <td>. Cabecalho que nao e texto
+  // (um checkbox de "marcar todos") fica sem rotulo.
+  const rotulos = Object.fromEntries(
+    cabecalho.map((c, i) => [`--rotulo-${i + 1}`, JSON.stringify(typeof c === 'string' ? c : '')])
+  );
   return (
     <div className="tabela__rolagem">
-      <table className="tabela">
+      <table className={juntar('tabela', className)} style={rotulos}>
         <thead>
           <tr>
             {cabecalho.map((c) => (<th key={c} scope="col">{c}</th>))}

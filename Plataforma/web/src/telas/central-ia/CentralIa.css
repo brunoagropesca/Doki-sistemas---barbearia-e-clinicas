@@ -636,3 +636,161 @@
   border-radius: 0 var(--raio) var(--raio) 0;
   font-size: 13px;
 }
+
+/* ================================================================
+ * BASE DE CONHECIMENTO — secoes a esquerda, formulario, e a previa do que a
+ * Sofia recebe a direita.
+ * ================================================================ */
+.bc {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr) minmax(260px, 340px);
+  gap: var(--e4);
+  align-items: start;
+}
+
+.bc-secoes { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; }
+.bc-secao {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  background: none;
+  color: var(--texto-suave);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.bc-secao:hover { background: var(--superficie-2); color: var(--texto); }
+.bc-secao--ativa { background: var(--primaria-suave); border-color: rgba(24, 86, 255, 0.4); color: var(--texto); }
+.bc-secao__texto { display: flex; flex-direction: column; min-width: 0; }
+.bc-secao__texto strong { font-size: 13.5px; font-weight: 600; }
+.bc-secao__texto small { font-size: 11.5px; color: var(--texto-fraco); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bc-secao__marca {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--borda-forte);
+  font-size: 11px;
+  font-weight: 800;
+}
+.bc-secao__marca--ok { border: 0; background: var(--sucesso); color: #052e1a; }
+
+.bc-conteudo { display: flex; flex-direction: column; gap: var(--e4); min-height: 420px; }
+.bc-campos { display: flex; flex-direction: column; gap: var(--e4); margin: 0; padding: 0; border: 0; min-width: 0; }
+.bc-campos:disabled { opacity: 0.75; }
+.bc-titulo h2 { font-size: 17px; }
+.bc-titulo p { margin-top: 2px; font-size: 13px; }
+.bc-dupla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--e3); }
+.bc-pix { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: var(--e3); }
+.bc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.bc-conteudo .cx-salvar { margin-top: auto; }
+
+/* Horario: uma linha por dia; fechado fica apagado. */
+.bc-horario { display: flex; flex-direction: column; border: 1px solid var(--borda); border-radius: var(--raio); overflow: hidden; }
+.bc-dia {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+  min-height: 52px;
+  padding: 6px var(--e3);
+  border-bottom: 1px solid var(--borda);
+}
+.bc-dia:last-child { border-bottom: 0; }
+.bc-dia--fechado { background: rgba(0, 0, 0, 0.15); }
+.bc-dia__nome { display: flex; align-items: center; gap: var(--e2); min-width: 110px; font-weight: 600; font-size: 13.5px; cursor: pointer; }
+.bc-dia__nome input { width: 16px; height: 16px; accent-color: var(--primaria); }
+.bc-dia--fechado .bc-dia__nome { color: var(--texto-fraco); }
+.bc-dia__horas { display: flex; align-items: center; gap: var(--e2); }
+.bc-dia__horas .entrada { width: 118px; padding: 6px 10px; }
+
+/* Perguntas frequentes */
+.bc-faq { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--e3); }
+.bc-faq__item { display: flex; gap: var(--e3); align-items: flex-start; }
+.bc-faq__num {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: var(--superficie-3);
+  font-size: 12px;
+  font-weight: 700;
+}
+.bc-faq__campos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.bc-faq__tirar {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin-top: 5px;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background: var(--superficie);
+  color: var(--texto-fraco);
+  font-size: 17px;
+  cursor: pointer;
+}
+.bc-faq__tirar:hover { color: #ff8a9c; border-color: rgba(234, 33, 67, 0.4); }
+
+/* Previa: o texto que a Sofia recebe. */
+.bc-previa { position: sticky; top: 0; display: flex; flex-direction: column; gap: var(--e2); max-height: calc(100vh - 220px); }
+.bc-previa__titulo { display: flex; align-items: center; gap: var(--e2); font-size: 14px; }
+.bc-previa__ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--cor-sofia); box-shadow: 0 0 8px var(--cor-sofia); }
+.bc-previa__dica { font-size: 12px; }
+.bc-previa__texto {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--e3);
+  overflow: auto;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: #070b1a;
+  color: var(--texto-suave);
+  font-family: var(--fonte-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.bc-previa__vazio { padding: var(--e4); text-align: center; border: 1px dashed var(--borda-forte); border-radius: var(--raio); color: var(--texto-fraco); font-size: 13px; }
+.bc-previa__pendente { font-size: 12px; color: var(--alerta); }
+
+@media (max-width: 1250px) {
+  .bc { grid-template-columns: 210px minmax(0, 1fr); }
+  .bc-previa { grid-column: 1 / -1; position: static; max-height: none; }
+}
+@media (max-width: 820px) {
+  .bc { grid-template-columns: minmax(0, 1fr); }
+  /* No celular as secoes viram chips que deslizam. */
+  .bc-secoes { position: static; flex-direction: row; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--e3)); padding: 0 var(--e3); }
+  .bc-secoes::-webkit-scrollbar { display: none; }
+  .bc-secao { width: auto; flex: none; padding: 7px 12px; border-color: var(--borda); border-radius: 999px; }
+  .bc-secao__texto small { display: none; }
+  .bc-dupla, .bc-pix { grid-template-columns: minmax(0, 1fr); }
+  .bc-dia { flex-wrap: wrap; }
+  .bc-dia__horas .entrada { width: 104px; }
+}
+
+/* A barra de abas nunca mostra a barra de rolagem cinza (no celular ela ainda desliza). */
+.ci-abas { scrollbar-width: none; }
+.ci-abas::-webkit-scrollbar { display: none; }
+
+/* Com alteracao pendente, o Salvar gruda no rodape da tela: secoes longas
+   (Horario, Perguntas) nao escondem o botao la embaixo. */
+.bc-conteudo .cx-salvar--pendente {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: #111a3d;
+  box-shadow: 0 -8px 24px rgba(5, 8, 20, 0.6);
+}

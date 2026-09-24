@@ -1,12 +1,14 @@
 import { useId, useRef, useState } from 'react';
-import { Aviso, Botao, Cartao } from '../../componentes/ui.jsx';
+import { Aviso, Botao } from '../../componentes/ui.jsx';
 import { Confirmacao } from './Confirmacao.jsx';
+import { EtiquetaSessao } from './EstadoSessao.jsx';
 import { PainelQr } from './PainelQr.jsx';
 import { estadoDaSessao, formatarDataHora, formatarTelefone } from './formatar.js';
 import { useAcaoCanal } from './hooks.js';
 
 /**
- * Cartao "Conexão": o que a pessoa precisa fazer AGORA com esta sessao.
+ * Cartao da conexao: QUEM e o numero (nome, telefone, estado) e o que a pessoa
+ * precisa fazer AGORA com ele.
  *
  * Cada estado do servidor vira uma tela diferente:
  *  desativada -> so um aviso (ninguem conecta o que foi desligado de proposito)
@@ -27,6 +29,16 @@ const FRASE_DO_ESTADO = {
   conectando: 'Iniciando a conexão.',
   aguardando_qr: 'QR Code pronto para leitura.',
   conectado: 'Sessão conectada.'
+};
+
+/** Linha de apoio sob o nome, quando ainda nao ha numero para mostrar. */
+const SUBTITULO = {
+  desativada: 'Número desativado',
+  desconectado: 'Nenhum número conectado',
+  erro: 'A conexão falhou',
+  conectando: 'Iniciando a conexão…',
+  aguardando_qr: 'Esperando a leitura do QR Code',
+  conectado: 'Recebendo mensagens'
 };
 
 export function PainelPareamento({ canal, ehDev }) {
@@ -79,35 +91,73 @@ export function PainelPareamento({ canal, ehDev }) {
     conteudo = (
       <>
         {canal.ultimoErro && <Aviso tom={estado.chave === 'erro' ? 'perigo' : 'alerta'}>{canal.ultimoErro}</Aviso>}
-        <p className="cx-pareamento__texto">
-          {estado.chave === 'erro' ? 'A conexão falhou. Você pode tentar de novo. ' : 'Esta sessão não está conectada. '}
-          Clique em Conectar para ligar o número: se a sessão ainda estiver salva ele volta sozinho; se não, vai aparecer um
-          QR Code para ler.
-        </p>
-        <div className="linha">
+        <div className="cx-desligado">
+          <span className="cx-desligado__icone" aria-hidden="true">
+            <IconeQr />
+          </span>
+          <p className="cx-desligado__titulo">
+            {estado.chave === 'erro' ? 'Tente conectar de novo' : 'Conecte o WhatsApp da empresa'}
+          </p>
+          <p className="texto-fraco">
+            Se o número já foi conectado antes, ele volta sozinho. Se não, aparece um QR Code para ler com o celular.
+          </p>
           <Botao type="button" carregando={ocupado} disabled={ocupado} onClick={conectar}>
-            Conectar
+            Conectar número
           </Botao>
         </div>
       </>
     );
   }
 
+  const telefone = formatarTelefone(canal.identificador);
+
   return (
-    <Cartao titulo="Pareamento por QR Code">
-      {/* Persistente: o leitor de tela so percebe mudanca de texto em uma regiao que ja existia. */}
-      <p className="cx-so-leitor" role="status">
-        {FRASE_DO_ESTADO[estado.chave]}
-      </p>
+    <section className={`cartao cx-conexao cx-conexao--${estado.tom}`} aria-label="Conexão do número">
+      <header className="cx-conexao__topo">
+        <span className="cx-conexao__marca" aria-hidden="true">
+          <IconeWhatsapp />
+        </span>
+        <div className="crescer">
+          <h2 className="cx-conexao__nome">{canal.nome}</h2>
+          <p className={`cx-conexao__apoio${telefone ? ' mono' : ''}`}>{telefone || SUBTITULO[estado.chave]}</p>
+        </div>
+        <EtiquetaSessao canal={canal} />
+      </header>
 
-      {acao.isError && (
-        <Aviso tom="perigo" aoFechar={acao.reset}>
-          {acao.error.message}
-        </Aviso>
-      )}
+      <div className="cx-conexao__corpo">
+        {/* Persistente: o leitor de tela so percebe mudanca de texto em uma regiao que ja existia. */}
+        <p className="cx-so-leitor" role="status">
+          {FRASE_DO_ESTADO[estado.chave]}
+        </p>
 
-      {conteudo}
-    </Cartao>
+        {acao.isError && (
+          <Aviso tom="perigo" aoFechar={acao.reset}>
+            {acao.error.message}
+          </Aviso>
+        )}
+
+        {conteudo}
+      </div>
+    </section>
+  );
+}
+
+function IconeWhatsapp() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1 2.7c.1.2 1.8 2.8 4.4 3.9 1.6.7 2.3.8 3.1.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3z" />
+    </svg>
+  );
+}
+
+function IconeQr() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3" />
+    </svg>
   );
 }
 
@@ -123,8 +173,6 @@ function CartaoConectado({ canal, acao, aoDesconectar }) {
   const ocupado = acao.isPending;
   const desconectando = ocupado && acao.variables?.corpo?.sair === false;
   const saindo = ocupado && acao.variables?.corpo?.sair === true;
-
-  const telefone = formatarTelefone(canal.identificador);
 
   function cancelarSaida() {
     setConfirmando(false);
@@ -143,9 +191,8 @@ function CartaoConectado({ canal, acao, aoDesconectar }) {
           ✓
         </span>
         <div className="crescer">
-          <p className="cx-conectado__titulo">{canal.nomePerfil || 'WhatsApp conectado'}</p>
-          {telefone && <p className="cx-conectado__numero">{telefone}</p>}
-          {canal.conectadoEm && <p className="texto-fraco">Conectado desde {formatarDataHora(canal.conectadoEm)}</p>}
+          <p className="cx-conectado__titulo">{canal.nomePerfil ? `Conectado como “${canal.nomePerfil}”` : 'WhatsApp conectado'}</p>
+          {canal.conectadoEm && <p className="texto-fraco">Desde {formatarDataHora(canal.conectadoEm)}</p>}
         </div>
       </div>
 

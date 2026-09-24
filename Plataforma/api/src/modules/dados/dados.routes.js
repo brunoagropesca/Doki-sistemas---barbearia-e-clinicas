@@ -22,23 +22,29 @@ const apagarSchema = z.object({
   confirmacao: z.literal('APAGAR', { error: 'Digite APAGAR para confirmar.' })
 });
 
+/**
+ * Sempre no banco de VERDADE, mesmo com a demonstracao ligada no navegador:
+ * backup, restauracao e limpeza falam do arquivo da empresa.
+ */
+const SO_REAL = { ...apenas.dev, bancoReal: true };
+
 /** Backups e limpeza de dados: so o perfil DEV (as rotas nao existem para os outros). */
 export async function rotasDados(app) {
-  app.get('/api/dev/backups', { config: apenas.dev }, async () => ({
+  app.get('/api/dev/backups', { config: SO_REAL }, async () => ({
     backups: listarBackups(),
     restauracaoPendente: restauracaoPendente(),
     ultimaRestauracao: ultimaRestauracao(),
     grupos: GRUPOS
   }));
 
-  app.post('/api/dev/backups', { config: apenas.dev }, async (req, res) => {
+  app.post('/api/dev/backups', { config: SO_REAL }, async (req, res) => {
     const { incluirArquivos } = criarSchema.parse(req.body ?? {});
     const backup = await criarBackup({ motivo: 'manual', incluirArquivos, por: req.usuario.nome });
     res.status(201);
     return { backup };
   });
 
-  app.get('/api/dev/backups/:id/baixar', { config: apenas.dev }, async (req, res) => {
+  app.get('/api/dev/backups/:id/baixar', { config: SO_REAL }, async (req, res) => {
     const { stream, tamanho, nome } = arquivoDoBackup(req.params.id);
     res.header('content-type', 'application/octet-stream');
     res.header('content-disposition', `attachment; filename="${nome}"`);
@@ -46,10 +52,10 @@ export async function rotasDados(app) {
     return stream;
   });
 
-  app.delete('/api/dev/backups/:id', { config: apenas.dev }, async (req) => apagarBackup(req.params.id));
+  app.delete('/api/dev/backups/:id', { config: SO_REAL }, async (req) => apagarBackup(req.params.id));
 
   /** Agenda a restauracao para o proximo inicio do sistema. */
-  app.post('/api/dev/backups/:id/restaurar', { config: apenas.dev }, async (req) => {
+  app.post('/api/dev/backups/:id/restaurar', { config: SO_REAL }, async (req) => {
     const pedido = await agendarRestauracao(req.params.id, { por: req.usuario.nome });
     await registrarAuditoria({
       tenantId: req.tenantId,
@@ -61,10 +67,10 @@ export async function rotasDados(app) {
     return { restauracaoPendente: pedido };
   });
 
-  app.delete('/api/dev/backups-restauracao', { config: apenas.dev }, async () => cancelarRestauracao());
+  app.delete('/api/dev/backups-restauracao', { config: SO_REAL }, async () => cancelarRestauracao());
 
   /** Apaga grupos de dados da empresa (com backup automatico antes). */
-  app.post('/api/dev/dados/apagar', { config: apenas.dev }, async (req) => {
+  app.post('/api/dev/dados/apagar', { config: SO_REAL }, async (req) => {
     const { grupos } = apagarSchema.parse(req.body);
     const resultado = await apagarDados(req.tenantId, grupos, { usuario: req.usuario });
     // Registrado DEPOIS de apagar: se "registros" estava na lista, esta linha

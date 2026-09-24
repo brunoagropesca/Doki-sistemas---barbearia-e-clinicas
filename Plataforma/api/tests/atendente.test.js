@@ -390,3 +390,39 @@ describe('foto do perfil', () => {
     assert.equal(r.statusCode, 401);
   });
 });
+
+describe('lista da equipe: carga de cada atendente', () => {
+  it('mostra quantas conversas abertas estao com cada um agora — finalizadas nao contam', async () => {
+    const carla = await criarUsuario('Carla Carga', 'carla');
+    const abertas = [await novaConversa(), await novaConversa()];
+    const fechada = await novaConversa();
+
+    for (const c of [...abertas, fechada]) {
+      await ctx.db.update(ctx.s.conversations).set({ status: 'humana', assignedUserId: carla.usuario.id }).where(eq(ctx.s.conversations.id, c.id));
+    }
+    await ctx.db.update(ctx.s.conversations).set({ status: 'finalizada' }).where(eq(ctx.s.conversations.id, fechada.id));
+
+    const r = await app.inject({ method: 'GET', url: '/api/atendentes', headers: dono.cabecalho });
+    assert.equal(r.statusCode, 200, r.body);
+    const linha = r.json().atendentes.find((a) => a.id === carla.usuario.id);
+
+    assert.equal(linha.emAtendimento, 2);
+    assert.equal(typeof linha.capacidadeSimultanea, 'number');
+    assert.ok('avatar' in linha, 'a foto vem junto, para a lista mostrar o rosto');
+  });
+});
+
+describe('distribuicao: a carga de quem esta online e a de verdade', () => {
+  it('conta as conversas abertas de cada um (antes saia sempre 0 e o limite nunca pesava)', async () => {
+    const extra = await novaConversa();
+    await ctx.db.update(ctx.s.conversations).set({ status: 'humana', assignedUserId: ana.usuario.id }).where(eq(ctx.s.conversations.id, extra.id));
+
+    const abertasDaAna = (await ctx.db.select().from(ctx.s.conversations).where(eq(ctx.s.conversations.assignedUserId, ana.usuario.id)))
+      .filter((c) => c.status !== 'finalizada' && !c.deletedAt).length;
+    assert.ok(abertasDaAna >= 1);
+
+    const repo = await import('../src/modules/conversas/conversas.repo.js');
+    const linha = (await repo.atendentesDisponiveis(ctx.tenantId)).find((a) => a.id === ana.usuario.id);
+    assert.equal(Number(linha.emAtendimento), abertasDaAna);
+  });
+});

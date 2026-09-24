@@ -1,58 +1,324 @@
 /* ================================================================
  * EQUIPE — profissionais e atendentes
+ *
+ * Pensada para dezenas de pessoas: uma linha densa por pessoa, busca e
+ * filtros em chips com contagem, e as acoes num menu "⋯".
  * ================================================================ */
 
-.equipe-grade {
-  display: grid;
+/* ─── Navegacao: abas principais + assunto dos atendentes ─── */
+.eq-navegacao {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
   gap: var(--e3);
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--borda);
+}
+.eq-abas { display: flex; gap: var(--e1); }
+.eq-aba {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+  padding: 10px 14px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.eq-aba:hover { color: var(--texto); }
+.eq-aba--ativa { color: var(--texto); border-bottom-color: var(--primaria); }
+.eq-aba__icone { width: 17px; height: 17px; }
+.eq-aba--ativa .eq-aba__icone { color: #8db6ff; }
+.eq-aba small,
+.eq-chip small {
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--superficie-3);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--texto-suave);
+}
+.eq-navegacao .abas--compacta { margin-bottom: var(--e2); }
+
+/* ─── Ferramentas: busca, filtros e o botao de cadastrar ─── */
+.eq-ferramentas { display: flex; align-items: center; gap: var(--e2); flex-wrap: wrap; }
+.eq-busca {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 220px;
+  max-width: 300px;
+}
+.eq-busca svg {
+  position: absolute;
+  left: 11px;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--texto-fraco);
+  stroke-width: 2;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.eq-busca input {
+  width: 100%;
+  height: 38px;
+  padding: 0 32px 0 34px;
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--texto);
+  font: inherit;
+  font-size: 14px;
+}
+.eq-busca input::-webkit-search-cancel-button { display: none; }
+.eq-busca input::placeholder { color: var(--texto-fraco); }
+.eq-busca input:focus {
+  outline: none;
+  border-color: var(--primaria);
+  box-shadow: 0 0 0 3px rgba(24, 86, 255, 0.2);
+}
+.eq-busca__limpar {
+  position: absolute;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--superficie-2);
+  color: var(--texto-suave);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
 }
 
-.pessoa {
+.eq-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.eq-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.eq-chip:hover { color: var(--texto); border-color: var(--borda-forte); }
+.eq-chip--ativo { color: var(--texto); background: var(--primaria-suave); border-color: rgba(24, 86, 255, 0.5); }
+.eq-filtro { width: auto; min-width: 150px; }
+.eq-novo { flex-shrink: 0; }
+
+/* ─── Pontos de estado (presenca, situacao) ─── */
+.eq-ponto { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--texto-fraco); }
+.eq-ponto--sucesso { background: var(--sucesso); box-shadow: 0 0 6px rgba(7, 202, 107, 0.6); }
+.eq-ponto--alerta { background: var(--alerta); }
+.eq-ponto--neutro { background: rgba(240, 244, 255, 0.3); }
+
+/* ─── Lista ─── */
+.eq-lista { padding: 0; }
+.eq-linha {
+  display: grid;
+  align-items: center;
+  gap: var(--e3);
+  min-height: 60px;
+  padding: 8px var(--e4);
+  border-bottom: 1px solid var(--borda);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.eq-lista--prof .eq-linha { grid-template-columns: minmax(220px, 2.2fr) minmax(130px, 1.3fr) minmax(110px, 1fr) minmax(110px, 1fr) 90px 40px; }
+.eq-lista--atend .eq-linha { grid-template-columns: minmax(220px, 2.2fr) minmax(110px, 1fr) minmax(90px, 0.9fr) minmax(130px, 1.2fr) 90px 40px; }
+.eq-linha:hover { background: rgba(255, 255, 255, 0.03); }
+.eq-linha:focus-visible { outline: 2px solid var(--primaria); outline-offset: -2px; border-radius: 0; }
+.eq-linha--inativa { opacity: 0.55; }
+.eq-linha--travada { cursor: default; }
+.eq-linha--cabecalho {
+  min-height: 0;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-fraco);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: default;
+}
+.eq-linha--cabecalho:hover { background: rgba(255, 255, 255, 0.02); }
+
+.eq-pessoa { display: flex; align-items: center; gap: var(--e3); min-width: 0; }
+.eq-pessoa__texto { display: flex; flex-direction: column; min-width: 0; }
+.eq-pessoa__texto strong {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  font-size: 13.5px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.eq-pessoa__texto small,
+.eq-celula small {
+  font-size: 12px;
+  color: var(--texto-fraco);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.eq-voce {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--primaria-suave);
+  color: #8db6ff;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+/* Foto com o anel da cor do profissional (a mesma da agenda). */
+.eq-foto {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--superficie-3);
+  color: var(--texto);
+  font-size: 14px;
+  font-weight: 700;
+}
+.eq-foto img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.eq-foto__presenca {
+  position: absolute;
+  border-radius: 50%;
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #0b1022;
+  box-shadow: none;
+}
+
+.eq-celula { display: flex; flex-direction: column; min-width: 0; font-size: 13px; }
+.eq-celula--fraca { color: var(--texto-suave); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.eq-alerta { color: var(--alerta); font-size: 12.5px; }
+
+.eq-situacao { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--texto-suave); }
+.eq-situacao--inativa { color: var(--texto-fraco); }
+
+.eq-cargo {
+  align-self: flex-start;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--borda);
+  background: var(--superficie);
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+.eq-cargo--owner,
+.eq-cargo--admin { color: #8db6ff; border-color: rgba(24, 86, 255, 0.35); background: var(--primaria-suave); }
+
+/* Carga: quantas conversas a pessoa tem agora, frente ao limite dela. */
+.eq-carga { display: flex; align-items: center; gap: var(--e2); }
+.eq-carga__texto { min-width: 34px; font-size: 12.5px; color: var(--texto-suave); white-space: nowrap; }
+.eq-carga__sufixo { display: none; font-family: var(--fonte); }
+.eq-carga__trilho { flex: 1; max-width: 90px; height: 6px; border-radius: 999px; background: var(--superficie-3); overflow: hidden; }
+.eq-carga__barra { display: block; height: 100%; border-radius: 999px; background: var(--sucesso); transition: width 0.3s; }
+.eq-carga__barra--alto { background: var(--alerta); }
+.eq-carga__barra--cheio { background: var(--perigo); }
+
+.eq-acoes { display: flex; justify-content: flex-end; }
+.eq-lista__vazia { padding: var(--e6) var(--e4); text-align: center; color: var(--texto-fraco); }
+.eq-lista__rodape { padding: 10px var(--e4); font-size: 12px; color: var(--texto-fraco); }
+
+/* ─── Menu "⋯" ─── */
+.eq-menu__botao {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  background: none;
+  color: var(--texto-fraco);
+  cursor: pointer;
+}
+.eq-menu__botao svg { width: 18px; height: 18px; fill: currentColor; }
+.eq-menu__botao:hover,
+.eq-menu__botao[aria-expanded='true'] { background: var(--superficie-2); border-color: var(--borda); color: var(--texto); }
+.eq-menu {
+  position: fixed;
+  z-index: 150;
+  min-width: 190px;
+  padding: 4px;
   display: flex;
   flex-direction: column;
-  gap: var(--e3);
-  padding: var(--e4);
-  background: var(--superficie);
-  border: 1px solid var(--borda);
-  border-radius: var(--raio-g);
+  background: rgba(12, 16, 34, 0.98);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra-g);
+  animation: fadeIn 0.12s ease;
 }
-.pessoa--inativa { opacity: 0.6; }
+.eq-menu__item {
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--texto);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.eq-menu__item:hover:not(:disabled) { background: var(--superficie-2); }
+.eq-menu__item:disabled { opacity: 0.4; cursor: not-allowed; }
+.eq-menu__item--perigo { color: #ff6b82; }
+.eq-menu__item--perigo:hover:not(:disabled) { background: var(--perigo-suave); }
 
-.pessoa__topo {
-  display: flex;
-  align-items: center;
-  gap: var(--e3);
+/* ─── Telas medias: some o que e detalhe; celular: pessoa + situacao + ⋯ ─── */
+@media (max-width: 1180px) {
+  .eq-lista--prof .eq-linha { grid-template-columns: minmax(200px, 2fr) minmax(130px, 1.3fr) minmax(100px, 1fr) 90px 40px; }
+  .eq-lista--prof .eq-linha > :nth-child(4) { display: none; }
+}
+@media (max-width: 820px) {
+  .eq-busca { max-width: none; flex-basis: 100%; }
+  .eq-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .eq-chips::-webkit-scrollbar { display: none; }
+  .eq-novo { width: 100%; }
+  .eq-carga__sufixo { display: inline; }
+  .eq-carga__trilho { flex: none; width: 64px; }
+  .eq-filtro { flex: 1; }
+  .eq-linha--cabecalho { display: none; }
+  .eq-lista--prof .eq-linha,
+  .eq-lista--atend .eq-linha {
+    grid-template-columns: minmax(0, 1fr) auto 36px;
+    gap: 2px var(--e3);
+    padding: 10px var(--e4);
+  }
+  /* Segunda linha em texto pequeno: jornada (profissional) ou carga (atendente). */
+  .eq-lista--prof .eq-linha > :nth-child(2),
+  .eq-lista--atend .eq-linha > :nth-child(4) { grid-column: 1; grid-row: 2; padding-left: 48px; flex-direction: row; gap: 6px; font-size: 12px; color: var(--texto-suave); }
+  .eq-lista--prof .eq-linha > :nth-child(3),
+  .eq-lista--prof .eq-linha > :nth-child(4),
+  .eq-lista--atend .eq-linha > :nth-child(2),
+  .eq-lista--atend .eq-linha > :nth-child(3) { display: none; }
+  .eq-linha > :nth-child(5) { grid-column: 2; grid-row: 1; }
+  .eq-linha > :nth-child(6) { grid-column: 3; grid-row: 1 / span 2; }
 }
 
-/* A cor da borda e a mesma do profissional na agenda: quem olha o calendario
-   reconhece de quem e o horario sem ler o nome. */
-.pessoa__foto {
-  width: 52px;
-  height: 52px;
-  flex: 0 0 52px;
-  border-radius: 50%;
-  border: 2px solid var(--borda-forte);
-  background: var(--superficie-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  font-weight: 600;
-  overflow: hidden;
-}
-.pessoa__foto img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.pessoa__servicos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  min-height: 24px;
-}
+/* ─── FICHA DO PROFISSIONAL ─── */
 
 /* Linha de servico que o profissional nao faz: presente, mas recuada. */
 .linha--apagada { opacity: 0.45; }
@@ -149,13 +415,6 @@
 }
 
 /* ─── ACOES DO ATENDENTE ────────────────────────────────── */
-
-.pessoa-acoes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
-}
 
 /* Previa do aviso: a mesma cara do popup que o atendente vai ver. */
 .aviso-previa {

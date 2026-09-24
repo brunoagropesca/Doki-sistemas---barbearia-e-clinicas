@@ -378,6 +378,14 @@ describe('responder com anexo', () => {
 
 describe('fila e distribuicao', () => {
   it('distribui para o atendente online menos carregado', async () => {
+    // Os testes de cima deixaram varias conversas com a recepcao. Com a carga
+    // contada de verdade ela ja estaria no limite; aqui o assunto e so a
+    // escolha, entao ela ganha folga (o limite tem teste proprio logo abaixo).
+    const { db } = await import('../src/db/client.js');
+    const { users } = await import('../src/db/schema/index.js');
+    const { eq } = await import('drizzle-orm');
+    await db.update(users).set({ capacidadeSimultanea: 99 }).where(eq(users.id, recepcao.id));
+
     const id = await abrirConversaCom('Quero falar com alguem');
     // Chega na fila como chegaria de verdade: a IA pediu um humano.
     const conversas = await import('../src/modules/conversas/conversas.service.js');
@@ -393,6 +401,28 @@ describe('fila e distribuicao', () => {
     assert.equal(r.conversa.assignedUserId, recepcao.id);
     // Só 'recepcao' está online no seed; o dono está offline.
     assert.equal(r.atendente.id, recepcao.id);
+  });
+
+  it('quem ja esta no limite de conversas nao recebe mais — a conversa espera na fila', async () => {
+    const { db } = await import('../src/db/client.js');
+    const { users, conversations } = await import('../src/db/schema/index.js');
+    const { and, eq, ne, isNull, count } = await import('drizzle-orm');
+
+    // O limite da recepcao passa a ser exatamente o que ela ja tem aberto.
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(conversations)
+      .where(and(eq(conversations.assignedUserId, recepcao.id), ne(conversations.status, 'finalizada'), isNull(conversations.deletedAt)));
+    await db.update(users).set({ capacidadeSimultanea: Math.max(1, Number(total)) }).where(eq(users.id, recepcao.id));
+
+    const id = await abrirConversaCom('Tem alguem livre?');
+    const conversas = await import('../src/modules/conversas/conversas.service.js');
+    await conversas.enviarParaFila(ctx.tenantId, id);
+
+    const r = (await app.inject({ method: 'POST', url: `/api/conversas/${id}/distribuir`, headers: cabDono })).json();
+    assert.equal(r.atribuida, false, 'ela esta cheia: nao pode receber a conversa');
+
+    await db.update(users).set({ capacidadeSimultanea: 99 }).where(eq(users.id, recepcao.id));
   });
 
   /**

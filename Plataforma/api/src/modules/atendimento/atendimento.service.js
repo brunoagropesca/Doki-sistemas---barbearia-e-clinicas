@@ -24,6 +24,7 @@ import { lerEstadoMenu, gravarEstadoMenu } from '../conversas/conversas.repo.js'
 import { colorir, negrito, resumir, ver } from '../../core/painel.js';
 import { funcaoLigada } from '../funcoes/funcoes.js';
 import { mensagemAoCliente } from '../textos/textos.js';
+import { baseParaIa } from '../empresa/empresa.service.js';
 
 const log = comContexto({ modulo: 'atendimento' });
 
@@ -54,7 +55,7 @@ async function config(tenantId, chave, padrao) {
 }
 
 async function contextoDaEmpresa(tenantId) {
-  const [tenant, menu, sofia, atena, catalogoResumo] = await Promise.all([
+  const [tenant, menu, sofia, atena, catalogoResumo, baseConhecimento] = await Promise.all([
     db.query.tenants.findFirst({ where: eq(tenants.id, tenantId) }),
     db.query.menuFlows.findFirst({
       where: and(eq(menuFlows.tenantId, tenantId), eq(menuFlows.ativo, true))
@@ -63,7 +64,10 @@ async function contextoDaEmpresa(tenantId) {
     obterAgente(tenantId, 'atena'),
     // O catalogo verificado vai no prompt da Sofia so quando a Atena pode
     // consultar catalogo: a fonte e a mesma e a empresa controla o acesso.
-    atenaPermite(tenantId, 'catalogo').then((ok) => (ok ? resumoDoCatalogo(tenantId) : null))
+    atenaPermite(tenantId, 'catalogo').then((ok) => (ok ? resumoDoCatalogo(tenantId) : null)),
+    // Endereco, Pix, horario, regras da casa: o que a empresa cadastrou em
+    // Inteligencia Artificial > Base de conhecimento.
+    baseParaIa(tenantId)
   ]);
 
   return {
@@ -72,12 +76,13 @@ async function contextoDaEmpresa(tenantId) {
     fluxo: fluxoDaEmpresa(menu),
     sofia,
     atena,
-    catalogoResumo
+    catalogoResumo,
+    baseConhecimento
   };
 }
 
 /** Monta as instrucoes da Sofia a partir do perfil configurado + contexto vivo. */
-function montarSystemPrompt({ agente, nomeEmpresa, fuso, leadNome, hoje, horaAtual, atenaAtiva, catalogoResumo, irritado = false }) {
+export function montarSystemPrompt({ agente, nomeEmpresa, fuso, leadNome, hoje, horaAtual, atenaAtiva, catalogoResumo, baseConhecimento, irritado = false }) {
   const base =
     agente?.systemPrompt?.trim() ||
     `Voce e a atendente virtual de ${nomeEmpresa}. Seja calorosa, direta e objetiva.`;
@@ -132,6 +137,17 @@ function montarSystemPrompt({ agente, nomeEmpresa, fuso, leadNome, hoje, horaAtu
     '   Se o mesmo pedido já deu errado uma vez, transfira.',
     '',
     ...(catalogoResumo ? ['CATALOGO (dados verificados do sistema):', catalogoResumo, ''] : []),
+    // Muda pouco (so quando a empresa edita): fica no bloco fixo, antes do
+    // CONTEXTO, e o provedor segue reaproveitando o inicio do prompt.
+    ...(baseConhecimento
+      ? [
+          'BASE DE CONHECIMENTO (informações oficiais da empresa). Use para responder sobre',
+          'endereço, pagamento, horário de funcionamento e regras. O que não estiver aqui você',
+          'NÃO sabe: não invente; use transferir_para_humano se o cliente precisar.',
+          baseConhecimento,
+          ''
+        ]
+      : []),
     'ESTILO DE WHATSAPP:',
     '- Português brasileiro, natural, como uma profissional experiente.',
     '- Respostas curtas. Negrito com UM asterisco: *R$ 45,00*. Nunca use **.',
@@ -224,7 +240,7 @@ export async function responder({
   provedores = null
 }) {
   const modo = modoOverride ?? (await config(tenantId, 'modo_atendimento', 'hibrido'));
-  const { fuso, nomeEmpresa, fluxo, sofia, atena, catalogoResumo } = await contextoDaEmpresa(tenantId);
+  const { fuso, nomeEmpresa, fluxo, sofia, atena, catalogoResumo, baseConhecimento } = await contextoDaEmpresa(tenantId);
   // Interruptores do perfil DEV: valem por cima do que a empresa configurou.
   const [menuLigado, iaLigada, atenaLigada] = await Promise.all([
     funcaoLigada(tenantId, 'menu_automatico'),
@@ -342,6 +358,7 @@ export async function responder({
       agentKey: 'atendente',
       systemPrompt: montarSystemPrompt({
         catalogoResumo,
+        baseConhecimento,
         agente: sofia,
         nomeEmpresa,
         fuso,

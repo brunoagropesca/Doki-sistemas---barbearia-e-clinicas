@@ -18,6 +18,9 @@ import { rotasCampanhas } from './modules/campanhas/campanhas.routes.js';
 import { rotasQuadro } from './modules/quadro/quadro.routes.js';
 import { rotasEquipe } from './modules/equipe/equipe.routes.js';
 import { rotasPerfil } from './modules/perfil/perfil.routes.js';
+import { rotasEmpresa } from './modules/empresa/empresa.routes.js';
+import { rotasAnalises } from './modules/analises/analises.routes.js';
+import { rotasDemonstracao } from './modules/demonstracao/demonstracao.routes.js';
 import { invalidarCatalogo } from './ai/tools/catalogo-cache.js';
 import { instalarAtenaPiloto } from './automacao/atena-piloto.js';
 import { rotasAutomacao } from './automacao/automacao.routes.js';
@@ -160,6 +163,9 @@ export async function criarApp({ logger: loggerCustomizado } = {}) {
   await app.register(rotasDados);
   await app.register(rotasLicenca);
   await app.register(rotasPerfil);
+  await app.register(rotasEmpresa);
+  await app.register(rotasAnalises);
+  await app.register(rotasDemonstracao);
 
   return app;
 }

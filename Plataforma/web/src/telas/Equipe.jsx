@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import {
@@ -15,8 +16,10 @@ import {
   Tabela,
   Vazio
 } from '../componentes/ui.jsx';
+import { Icone } from '../componentes/Icone.jsx';
 import { useAuth } from '../lib/autenticacao.jsx';
 import { EscolherFoto } from './equipe/EscolherFoto.jsx';
+import { Busca, Chips, FotoPessoa, MenuAcoes, normalizar, resumoJornada } from './equipe/ListaEquipe.jsx';
 import { useFuncoes } from '../lib/funcoes.jsx';
 import './Equipe.css';
 
@@ -36,8 +39,8 @@ import './Equipe.css';
  */
 
 const ABAS = [
-  { id: 'profissionais', titulo: 'Profissionais' },
-  { id: 'atendentes', titulo: 'Atendentes' }
+  { id: 'profissionais', titulo: 'Profissionais', icone: 'equipe' },
+  { id: 'atendentes', titulo: 'Atendentes', icone: 'conversas' }
 ];
 
 const DIAS = [
@@ -64,118 +67,265 @@ const centavos = (texto) => {
 };
 
 export function Equipe() {
-  const [aba, setAba] = useState('profissionais');
+  const [params, setParams] = useSearchParams();
+  const aba = params.get('aba') === 'atendentes' ? 'atendentes' : 'profissionais';
+  const secao = SECOES_ATENDENTE.some((s) => s.id === params.get('secao')) ? params.get('secao') : 'pessoas';
+
+  // As mesmas consultas das listas (cache compartilhado): so para a contagem nos chips.
+  const profissionais = useQuery({
+    queryKey: ['profissionais', 'todos'],
+    queryFn: () => api.get('/api/profissionais', { incluirInativos: 'true' })
+  });
+  const atendentes = useQuery({ queryKey: ['atendentes'], queryFn: () => api.get('/api/atendentes') });
+
+  const total = {
+    profissionais: (profissionais.data?.profissionais ?? []).filter((p) => p.ativo).length,
+    atendentes: (atendentes.data?.atendentes ?? []).filter((a) => a.ativo).length
+  };
+
+  // "Cadastrar" fica no cabecalho (na barra de filtros ele nunca cabia na mesma
+  // linha). Cada clique vira um numero novo, que a lista aberta escuta.
+  const [pedidoNovo, setPedidoNovo] = useState(0);
+  const rotuloNovo = aba === 'profissionais' ? '+ Cadastrar profissional' : secao === 'pessoas' ? '+ Cadastrar atendente' : null;
+
+  function ir(novos) {
+    const p = new URLSearchParams(params);
+    for (const [k, v] of Object.entries(novos)) v ? p.set(k, v) : p.delete(k);
+    setParams(p, { replace: true });
+  }
 
   return (
-    <div className="coluna">
-      <header>
-        <h1>Equipe</h1>
-        <p className="texto-suave">Quem atende na cadeira e quem atende no sistema.</p>
+    <div className="coluna eq">
+      <header className="linha linha--entre">
+        <div>
+          <h1>Equipe</h1>
+          <p className="texto-suave">Quem atende na cadeira e quem atende no sistema.</p>
+        </div>
+        {rotuloNovo && (
+          <Botao className="eq-novo" onClick={() => setPedidoNovo((n) => n + 1)}>
+            {rotuloNovo}
+          </Botao>
+        )}
       </header>
 
-      <div className="abas" role="tablist">
-        {ABAS.map((a) => (
-          <button
-            key={a.id}
-            type="button"
-            role="tab"
-            aria-selected={aba === a.id}
-            className={`abas__aba${aba === a.id ? ' abas__aba--ativa' : ''}`}
-            onClick={() => setAba(a.id)}
-          >
-            {a.titulo}
-          </button>
-        ))}
+      <div className="eq-navegacao">
+        <div className="eq-abas" role="tablist" aria-label="Parte da equipe">
+          {ABAS.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              role="tab"
+              aria-selected={aba === a.id}
+              className={`eq-aba${aba === a.id ? ' eq-aba--ativa' : ''}`}
+              onClick={() => ir({ aba: a.id === 'profissionais' ? null : a.id, secao: null })}
+            >
+              <Icone nome={a.icone} className="eq-aba__icone" />
+              {a.titulo}
+              <small>{total[a.id]}</small>
+            </button>
+          ))}
+        </div>
+
+        {aba === 'atendentes' && (
+          <div className="abas abas--compacta" role="tablist" aria-label="Assunto">
+            {SECOES_ATENDENTE.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                role="tab"
+                aria-selected={secao === s.id}
+                className={`abas__aba${secao === s.id ? ' abas__aba--ativa' : ''}`}
+                onClick={() => ir({ secao: s.id === 'pessoas' ? null : s.id })}
+              >
+                {s.titulo}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {aba === 'profissionais' ? <Profissionais /> : <Atendentes />}
+      {aba === 'profissionais' ? (
+        <Profissionais consulta={profissionais} pedidoNovo={pedidoNovo} />
+      ) : secao === 'pessoas' ? (
+        <Pessoas consulta={atendentes} pedidoNovo={pedidoNovo} />
+      ) : secao === 'distribuicao' ? (
+        <Distribuicao />
+      ) : (
+        <Privacidade />
+      )}
     </div>
   );
 }
 
-function Profissionais() {
+const FILTROS_SITUACAO = [
+  { chave: 'ativos', rotulo: 'Ativos', ponto: 'sucesso' },
+  { chave: 'inativos', rotulo: 'Inativos', ponto: 'neutro' },
+  { chave: 'todos', rotulo: 'Todos' }
+];
+
+function Profissionais({ consulta, pedidoNovo }) {
   const queryClient = useQueryClient();
   const [fichaAberta, setFichaAberta] = useState(null); // id, ou 'novo'
-  const [verInativos, setVerInativos] = useState(false);
+  const [busca, setBusca] = useState('');
+  const [situacao, setSituacao] = useState('ativos');
+  const [funcao, setFuncao] = useState('');
 
-  const lista = useQuery({
-    queryKey: ['profissionais', verInativos],
-    queryFn: () => api.get('/api/profissionais', verInativos ? { incluirInativos: 'true' } : {})
-  });
+  useEffect(() => {
+    if (pedidoNovo) setFichaAberta('novo');
+  }, [pedidoNovo]);
 
   const excluir = useMutation({
     mutationFn: (id) => api.delete(`/api/profissionais/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profissionais'] })
   });
 
-  const profissionais = lista.data?.profissionais ?? [];
+  const todos = consulta.data?.profissionais ?? [];
+  const funcoes = [...new Set(todos.map((p) => p.funcao).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const termo = normalizar(busca.trim());
+
+  const porSituacao = {
+    ativos: todos.filter((p) => p.ativo),
+    inativos: todos.filter((p) => !p.ativo),
+    todos
+  };
+  const visiveis = porSituacao[situacao].filter(
+    (p) =>
+      (!funcao || p.funcao === funcao) &&
+      (!termo || normalizar(`${p.nome} ${p.funcao} ${p.telefoneFormatado ?? ''} ${p.telefone ?? ''}`).includes(termo))
+  );
+
+  const logins = new Map(
+    (queryClient.getQueryData(['atendentes'])?.atendentes ?? []).map((a) => [a.id, a.nome])
+  );
+
+  function remover(p) {
+    if (confirm(`Remover ${p.nome} da equipe?\n\nQuem já atendeu alguém fica inativo (o histórico é preservado).`)) {
+      excluir.mutate(p.id);
+    }
+  }
 
   return (
     <div className="coluna">
-      <div className="linha linha--entre">
-        <Botao variante={verInativos ? 'secundario' : 'fantasma'} tamanho="sm" onClick={() => setVerInativos((v) => !v)}>
-          {verInativos ? 'Ocultar inativos' : 'Ver inativos'}
-        </Botao>
-        <Botao onClick={() => setFichaAberta('novo')}>Cadastrar profissional</Botao>
+      <div className="eq-ferramentas">
+        <Busca valor={busca} aoMudar={setBusca} rotulo="Nome, função ou telefone" />
+        <Chips
+          rotulo="Situação"
+          valor={situacao}
+          aoMudar={setSituacao}
+          opcoes={FILTROS_SITUACAO.map((f) => ({ ...f, total: porSituacao[f.chave].length }))}
+        />
+        {funcoes.length > 1 && (
+          <Selecao value={funcao} aria-label="Filtrar por função" className="eq-filtro" onChange={(e) => setFuncao(e.target.value)}>
+            <option value="">Todas as funções</option>
+            {funcoes.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </Selecao>
+        )}
       </div>
 
       {excluir.isError && <Aviso tom="perigo">{excluir.error.message}</Aviso>}
       {excluir.data?.desativado && <Aviso tom="alerta">{excluir.data.mensagem}</Aviso>}
 
-      {lista.isLoading ? (
+      {consulta.isLoading ? (
         <Carregando />
-      ) : profissionais.length === 0 ? (
+      ) : todos.length === 0 ? (
         <Vazio
           titulo="Nenhum profissional cadastrado"
           descricao="Cadastre quem executa os servicos para que eles apareçam na agenda."
           acao={<Botao onClick={() => setFichaAberta('novo')}>Cadastrar profissional</Botao>}
         />
       ) : (
-        <div className="equipe-grade">
-          {profissionais.map((p) => (
-            <article key={p.id} className={`pessoa${p.ativo ? '' : ' pessoa--inativa'}`}>
-              <div className="pessoa__topo">
-                <span className="pessoa__foto" style={{ borderColor: p.cor }}>
-                  {p.fotoUrl ? <img src={p.fotoUrl} alt="" /> : <span aria-hidden="true">{p.nome.slice(0, 1)}</span>}
-                </span>
-                <div className="crescer">
-                  <strong>{p.nome}</strong>
-                  <div className="texto-fraco">{p.funcao}</div>
-                  {p.telefoneFormatado && <div className="texto-fraco mono">{p.telefoneFormatado}</div>}
-                </div>
-                {!p.ativo && <Etiqueta tom="neutro">Inativo</Etiqueta>}
-              </div>
+        <section className="cartao eq-lista eq-lista--prof" aria-label="Profissionais">
+          <div className="eq-linha eq-linha--cabecalho" aria-hidden="true">
+            <span>Profissional</span>
+            <span>Jornada</span>
+            <span>Serviços</span>
+            <span>Login</span>
+            <span>Situação</span>
+            <span />
+          </div>
 
-              <div className="pessoa__servicos">
-                {p.servicos.length === 0 ? (
-                  <span className="texto-fraco">Nenhum servico atribuido — nao aparece ao marcar horario.</span>
-                ) : (
-                  p.servicos.slice(0, 4).map((s) => (
-                    <Etiqueta key={s.serviceId} tom={s.precoProprio || s.duracaoPropria ? 'info' : 'neutro'}>
-                      {s.nome} · {s.precoFormatado} · {s.duracaoMinutos} min
-                    </Etiqueta>
-                  ))
-                )}
-                {p.servicos.length > 4 && <Etiqueta tom="neutro">+{p.servicos.length - 4}</Etiqueta>}
-              </div>
-
-              <div className="linha linha--fim">
-                <Botao variante="secundario" tamanho="sm" onClick={() => setFichaAberta(p.id)}>
-                  Abrir ficha
-                </Botao>
-                <Botao
-                  variante="fantasma"
-                  tamanho="sm"
-                  onClick={() => {
-                    if (confirm(`Remover ${p.nome} da equipe?`)) excluir.mutate(p.id);
-                  }}
+          {visiveis.length === 0 ? (
+            <p className="eq-lista__vazia">Ninguém com esse filtro.</p>
+          ) : (
+            visiveis.map((p) => {
+              const jornada = resumoJornada(p.jornada);
+              const proprios = p.servicos.filter((s) => s.precoProprio || s.duracaoPropria).length;
+              const login = p.userId ? logins.get(p.userId) ?? 'Com login' : null;
+              return (
+                <div
+                  key={p.id}
+                  className={`eq-linha${p.ativo ? '' : ' eq-linha--inativa'}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setFichaAberta(p.id)}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setFichaAberta(p.id))}
+                  aria-label={`Abrir a ficha de ${p.nome}`}
                 >
-                  Remover
-                </Botao>
-              </div>
-            </article>
-          ))}
-        </div>
+                  <span className="eq-pessoa">
+                    <FotoPessoa nome={p.nome} url={p.fotoUrl} cor={p.cor} />
+                    <span className="eq-pessoa__texto">
+                      <strong>{p.nome}</strong>
+                      <small>
+                        {p.funcao}
+                        {p.telefoneFormatado && <span className="mono"> · {p.telefoneFormatado}</span>}
+                      </small>
+                    </span>
+                  </span>
+
+                  <span className="eq-celula" title={jornada.variado ? 'O horário muda conforme o dia — veja na ficha' : undefined}>
+                    {jornada.dias}
+                    {jornada.horas && (
+                      <small className="mono">
+                        {jornada.variado && '~ '}
+                        {jornada.horas}
+                      </small>
+                    )}
+                  </span>
+
+                  <span className="eq-celula">
+                    {p.servicos.length === 0 ? (
+                      <span className="eq-alerta">Nenhum serviço</span>
+                    ) : (
+                      <>
+                        {p.servicos.length} serviço{p.servicos.length > 1 ? 's' : ''}
+                        {proprios > 0 && <small>{proprios} com valor próprio</small>}
+                      </>
+                    )}
+                  </span>
+
+                  <span className="eq-celula eq-celula--fraca">{login ?? '—'}</span>
+
+                  <span className="eq-celula">
+                    <span className={`eq-situacao${p.ativo ? '' : ' eq-situacao--inativa'}`}>
+                      <span className={`eq-ponto eq-ponto--${p.ativo ? 'sucesso' : 'neutro'}`} aria-hidden="true" />
+                      {p.ativo ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </span>
+
+                  <span className="eq-acoes">
+                    <MenuAcoes
+                      rotulo={`Ações de ${p.nome}`}
+                      acoes={[
+                        { rotulo: 'Abrir ficha', aoClicar: () => setFichaAberta(p.id) },
+                        { rotulo: 'Remover da equipe', perigo: true, aoClicar: () => remover(p) }
+                      ]}
+                    />
+                  </span>
+                </div>
+              );
+            })
+          )}
+
+          <p className="eq-lista__rodape">
+            {visiveis.length === todos.length
+              ? `${todos.length} profissiona${todos.length === 1 ? 'l' : 'is'}`
+              : `Mostrando ${visiveis.length} de ${todos.length}`}
+          </p>
+        </section>
       )}
 
       {fichaAberta && (
@@ -571,11 +721,11 @@ function FichaProfissional({ id, aoFechar, aoSalvar }) {
 /**
  * Atendentes: quem usa o sistema.
  *
- * Tres assuntos diferentes moram aqui, e por isso a secao tem chips proprios:
- * as PESSOAS (cadastro), como o trabalho CHEGA a elas (distribuicao) e quem
- * enxerga o atendimento de quem (privacidade). Misturar os tres numa tela so
- * faria a configuracao mais delicada do sistema — a privacidade — virar um
- * campo perdido no rodape de uma tabela.
+ * Tres assuntos diferentes moram aqui, e por isso a secao tem chips proprios
+ * (no topo da pagina, ao lado das abas): as PESSOAS (cadastro), como o
+ * trabalho CHEGA a elas (distribuicao) e quem enxerga o atendimento de quem
+ * (privacidade). Misturar os tres numa tela so faria a configuracao mais
+ * delicada do sistema — a privacidade — virar um campo perdido no rodape.
  */
 const SECOES_ATENDENTE = [
   { id: 'pessoas', titulo: 'Pessoas' },
@@ -583,46 +733,32 @@ const SECOES_ATENDENTE = [
   { id: 'privacidade', titulo: 'Privacidade' }
 ];
 
-function Atendentes() {
-  const [secao, setSecao] = useState('pessoas');
-
-  return (
-    <div className="coluna">
-      <div className="abas" role="tablist">
-        {SECOES_ATENDENTE.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            role="tab"
-            aria-selected={secao === s.id}
-            className={`abas__aba${secao === s.id ? ' abas__aba--ativa' : ''}`}
-            onClick={() => setSecao(s.id)}
-          >
-            {s.titulo}
-          </button>
-        ))}
-      </div>
-
-      {secao === 'pessoas' && <Pessoas />}
-      {secao === 'distribuicao' && <Distribuicao />}
-      {secao === 'privacidade' && <Privacidade />}
-    </div>
-  );
-}
-
 /** Espelha a hierarquia do servidor: ninguem mexe em quem esta acima do proprio cargo. */
 const NIVEL_CARGO = { atendente: 10, admin: 20, owner: 30, dev: 100 };
 
-function Pessoas() {
+const ROTULO_CARGO = { owner: 'Dono', admin: 'Administrador', atendente: 'Atendente' };
+const PRESENCA = {
+  online: { rotulo: 'Online', ponto: 'sucesso' },
+  ausente: { rotulo: 'Ausente', ponto: 'alerta' },
+  offline: { rotulo: 'Offline', ponto: 'neutro' }
+};
+
+function Pessoas({ consulta, pedidoNovo }) {
   const queryClient = useQueryClient();
   const { usuario: eu } = useAuth();
   const { ligada } = useFuncoes();
   // null | { tipo: 'novo' } | { tipo: 'editar' | 'aviso', pessoa }
   const [modal, setModal] = useState(null);
   const [resultado, setResultado] = useState(null);
+  const [busca, setBusca] = useState('');
+  const [presenca, setPresenca] = useState('todos');
+  const [cargo, setCargo] = useState('');
 
-  const lista = useQuery({ queryKey: ['atendentes'], queryFn: () => api.get('/api/atendentes') });
-  const atendentes = lista.data?.atendentes ?? [];
+  useEffect(() => {
+    if (pedidoNovo) setModal({ tipo: 'novo' });
+  }, [pedidoNovo]);
+
+  const todos = consulta.data?.atendentes ?? [];
 
   const excluir = useMutation({
     mutationFn: (id) => api.delete(`/api/usuarios/${id}`),
@@ -637,10 +773,52 @@ function Pessoas() {
   const fechar = () => setModal(null);
   const podeMexer = (a) => (NIVEL_CARGO[a.cargo] ?? Infinity) <= (NIVEL_CARGO[eu?.cargo] ?? 0);
 
+  const termo = normalizar(busca.trim());
+  const doCargo = todos.filter(
+    (a) =>
+      (!cargo || a.cargo === cargo) &&
+      (!termo || normalizar(`${a.nome} ${a.username} ${a.email ?? ''}`).includes(termo))
+  );
+  // Os chips contam dentro do que a busca e o cargo deixaram: o numero bate
+  // com o que aparece ao clicar.
+  const porPresenca = (p) => doCargo.filter((a) => a.ativo && (a.statusPresenca ?? 'offline') === p);
+  const visiveis = presenca === 'todos' ? doCargo : porPresenca(presenca);
+
+  const cargos = Object.keys(ROTULO_CARGO).filter((c) => todos.some((a) => a.cargo === c));
+
+  function excluirPessoa(a) {
+    if (
+      confirm(
+        `Excluir ${a.nome}?\n\nO acesso dele(a) ao sistema acaba na hora e as conversas que estão com ele(a) voltam para a fila.`
+      )
+    ) {
+      excluir.mutate(a.id);
+    }
+  }
+
   return (
     <div className="coluna">
-      <div className="linha linha--fim">
-        <Botao onClick={() => setModal({ tipo: 'novo' })}>Cadastrar atendente</Botao>
+      <div className="eq-ferramentas">
+        <Busca valor={busca} aoMudar={setBusca} rotulo="Nome, usuário ou e-mail" />
+        <Chips
+          rotulo="Presença"
+          valor={presenca}
+          aoMudar={setPresenca}
+          opcoes={[
+            { chave: 'todos', rotulo: 'Todos', total: doCargo.length },
+            ...Object.entries(PRESENCA).map(([chave, p]) => ({ chave, rotulo: p.rotulo, ponto: p.ponto, total: porPresenca(chave).length }))
+          ]}
+        />
+        {cargos.length > 1 && (
+          <Selecao value={cargo} aria-label="Filtrar por cargo" className="eq-filtro" onChange={(e) => setCargo(e.target.value)}>
+            <option value="">Todos os cargos</option>
+            {cargos.map((c) => (
+              <option key={c} value={c}>
+                {ROTULO_CARGO[c]}
+              </option>
+            ))}
+          </Selecao>
+        )}
       </div>
 
       {resultado && (
@@ -649,80 +827,115 @@ function Pessoas() {
         </Aviso>
       )}
 
-      {lista.isLoading ? (
+      {consulta.isLoading ? (
         <Carregando />
       ) : (
-        <Cartao semPadding>
-          <Tabela cabecalho={['Nome', 'Usuario', 'Cargo', 'Presenca', 'Atende ate', 'Situacao', 'Ações']}>
-            {atendentes.map((a) => {
+        <section className="cartao eq-lista eq-lista--atend" aria-label="Atendentes">
+          <div className="eq-linha eq-linha--cabecalho" aria-hidden="true">
+            <span>Pessoa</span>
+            <span>Cargo</span>
+            <span>Presença</span>
+            <span>Atendendo agora</span>
+            <span>Situação</span>
+            <span />
+          </div>
+
+          {visiveis.length === 0 ? (
+            <p className="eq-lista__vazia">Ninguém com esse filtro.</p>
+          ) : (
+            visiveis.map((a) => {
               const mexe = podeMexer(a);
               const souEu = a.id === eu?.id;
               const bloqueio = mexe ? undefined : 'Cargo acima do seu';
+              const pres = PRESENCA[a.statusPresenca] ?? PRESENCA.offline;
+              const carga = a.capacidadeSimultanea ? Math.min(1, a.emAtendimento / a.capacidadeSimultanea) : 0;
+              const nivel = carga >= 1 ? 'cheio' : carga >= 0.7 ? 'alto' : 'ok';
+              const editar = () => mexe && setModal({ tipo: 'editar', pessoa: a });
+
               return (
-                <tr key={a.id}>
-                  <td>
-                    <strong>{a.nome}</strong>
-                    {souEu && <span className="texto-fraco"> (você)</span>}
-                    {a.email && <div className="texto-fraco">{a.email}</div>}
-                  </td>
-                  <td className="mono">{a.username}</td>
-                  <td>
-                    <Etiqueta tom={a.cargo === 'owner' || a.cargo === 'admin' ? 'primario' : 'neutro'}>{a.cargo}</Etiqueta>
-                  </td>
-                  <td>
-                    <Etiqueta tom={a.statusPresenca === 'online' ? 'sucesso' : 'neutro'}>{a.statusPresenca}</Etiqueta>
-                  </td>
-                  <td className="mono">{a.capacidadeSimultanea} conversas</td>
-                  <td>{a.ativo ? <Etiqueta tom="sucesso">Ativo</Etiqueta> : <Etiqueta tom="neutro">Inativo</Etiqueta>}</td>
-                  <td>
-                    <div className="pessoa-acoes">
-                      <Botao
-                        variante="secundario"
-                        tamanho="sm"
-                        disabled={!mexe}
-                        title={bloqueio}
-                        onClick={() => setModal({ tipo: 'editar', pessoa: a })}
-                      >
-                        Editar
-                      </Botao>
-                      {ligada('avisos_gerencia') && (
-                        <Botao
-                          variante="secundario"
-                          tamanho="sm"
-                          disabled={!mexe || !a.ativo}
-                          title={!a.ativo ? 'Conta desativada' : bloqueio}
-                          onClick={() => setModal({ tipo: 'aviso', pessoa: a })}
-                        >
-                          <span aria-hidden="true">⚠</span> Mandar aviso
-                        </Botao>
-                      )}
-                      {!souEu && (
-                        <Botao
-                          variante="perigo"
-                          tamanho="sm"
-                          disabled={!mexe}
-                          title={bloqueio}
-                          carregando={excluir.isPending && excluir.variables === a.id}
-                          onClick={() => {
-                            if (
-                              confirm(
-                                `Excluir ${a.nome}?\n\nO acesso dele(a) ao sistema acaba na hora e as conversas que estão com ele(a) voltam para a fila.`
-                              )
-                            ) {
-                              excluir.mutate(a.id);
-                            }
-                          }}
-                        >
-                          Excluir
-                        </Botao>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                <div
+                  key={a.id}
+                  className={`eq-linha${a.ativo ? '' : ' eq-linha--inativa'}${mexe ? '' : ' eq-linha--travada'}`}
+                  role={mexe ? 'button' : undefined}
+                  tabIndex={mexe ? 0 : undefined}
+                  onClick={editar}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), editar())}
+                  aria-label={mexe ? `Editar ${a.nome}` : undefined}
+                  title={bloqueio}
+                >
+                  <span className="eq-pessoa">
+                    <FotoPessoa nome={a.nome} url={a.avatar} presenca={a.ativo ? pres.ponto : undefined} />
+                    <span className="eq-pessoa__texto">
+                      <strong>
+                        {a.nome}
+                        {souEu && <span className="eq-voce">você</span>}
+                      </strong>
+                      <small className="mono">@{a.username}</small>
+                    </span>
+                  </span>
+
+                  <span className="eq-celula">
+                    <span className={`eq-cargo eq-cargo--${a.cargo}`}>{ROTULO_CARGO[a.cargo] ?? a.cargo}</span>
+                  </span>
+
+                  <span className="eq-celula">
+                    <span className="eq-situacao">
+                      <span className={`eq-ponto eq-ponto--${pres.ponto}`} aria-hidden="true" />
+                      {pres.rotulo}
+                    </span>
+                  </span>
+
+                  <span className="eq-celula">
+                    <span className="eq-carga" title={`${a.emAtendimento} de ${a.capacidadeSimultanea} conversas ao mesmo tempo`}>
+                      <span className="eq-carga__texto mono">
+                        {a.emAtendimento}/{a.capacidadeSimultanea}
+                        <span className="eq-carga__sufixo"> conversas</span>
+                      </span>
+                      <span className="eq-carga__trilho" aria-hidden="true">
+                        <span className={`eq-carga__barra eq-carga__barra--${nivel}`} style={{ width: `${carga * 100}%` }} />
+                      </span>
+                    </span>
+                  </span>
+
+                  <span className="eq-celula">
+                    <span className={`eq-situacao${a.ativo ? '' : ' eq-situacao--inativa'}`}>
+                      <span className={`eq-ponto eq-ponto--${a.ativo ? 'sucesso' : 'neutro'}`} aria-hidden="true" />
+                      {a.ativo ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </span>
+
+                  <span className="eq-acoes">
+                    <MenuAcoes
+                      rotulo={`Ações de ${a.nome}`}
+                      acoes={[
+                        { rotulo: 'Editar', aoClicar: editar, desabilitado: !mexe, dica: bloqueio },
+                        ligada('avisos_gerencia') && {
+                          rotulo: '⚠ Mandar aviso',
+                          aoClicar: () => setModal({ tipo: 'aviso', pessoa: a }),
+                          desabilitado: !mexe || !a.ativo,
+                          dica: !a.ativo ? 'Conta desativada' : bloqueio
+                        },
+                        !souEu && {
+                          rotulo: 'Excluir acesso',
+                          perigo: true,
+                          aoClicar: () => excluirPessoa(a),
+                          desabilitado: !mexe || excluir.isPending,
+                          dica: bloqueio
+                        }
+                      ]}
+                    />
+                  </span>
+                </div>
               );
-            })}
-          </Tabela>
-        </Cartao>
+            })
+          )}
+
+          <p className="eq-lista__rodape">
+            {visiveis.length === todos.length
+              ? `${todos.length} pessoa${todos.length === 1 ? '' : 's'} com acesso`
+              : `Mostrando ${visiveis.length} de ${todos.length}`}
+          </p>
+        </section>
       )}
 
       {(modal?.tipo === 'novo' || modal?.tipo === 'editar') && (

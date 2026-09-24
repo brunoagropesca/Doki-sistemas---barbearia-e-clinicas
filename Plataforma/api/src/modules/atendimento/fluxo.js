@@ -529,14 +529,24 @@ export function reapresentar(fluxo, estado, { agora = Date.now() } = {}) {
 
 const LARGURA_COLUNA = 380;
 const ESPACO_VERTICAL = 40;
+const ALTURA_OPCAO = 34;
 
 function alturaEstimada(no) {
-  if (no.type === 'menu') return 150 + 34 * (no.data?.options?.length ?? 0);
+  if (no.type === 'menu') return 150 + ALTURA_OPCAO * (no.data?.options?.length ?? 0);
   return 120;
 }
 
 /**
- * Posiciona os nos em colunas por distancia do inicio (esquerda → direita).
+ * Posiciona os nos em colunas por distancia do inicio (esquerda → direita),
+ * como uma arvore:
+ *
+ *   - dentro de cada coluna, os passos seguem a ordem de quem aponta para
+ *     eles (o destino da opcao 1 do primeiro menu vem antes do da opcao 2, e
+ *     assim por diante) — os filhos ficam na altura dos pais e as linhas
+ *     quase nao se cruzam;
+ *   - cada coluna e centralizada na mesma linha horizontal, entao o menu de
+ *     inicio fica no meio dos seus ramos em vez de preso no topo.
+ *
  * Nos soltos vao para uma coluna a mais no fim.
  * @returns {Fluxo}
  */
@@ -550,13 +560,40 @@ export function organizarFluxo(fluxo) {
     colunas.get(c).push(no);
   }
 
+  // Quem aponta para quem, e por qual saida.
+  const pais = new Map();
+  for (const [origem, conexao] of Object.entries(fluxo.connections ?? {})) {
+    (conexao?.main ?? []).forEach((lista, saida) => {
+      for (const c of lista ?? []) {
+        if (!pais.has(c.node)) pais.set(c.node, []);
+        pais.get(c.node).push({ origem, saida });
+      }
+    });
+  }
+
   const posicoes = new Map();
-  for (const [c, nos] of colunas) {
-    let y = 0;
-    for (const no of nos) {
-      posicoes.set(no.id, { x: c * LARGURA_COLUNA, y });
-      y += alturaEstimada(no) + ESPACO_VERTICAL;
+  for (const c of [...colunas.keys()].sort((a, b) => a - b)) {
+    const nos = colunas.get(c);
+    if (c > 0) {
+      // A chave de um no e a altura do pai mais acima, ja posicionado numa
+      // coluna anterior, somada a altura da opcao por onde ele sai.
+      const chave = (no) => {
+        const candidatas = (pais.get(no.id) ?? [])
+          .filter((p) => posicoes.has(p.origem) && (dist.get(p.origem) ?? soltos) < c)
+          .map((p) => posicoes.get(p.origem).y + ALTURA_OPCAO * p.saida);
+        return candidatas.length ? Math.min(...candidatas) : Infinity;
+      };
+      const chaves = new Map(nos.map((n, i) => [n.id, [chave(n), i]]));
+      nos.sort((a, b) => chaves.get(a.id)[0] - chaves.get(b.id)[0] || chaves.get(a.id)[1] - chaves.get(b.id)[1]);
     }
+
+    const alturas = nos.map((n) => alturaEstimada(n));
+    const total = alturas.reduce((s, h) => s + h, 0) + ESPACO_VERTICAL * Math.max(0, nos.length - 1);
+    let y = -total / 2;
+    nos.forEach((no, i) => {
+      posicoes.set(no.id, { x: c * LARGURA_COLUNA, y: Math.round(y) });
+      y += alturas[i] + ESPACO_VERTICAL;
+    });
   }
   return { ...fluxo, nodes: fluxo.nodes.map((n) => ({ ...n, position: posicoes.get(n.id) })) };
 }

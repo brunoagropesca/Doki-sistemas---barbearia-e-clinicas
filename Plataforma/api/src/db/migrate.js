@@ -1,7 +1,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { migrate } from 'drizzle-orm/libsql/migrator';
-import { db, fecharBanco, inicializarBanco } from './client.js';
+import { dbReal as db, fecharBanco, inicializarBanco } from './client.js';
 import { logger } from '../core/logger.js';
 
 /**

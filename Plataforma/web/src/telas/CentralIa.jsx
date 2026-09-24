@@ -6,21 +6,24 @@ import { Personas } from './central-ia/Personas.jsx';
 import { Cascata } from './central-ia/Cascata.jsx';
 import { Simulador } from './central-ia/Simulador.jsx';
 import { Metricas } from './central-ia/Metricas.jsx';
+import { BaseConhecimento } from './central-ia/BaseConhecimento.jsx';
 import './central-ia/CentralIa.css';
 
 /**
  * Central de Configuracao da Inteligencia Artificial.
  *
- * Uma tela so para tudo que e IA: quem sao os agentes (Sofia e Atena), por
+ * Uma tela so para tudo que e IA: o que ela sabe da empresa (a base de
+ * conhecimento), quem sao os agentes (Sofia e Atena), por
  * onde a IA passa (a cascata de provedores), como testar sem cliente de
  * verdade (o simulador) e quanto ela custa (as metricas).
  */
 
 const ABAS = [
-  ['personas', '🎭', 'Personas dos Agentes'],
-  ['cascata', '🌊', 'Cascata de IA & Provedores'],
-  ['simulador', '💬', 'Simulador WhatsApp & Bastidores'],
-  ['metricas', '📊', 'Métricas & Banco de Dados']
+  ['conhecimento', '📚', 'Base de conhecimento'],
+  ['personas', '🎭', 'Agentes'],
+  ['cascata', '🌊', 'Cascata e provedores'],
+  ['simulador', '💬', 'Simulador'],
+  ['metricas', '📊', 'Métricas']
 ];
 
 export function CentralIa() {
@@ -29,7 +32,7 @@ export function CentralIa() {
 
   // A aba fica na URL: recarregar a pagina ou mandar o link para alguem
   // leva de volta para onde voce estava.
-  const aba = ABAS.some(([chave]) => chave === params.get('aba')) ? params.get('aba') : 'personas';
+  const aba = ABAS.some(([chave]) => chave === params.get('aba')) ? params.get('aba') : 'conhecimento';
 
   // Serve de "termometro": se o banco responde, o sistema esta de pe.
   const banco = useQuery({ queryKey: ['ia', 'banco'], queryFn: () => api.get('/api/ia/banco'), refetchInterval: 30_000 });
@@ -42,7 +45,7 @@ export function CentralIa() {
           <span className="ci-icone-grande" aria-hidden="true">⚡</span>
           <div>
             <h1>Central de Configuração da Inteligência Artificial</h1>
-            <p className="texto-fraco">Agentes, cascata de modelos e provedores, simulador e métricas.</p>
+            <p className="texto-fraco">Base de conhecimento, agentes, cascata de modelos, simulador e métricas.</p>
           </div>
         </div>
 
@@ -77,6 +80,7 @@ export function CentralIa() {
       </nav>
 
       <div role="tabpanel">
+        {aba === 'conhecimento' && <BaseConhecimento />}
         {aba === 'personas' && <Personas />}
         {aba === 'cascata' && <Cascata />}
         {aba === 'simulador' && <Simulador />}

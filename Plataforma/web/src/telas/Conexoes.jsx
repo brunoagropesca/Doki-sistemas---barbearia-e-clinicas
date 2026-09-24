@@ -7,23 +7,25 @@ import { Console } from './conexoes/Console.jsx';
 import { ListaSessoes } from './conexoes/ListaSessoes.jsx';
 import { PainelSessao } from './conexoes/PainelSessao.jsx';
 import { CHAVE_CANAIS, useCanais } from './conexoes/hooks.js';
-import { formatarTelefone } from './conexoes/formatar.js';
 import './Conexoes.css';
 
 /**
- * Central de Conexões & Canais Omnichannel.
+ * Conexões: os numeros de WhatsApp da empresa.
  *
  * Hoje so o WhatsApp (Baileys, ate 5 contas) esta pronto; Telegram e Instagram
- * Direct aparecem como "em breve". Dono e gerente conectam, desconectam e
- * ajustam a conta que ja existe; adicionar e remover contas e do perfil
- * tecnico (o servidor garante; a tela so mostra ou esconde os botoes).
+ * Direct aparecem so como uma etiqueta "em breve" — antes cada um ganhava um
+ * cartao E uma aba vazios, um terco da tela sem nada para fazer. Dono e
+ * gerente conectam, desconectam e ajustam a conta que ja existe; adicionar e
+ * remover contas e do perfil tecnico (o servidor garante; a tela so mostra ou
+ * esconde os botoes).
+ *
+ * Cada informacao aparece UMA vez: o estado, o nome e o numero da conta ficam
+ * no cartao de conexao dela (antes se repetiam no resumo, na lista e no painel).
  */
 
 const ABAS = [
-  { chave: 'whatsapp', rotulo: 'WhatsApp (QR Code & Instância)' },
-  { chave: 'telegram', rotulo: 'Telegram (Bot Token)' },
-  { chave: 'instagram', rotulo: 'Instagram Direct (Meta API)' },
-  { chave: 'console', rotulo: 'Console de Conexões em Tempo Real' }
+  { chave: 'whatsapp', rotulo: 'WhatsApp' },
+  { chave: 'console', rotulo: 'Registro em tempo real' }
 ];
 
 export function Conexoes() {
@@ -53,16 +55,13 @@ export function Conexoes() {
   return (
     <div className="cx-pagina">
       <header className="cx-topo">
-        <span className="cx-topo__icone" aria-hidden="true">
-          🔌
-        </span>
         <div className="crescer">
-          <h1>Central de Conexões &amp; Canais Omnichannel</h1>
-          <p className="texto-fraco">Gerenciamento de instâncias e pareamentos de WhatsApp, Telegram e Instagram Direct.</p>
+          <h1>Conexões</h1>
+          <p className="texto-fraco">Os números de WhatsApp em que a Sofia e a equipe atendem.</p>
         </div>
         <span className={`cx-motor ${canais.isError ? 'cx-motor--fora' : ''}`} role="status">
           <span className="cx-ponto cx-ponto--pulsando-lento" aria-hidden="true" />
-          {canais.isError ? 'Motor sem resposta' : 'Motor omnichannel online'}
+          {canais.isError ? 'Servidor sem resposta' : 'Servidor no ar'}
         </span>
         <Botao
           type="button"
@@ -75,9 +74,12 @@ export function Conexoes() {
         </Botao>
       </header>
 
-      <ResumoCanais lista={lista} selecionada={selecionada} aoGerenciar={() => irParaAba('whatsapp')} />
-
-      <Abas aba={aba} aoTrocar={irParaAba} />
+      <div className="cx-barra">
+        <Abas aba={aba} aoTrocar={irParaAba} />
+        <span className="cx-embreve" title="Estes canais ainda estão em desenvolvimento">
+          Em breve: <span aria-hidden="true">✈️</span> Telegram · <span aria-hidden="true">📷</span> Instagram Direct
+        </span>
+      </div>
 
       <div role="tabpanel" id={`cx-painel-${aba}`} aria-labelledby={`cx-aba-${aba}`} tabIndex={-1}>
         {canais.isLoading && <Carregando texto="Carregando conexões..." />}
@@ -85,7 +87,11 @@ export function Conexoes() {
 
         {canais.isSuccess && aba === 'whatsapp' && (
           <div className="cx-whatsapp">
-            <ListaSessoes canais={lista} limite={limite} selecionada={selecionada?.chave} aoEscolher={setEscolhida} ehDev={ehDev} />
+            {/* Com um numero so, a faixa repetia o cartao logo abaixo. O perfil
+                tecnico sempre ve: e dela que sai o "+ Nova sessão". */}
+            {(lista.length > 1 || ehDev) && (
+              <ListaSessoes canais={lista} limite={limite} selecionada={selecionada?.chave} aoEscolher={setEscolhida} ehDev={ehDev} />
+            )}
             <div className="cx-whatsapp__principal">
               {selecionada ? (
                 <PainelSessao
@@ -96,10 +102,10 @@ export function Conexoes() {
                 />
               ) : (
                 <Vazio
-                  titulo="Nenhuma sessão configurada"
+                  titulo="Nenhum número configurado"
                   descricao={
                     ehDev
-                      ? 'Use “+ Nova sessão” na lista ao lado para adicionar a primeira conta de WhatsApp.'
+                      ? 'Use “+ Nova sessão” aqui em cima para adicionar o primeiro número de WhatsApp.'
                       : 'Fale com o suporte técnico para configurar o primeiro número de WhatsApp.'
                   }
                 />
@@ -108,81 +114,9 @@ export function Conexoes() {
           </div>
         )}
 
-        {aba === 'telegram' && (
-          <Vazio titulo="Telegram — em breve" descricao="A conexão por Bot Token ainda está em desenvolvimento. O WhatsApp já está pronto para uso." />
-        )}
-        {aba === 'instagram' && (
-          <Vazio titulo="Instagram Direct — em breve" descricao="A conexão pela API da Meta ainda está em desenvolvimento. O WhatsApp já está pronto para uso." />
-        )}
-
         {canais.isSuccess && aba === 'console' && <Console canais={lista} />}
       </div>
     </div>
-  );
-}
-
-/** Tres cartoes-resumo do topo. So o do WhatsApp tem dados e acao. */
-function ResumoCanais({ lista, selecionada, aoGerenciar }) {
-  const conectada = lista.find((c) => c.status === 'conectado');
-  const numero = conectada ? formatarTelefone(conectada.identificador) : '';
-  const conectadas = lista.filter((c) => c.status === 'conectado').length;
-  const iaLigada = lista.some((c) => c.iaHabilitada);
-
-  return (
-    <div className="cx-resumo">
-      <article className="cx-canal cx-canal--whatsapp">
-        <header className="cx-canal__topo">
-          <span className="cx-canal__icone" aria-hidden="true">
-            💬
-          </span>
-          <div className="crescer">
-            <h2>WhatsApp</h2>
-            <p className="texto-fraco">Frontline principal</p>
-          </div>
-          <span className={`cx-tag ${conectadas ? 'cx-tag--ok' : 'cx-tag--fora'}`}>
-            {conectadas ? `${conectadas} conectada${conectadas > 1 ? 's' : ''}` : 'Desconectado'}
-          </span>
-        </header>
-        <dl className="cx-canal__dados">
-          <div>
-            <dt>Número pareado</dt>
-            <dd>{numero || 'Nenhum'}</dd>
-          </div>
-          <div>
-            <dt>Instância</dt>
-            <dd className="mono">{selecionada?.nome ?? 'Não configurada'}</dd>
-          </div>
-          <div>
-            <dt>Atendimento IA</dt>
-            <dd>{lista.length === 0 ? '—' : iaLigada ? 'Sofia ativa' : 'Desligado'}</dd>
-          </div>
-        </dl>
-        <Botao type="button" onClick={aoGerenciar}>
-          Gerenciar pareamento
-        </Botao>
-      </article>
-
-      <CanalEmBreve icone="✈️" nome="Telegram" apoio="Bot Father API" />
-      <CanalEmBreve icone="📷" nome="Instagram Direct" apoio="Meta Graph API" />
-    </div>
-  );
-}
-
-function CanalEmBreve({ icone, nome, apoio }) {
-  return (
-    <article className="cx-canal cx-canal--embreve" aria-label={`${nome} — em breve`}>
-      <header className="cx-canal__topo">
-        <span className="cx-canal__icone" aria-hidden="true">
-          {icone}
-        </span>
-        <div className="crescer">
-          <h2>{nome}</h2>
-          <p className="texto-fraco">{apoio}</p>
-        </div>
-        <span className="cx-tag">Em breve</span>
-      </header>
-      <p className="texto-fraco">Este canal ainda está em desenvolvimento.</p>
-    </article>
   );
 }
 

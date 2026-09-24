@@ -94,7 +94,18 @@
 
 /* `overflow-x: hidden`: a lista so rola para baixo. Um nome comprido ou o
    texto so-para-leitor-de-tela faziam aparecer uma barra horizontal embaixo. */
-.mesa__itens { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; }
+.mesa__itens {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Barra fina e discreta: a nativa comia ~15px de uma coluna ja estreita. */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+.mesa__itens::-webkit-scrollbar { width: 6px; }
+.mesa__itens::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 999px; }
+.mesa__itens::-webkit-scrollbar-track { background: transparent; }
 
 .conversa {
   display: block;
@@ -129,24 +140,44 @@
   white-space: nowrap;
 }
 .conversa__hora { font-size: 11px; color: var(--texto-fraco); flex-shrink: 0; }
+.conversa__hora--nova { color: var(--perigo); font-weight: 700; }
 
+.conversa__linha {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  margin-bottom: var(--e2);
+}
 .conversa__previa {
+  flex: 1;
+  min-width: 0;
   font-size: 12px;
   color: var(--texto-suave);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-bottom: var(--e2);
 }
 
+/* Etiquetas numa linha so: nada quebra, o que nao cabe e o nome do atendente
+   (que encolhe com "..."). */
 .conversa__rodape {
   display: flex;
   align-items: center;
-  gap: var(--e2);
+  gap: 6px;
+  min-width: 0;
   font-size: 11px;
 }
+.conversa__rodape > * { flex-shrink: 0; white-space: nowrap; }
+.conversa__atendente {
+  flex-shrink: 1 !important;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--texto-fraco);
+}
+.conversa__atendente::before { content: '· '; }
 .conversa__nao-lidas {
-  margin-left: auto;
+  flex-shrink: 0;
   min-width: 18px;
   height: 18px;
   padding: 0 5px;

@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { createClient } from '@libsql/client';
@@ -30,7 +31,43 @@ garantirPasta(env.DATABASE_URL);
 
 export const libsql = createClient({ url: env.DATABASE_URL });
 
-export const db = drizzle(libsql, { schema, logger: false });
+/** O banco de verdade da empresa. Use direto so quando PRECISA ser ele (auth, backups). */
+export const dbReal = drizzle(libsql, { schema, logger: false });
+
+/**
+ * Banco da requisicao.
+ *
+ * Quase sempre e o real. A excecao e o MODO DEMONSTRACAO do perfil DEV: as
+ * requisicoes daquele navegador rodam dentro de `rodarNoBanco(...)` e todas as
+ * consultas do sistema caem num arquivo paralelo (ver modules/demonstracao) —
+ * sem nenhum modulo precisar saber disso.
+ *
+ * O contexto segue a requisicao pelas promessas e timers que ela dispara
+ * (AsyncLocalStorage). O que NAO nasce de uma requisicao da demonstracao — o
+ * WhatsApp chegando, as rotinas, os backups — nunca ve o banco paralelo.
+ */
+const contexto = new AsyncLocalStorage();
+
+export const db = new Proxy(
+  {},
+  {
+    get(_, prop) {
+      const alvo = contexto.getStore()?.db ?? dbReal;
+      const valor = alvo[prop];
+      return typeof valor === 'function' ? valor.bind(alvo) : valor;
+    }
+  }
+);
+
+/** Executa `fn` (e tudo o que ela disparar) com outro banco. */
+export function rodarNoBanco(loja, fn) {
+  return contexto.run(loja, fn);
+}
+
+/** Esta execucao e da demonstracao? (envios de WhatsApp viram simulacao) */
+export function emDemonstracao() {
+  return contexto.getStore()?.demonstracao === true;
+}
 
 /**
  * Prepara o banco para uso.

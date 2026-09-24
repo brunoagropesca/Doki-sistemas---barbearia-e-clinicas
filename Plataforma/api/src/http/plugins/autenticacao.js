@@ -2,6 +2,8 @@ import fp from 'fastify-plugin';
 import { AppError, NaoAutenticado, SemPermissao } from '../../core/errors.js';
 import { NIVEL_CARGO } from '../../db/schema/auth.js';
 import { validarToken } from '../../modules/auth/auth.service.js';
+import { rodarNoBanco } from '../../db/client.js';
+import { abrir as abrirDemonstracao, COOKIE_DEMONSTRACAO, espelharUsuario, existe as existeDemonstracao } from '../../modules/demonstracao/demonstracao.js';
 
 /**
  * Autenticacao e permissao.
@@ -43,6 +45,7 @@ async function plugin(app) {
   // otimiza melhor do que quando propriedades aparecem no meio do caminho.
   app.decorateRequest('usuario', null);
   app.decorateRequest('tenantId', null);
+  app.decorateRequest('bancoDemonstracao', null);
 
   app.addHook('onRequest', async (req) => {
     // Requisicao que nao casou com rota nenhuma: deixa o tratador de 404
@@ -65,6 +68,22 @@ async function plugin(app) {
         }
       } catch (err) {
         req.log.debug({ err }, 'Token apresentado nao pode ser validado');
+      }
+    }
+
+    // MODO DEMONSTRACAO (so o DEV, so neste navegador): a requisicao passa a
+    // ser da empresa ficticia e roda no banco paralelo (hook seguinte). Rotas
+    // `bancoReal` (login, backups, a propria demonstracao) ficam no real.
+    if (req.usuario?.cargo === 'dev' && req.cookies?.[COOKIE_DEMONSTRACAO] === '1' && !rota.bancoReal && existeDemonstracao()) {
+      try {
+        const tenantDemo = await espelharUsuario(req.usuario);
+        if (tenantDemo) {
+          req.usuario = { ...req.usuario, tenantId: tenantDemo, demonstracao: true };
+          req.tenantId = tenantDemo;
+          req.bancoDemonstracao = (await abrirDemonstracao()).db;
+        }
+      } catch (err) {
+        req.log.warn({ err }, 'Nao foi possivel abrir a demonstracao; seguindo no banco real');
       }
     }
 
@@ -101,6 +120,14 @@ async function plugin(app) {
         );
       }
     }
+  });
+
+  // O resto da requisicao (hooks, rota, tudo que ela disparar) roda no banco
+  // da demonstracao. Tem de ser no estilo "done": o contexto so segue a
+  // requisicao se o proximo passo for chamado DENTRO do `rodarNoBanco`.
+  app.addHook('onRequest', (req, reply, done) => {
+    if (!req.bancoDemonstracao) return done();
+    rodarNoBanco({ db: req.bancoDemonstracao, demonstracao: true }, done);
   });
 
   /**

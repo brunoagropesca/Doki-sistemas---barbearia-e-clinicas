@@ -1,0 +1,289 @@
+/* ================================================================
+ * DASHBOARD DO DONO
+ *
+ * Cores de dados (validadas contra o fundo escuro do sistema, #0e1328):
+ * categoricas em ORDEM FIXA — azul, laranja, verde-agua, amarelo, magenta.
+ * Intensidade (mapa de calor) = uma cor so, azul. Texto nunca na cor da serie.
+ * ================================================================ */
+.dash {
+  --gr-s1: #3987e5;
+  --gr-s2: #d95926;
+  --gr-s3: #199e70;
+  --gr-s4: #c98500;
+  --gr-s5: #d55181;
+  /* "Outras": o resto que nao ganha cor propria — cinza, nunca uma 6a cor. */
+  --gr-outros: #6b7390;
+  --gr-grade: rgba(240, 244, 255, 0.07);
+  --gr-base: rgba(240, 244, 255, 0.22);
+  --gr-bom: #34d17f;
+  --gr-ruim: #ff7a8c;
+}
+
+.dash-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--e3); }
+.dash-topo h1 { font-size: 24px; }
+.dash-exportar { flex: none; display: inline-flex; align-items: center; gap: 8px; }
+.dash-exportar svg { width: 17px; height: 17px; }
+.dash-filtros { display: flex; align-items: center; gap: var(--e3); flex-wrap: wrap; }
+.dash-datas { display: flex; align-items: center; gap: var(--e2); }
+.dash-datas .entrada { width: 150px; padding: 6px 10px; }
+.dash-datas--ativo .entrada { border-color: rgba(24, 86, 255, 0.55); }
+
+.dash-corpo { display: flex; flex-direction: column; gap: var(--e4); transition: opacity 0.2s; }
+.dash-corpo--atualizando { opacity: 0.55; }
+
+/* ─── Numeros principais ─── */
+.dash-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--e3); }
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--e3) var(--e4);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+}
+.kpi--destaque {
+  background: linear-gradient(135deg, rgba(24, 86, 255, 0.16), rgba(124, 58, 237, 0.1));
+  border-color: rgba(24, 86, 255, 0.35);
+}
+.kpi__rotulo { font-size: 12px; font-weight: 600; color: var(--texto-suave); }
+.kpi__valor { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi--destaque .kpi__valor { font-size: 28px; }
+.kpi__rodape { display: flex; align-items: baseline; gap: var(--e2); flex-wrap: wrap; font-size: 12px; }
+.kpi__var { font-weight: 700; white-space: nowrap; }
+.kpi__var--bom { color: var(--gr-bom); }
+.kpi__var--ruim { color: var(--gr-ruim); }
+.kpi__var--neutro { color: var(--texto-fraco); }
+.kpi__detalhe { color: var(--texto-fraco); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* ─── Abas ─── */
+.dash-abas { display: flex; gap: 2px; border-bottom: 1px solid var(--borda); overflow-x: auto; scrollbar-width: none; }
+.dash-abas::-webkit-scrollbar { display: none; }
+.dash-aba {
+  padding: 10px 14px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.dash-aba:hover { color: var(--texto); }
+.dash-aba--ativa { color: var(--texto); border-bottom-color: var(--primaria); }
+
+/* ─── Blocos ─── */
+.dash-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--e3); align-items: start; }
+.dash-bloco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  min-width: 0;
+  padding: var(--e4);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+}
+.dash-bloco--largo { grid-column: 1 / -1; }
+/* Tres blocos pequenos lado a lado (visao geral). */
+.dash-trio { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--e3); align-items: start; }
+.dash-bloco__topo { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--e3); flex-wrap: wrap; }
+.dash-bloco__topo h2 { font-size: 15px; }
+.dash-bloco__topo p { font-size: 12.5px; margin-top: 2px; }
+.dash-sub { margin-top: var(--e2); font-size: 12.5px; font-weight: 600; color: var(--texto-suave); }
+.dash-nota { font-size: 12px; }
+
+.dash-minis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--e2); }
+.dash-mini { display: flex; flex-direction: column; gap: 2px; padding: 10px var(--e3); border-radius: var(--raio); background: rgba(255, 255, 255, 0.035); min-width: 0; }
+.dash-mini span { font-size: 11.5px; color: var(--texto-suave); font-weight: 600; }
+.dash-mini strong { font-size: 18px; letter-spacing: -0.01em; }
+.dash-mini small { font-size: 11.5px; color: var(--texto-fraco); }
+
+/* ─── Tabelas ─── */
+.dash-tabela { overflow-x: auto; margin: 0 calc(-1 * var(--e4)); }
+.dash-tabela table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dash-tabela th {
+  padding: 8px var(--e4);
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--texto-fraco);
+  border-bottom: 1px solid var(--borda);
+  white-space: nowrap;
+}
+.dash-tabela td { padding: 9px var(--e4); border-bottom: 1px solid rgba(255, 255, 255, 0.04); white-space: nowrap; }
+.dash-tabela tr:last-child td { border-bottom: 0; }
+.dash-tabela tbody tr:hover { background: rgba(255, 255, 255, 0.025); }
+.dash-tabela .num { text-align: right; font-variant-numeric: tabular-nums; }
+.dash-inativo { opacity: 0.5; }
+.dash-part { display: inline-block; width: 60px; height: 6px; margin-right: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); vertical-align: middle; overflow: hidden; }
+.dash-part span { display: block; height: 100%; background: var(--gr-s1); border-radius: 999px; }
+.dash-pessoa { display: inline-flex; align-items: center; gap: var(--e2); }
+.dash-pessoa__cor { width: 10px; height: 10px; border-radius: 50%; }
+.dash-ocupacao { display: inline-flex; align-items: center; gap: var(--e2); }
+.dash-ocupacao small { color: var(--texto-fraco); }
+
+.dash-status { display: inline-flex; align-items: center; gap: 4px; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--superficie-2); color: var(--texto-suave); white-space: nowrap; }
+.dash-status--ok { background: var(--sucesso-suave); color: #5ee49a; }
+.dash-status--alerta { background: var(--alerta-suave); color: #f5b27d; }
+.dash-status--critico { background: var(--perigo-suave); color: #ff8a9c; }
+
+.dash-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.dash-lista li { display: flex; align-items: center; gap: var(--e3); padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 13px; }
+.dash-lista li:last-child { border-bottom: 0; }
+.dash-lista a { color: var(--texto); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-lista--num { counter-reset: n; }
+.dash-lista--num li::before { counter-increment: n; content: counter(n); width: 20px; flex: none; font-size: 12px; font-weight: 700; color: var(--texto-fraco); }
+.dash-link { font-size: 12.5px; font-weight: 600; color: #7eb0ff; }
+
+/* ================================================================
+ * GRAFICOS
+ * ================================================================ */
+.gr { position: relative; width: 100%; }
+.gr svg { display: block; overflow: visible; }
+.gr-grade { stroke: var(--gr-grade); stroke-width: 1; }
+.gr-base { stroke: var(--gr-base); stroke-width: 1; }
+.gr-eixo { fill: var(--texto-fraco); font-size: 11px; font-family: var(--fonte); font-variant-numeric: tabular-nums; }
+.gr-alvo { fill: transparent; outline: none; }
+.gr-alvo:hover, .gr-alvo:focus-visible { fill: rgba(255, 255, 255, 0.04); }
+.gr-vazio { padding: var(--e5) var(--e3); text-align: center; color: var(--texto-fraco); font-size: 13px; }
+
+.gr-tip {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 150px;
+  padding: 8px 11px;
+  transform: translate(-50%, calc(-100% - 8px));
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+  background: rgba(10, 14, 30, 0.97);
+  box-shadow: var(--sombra-g);
+  font-size: 12px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.gr-tip--esq { transform: translate(-16px, calc(-100% - 8px)); }
+.gr-tip--dir { transform: translate(calc(-100% + 16px), calc(-100% - 8px)); }
+.gr-tip__titulo { font-size: 11.5px; color: var(--texto-suave); }
+.gr-tip__linha { display: flex; align-items: center; gap: 6px; }
+.gr-tip__linha strong { font-size: 13px; color: var(--texto); }
+.gr-tip__linha span:last-child { color: var(--texto-suave); }
+.gr-tip__chave { width: 10px; height: 3px; border-radius: 2px; flex: none; }
+.gr-tip__nota { color: var(--texto-fraco); font-size: 11px; }
+
+.gr-legenda { display: flex; gap: var(--e3); flex-wrap: wrap; font-size: 12px; color: var(--texto-suave); }
+.gr-legenda__item { display: inline-flex; align-items: center; gap: 6px; }
+.gr-legenda__cor { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+
+/* Barras horizontais */
+.gr-barras { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.gr-barras__item { display: grid; grid-template-columns: minmax(80px, 34%) minmax(0, 1fr) auto; align-items: center; gap: var(--e3); padding: 3px 0; border-radius: 6px; outline: none; }
+.gr-barras__item:hover, .gr-barras__item:focus-visible { background: rgba(255, 255, 255, 0.03); }
+.gr-barras__rotulo { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gr-barras__trilho { height: 12px; display: flex; align-items: center; }
+.gr-barras__barra { display: block; height: 12px; border-radius: 0 4px 4px 0; }
+.gr-barras__valor { display: flex; flex-direction: column; align-items: flex-end; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 72px; }
+.gr-barras__valor small { font-size: 11px; font-weight: 400; color: var(--texto-fraco); }
+
+/* Parte do todo */
+.gr-parte { display: flex; flex-direction: column; gap: var(--e3); }
+.gr-parte__barra { display: flex; gap: 2px; height: 14px; border-radius: 4px; overflow: hidden; }
+.gr-parte__seg { min-width: 4px; }
+.gr-parte__legenda { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.gr-parte__legenda li { display: flex; align-items: center; gap: var(--e2); }
+.gr-parte__legenda strong { font-variant-numeric: tabular-nums; }
+.gr-parte__legenda small { width: 40px; text-align: right; color: var(--texto-fraco); font-variant-numeric: tabular-nums; }
+
+/* Medidor */
+.gr-medidor { display: inline-block; width: 72px; height: 6px; border-radius: 999px; background: rgba(57, 135, 229, 0.18); overflow: hidden; }
+.gr-medidor__barra { display: block; height: 100%; border-radius: 999px; background: var(--gr-s1); }
+.gr-medidor__barra--cheio { background: #0ca30c; }
+.gr-medidor__barra--baixo { background: #5598e7; opacity: 0.75; }
+
+/* ================================================================
+ * MAPA DE CALOR
+ * ================================================================ */
+.mc { display: flex; flex-direction: column; gap: var(--e3); }
+.mc-topo { display: flex; align-items: center; justify-content: space-between; gap: var(--e3); flex-wrap: wrap; }
+.mc-metricas { display: flex; gap: 6px; flex-wrap: wrap; }
+.mc-escala { display: flex; align-items: center; gap: 3px; font-size: 11px; color: var(--texto-fraco); }
+.mc-escala span:not(:first-child):not(:last-child) { width: 16px; height: 10px; border-radius: 3px; }
+.mc-escala span:first-child { margin-right: 4px; }
+.mc-escala span:last-child { margin-left: 4px; }
+.mc-escala__vazio { background: rgba(255, 255, 255, 0.04); }
+
+/*
+ * O mapa CABE na largura do cartao, sem barra de rolagem: as colunas de hora
+ * dividem o espaco (minmax(0, 1fr)) em vez de exigir uma largura minima.
+ * Nada de overflow aqui — com overflow-x, o navegador passa o eixo Y para
+ * "auto" tambem, e a celula que cresce no hover e o balao da dica viravam
+ * rolagem nos dois sentidos.
+ */
+.mc-area { position: relative; padding-top: 2px; }
+.mc-grade {
+  display: grid;
+  grid-template-columns: 34px repeat(var(--horas), minmax(0, 1fr)) minmax(64px, 112px);
+  gap: 3px;
+}
+.mc-linha { display: contents; }
+.mc-hora { font-size: 10.5px; color: var(--texto-fraco); text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
+.mc-hora--total { text-align: left; padding-left: 6px; }
+.mc-dia { display: flex; align-items: center; font-size: 12px; font-weight: 600; color: var(--texto-suave); }
+.mc-cel { height: 30px; border-radius: 4px; outline: none; transition: transform 0.08s, box-shadow 0.08s; }
+.mc-cel--vazia { background: rgba(255, 255, 255, 0.035); }
+.mc-cel:hover, .mc-cel:focus-visible { transform: scale(1.12); box-shadow: 0 0 0 2px #0e1328, 0 0 0 3px var(--texto); z-index: 1; position: relative; }
+.mc-cel--pico { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85); }
+.mc-total { display: flex; align-items: center; gap: 6px; padding-left: 6px; min-width: 0; overflow: hidden; }
+.mc-total__barra { display: block; height: 8px; border-radius: 0 3px 3px 0; background: rgba(57, 135, 229, 0.55); flex: none; max-width: 50%; }
+.mc-total__valor { font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mc-coluna { display: flex; align-items: flex-end; height: 34px; }
+.mc-coluna__barra { display: block; width: 100%; border-radius: 3px 3px 0 0; background: rgba(57, 135, 229, 0.55); }
+.mc-linha--horas .mc-dia { align-items: flex-end; font-size: 10.5px; color: var(--texto-fraco); }
+
+.mc-leituras { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--e2); margin: 0; }
+.mc-leituras div { padding: 10px var(--e3); border-radius: var(--raio); background: rgba(255, 255, 255, 0.035); border-left: 3px solid var(--gr-s1); }
+.mc-leituras dt { font-size: 11.5px; font-weight: 600; color: var(--texto-suave); }
+.mc-leituras dd { margin: 2px 0 0; font-size: 13px; }
+
+/* ─── Telas menores ─── */
+@media (max-width: 1100px) {
+  .dash-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dash-grade { grid-template-columns: minmax(0, 1fr); }
+  .dash-trio { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 820px) {
+  .dash-kpis { display: flex; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--e3)); padding: 0 var(--e3); contain: inline-size; }
+  .dash-kpis::-webkit-scrollbar { display: none; }
+  .kpi { flex: 0 0 72%; }
+  .dash-filtros .eq-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  /* Datas: as duas lado a lado ocupando a linha toda (a 128px o ano era cortado),
+     Aplicar e o aviso embaixo. */
+  .dash-datas { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); width: 100%; }
+  .dash-datas .entrada { width: 100%; min-width: 0; }
+  .dash-datas .eq-chip, .dash-datas__erro { grid-column: 1 / -1; justify-self: stretch; text-align: center; }
+  /* Sem data mudada nao ha o que aplicar: o botao nem ocupa a linha. */
+  .dash-datas .eq-chip:disabled { display: none; }
+  .gr-barras__item { grid-template-columns: minmax(70px, 38%) minmax(0, 1fr) auto; }
+
+  /* Mapa de calor no celular: celulas mais baixas, hora sim hora nao no topo
+     e o total do dia so em numero (a barrinha nao cabe). */
+  .mc-grade { grid-template-columns: 28px repeat(var(--horas), minmax(0, 1fr)) 58px; gap: 2px; }
+  .mc-cel { height: 24px; border-radius: 3px; }
+  .mc-hora { font-size: 9.5px; }
+  .mc-hora--impar { visibility: hidden; }
+  .mc-dia { font-size: 11px; }
+  .mc-total { padding-left: 4px; }
+  .mc-total__barra { display: none; }
+  .mc-total__valor { font-size: 10.5px; }
+  .mc-coluna { height: 26px; }
+}
+.dash-datas__erro { font-size: 12px; color: var(--gr-ruim); }

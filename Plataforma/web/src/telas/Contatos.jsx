@@ -101,7 +101,7 @@ export function Contatos() {
 
   const abrirConversa = useMutation({
     mutationFn: (leadId) => api.post('/api/conversas/abrir', { leadId }),
-    onSuccess: (r) => navegar(`/conversas/${r.conversa.id}`),
+    onSuccess: (r) => navegar(`/conversas?id=${r.conversa.id}`),
     onError: (err) => setRecado({ tom: 'perigo', texto: err.message })
   });
 
@@ -214,6 +214,7 @@ export function Contatos() {
           />
         ) : (
           <Tabela
+            className="tabela--contatos"
             cabecalho={[
               <input
                 key="marcar-todos"

@@ -63,8 +63,8 @@
   --fonte-mono: 'JetBrains Mono', ui-monospace, monospace;
 
   --largura-menu: 248px;
-  /* Menu recolhido, ao espiar com o mouse: so a fileira de icones. */
-  --largura-menu-icones: 66px;
+  /* Menu recolhido: so a fileira de icones. */
+  --largura-menu-icones: 68px;
 }
 
 /* ─── RESET ──────────────────────────────────────────── */

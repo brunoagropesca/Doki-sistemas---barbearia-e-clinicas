@@ -2,9 +2,21 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="color-scheme" content="dark" />
     <title>Plataforma de Atendimento</title>
+
+    <!-- App instalado no celular (PWA): Android/Chrome le o manifest; o iPhone
+         le as tags apple-*. "black-translucent" deixa o app ocupar a tela toda,
+         por baixo do relogio — a barra do topo do app ja reserva esse espaco. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#050814" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Atendimento" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="apple-touch-icon" href="/icones/apple-touch-icon.png" />
     <!-- Icone embutido (SVG): sem arquivo extra e sem o 404 de /favicon.ico. -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231856FF'/%3E%3Cpath d='M18 5 9 18h6l-1 9 9-13h-6z' fill='%23fff'/%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

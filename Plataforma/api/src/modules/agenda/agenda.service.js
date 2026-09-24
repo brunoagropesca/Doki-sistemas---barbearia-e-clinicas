@@ -84,6 +84,8 @@ function apresentar(linha, fuso) {
     anotacoesAtendimento: a.anotacoesAtendimento ?? null,
     humorAtendimento: a.humorAtendimento ?? null,
     concluidoEm: a.concluidoEm?.getTime() ?? null,
+    confirmadoEm: a.confirmadoEm?.getTime() ?? null,
+    duracaoMinutos: Math.round((a.fimEm.getTime() - a.inicioEm.getTime()) / 60_000),
     canceladoEm: a.canceladoEm?.getTime() ?? null,
     motivoCancelamento: a.motivoCancelamento ?? null,
     criadoPor: a.criadoPor,
@@ -126,7 +128,8 @@ export async function obter(tenantId, id, usuario) {
   const linha = await repo.buscarPorId(tenantId, id);
   if (!linha) throw new NaoEncontrado('Agendamento');
   await garantirVisivel(tenantId, linha, usuario);
-  return apresentar(linha, fuso);
+  // O detalhe (painel da OS) leva junto o contexto do cliente e as vendas.
+  return { ...apresentar(linha, fuso), contexto: await repo.contextoDaOS(tenantId, linha.agendamento) };
 }
 
 /**

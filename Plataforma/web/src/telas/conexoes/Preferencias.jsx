@@ -5,13 +5,14 @@ import { NOME_SESSAO_MAX as NOME_MAX, NOME_SESSAO_MIN as NOME_MIN } from './form
 import { lerCampoDoCanal, useAtualizarSessao, useSalvarConfig } from './hooks.js';
 
 /**
- * Cartao "Configurações da instância".
+ * Cartao "Preferências do número".
  *
  * Dono e gerente ajustam as preferencias da conta e SALVAM de uma vez, no botao
- * do fim (como na tela antiga): mexer em tres interruptores e gravar tres
- * vezes, cada uma com seu erro possivel, deixaria a conta num meio-termo que
- * ninguem escolheu. O NOME da sessao so o perfil tecnico edita; para os demais
- * e texto. Quem impede de verdade e o servidor — aqui so decidimos o que mostrar.
+ * da barra que aparece quando algo mudou: mexer em tres interruptores e gravar
+ * tres vezes, cada uma com seu erro possivel, deixaria a conta num meio-termo
+ * que ninguem escolheu. O NOME da sessao so o perfil tecnico edita; para os
+ * demais ele ja aparece no cartao da conexao. Quem impede de verdade e o
+ * servidor — aqui so decidimos o que mostrar.
  */
 
 // Os mesmos limites que o servidor confere. Validar aqui nao substitui la:
@@ -23,24 +24,23 @@ const MENSAGEM_MAX = 500;
 const INTERRUPTORES = [
   {
     campo: 'iaHabilitada',
-    rotulo: 'IA habilitada nesta conexão',
-    descricao:
-      'Desligada, as mensagens que chegam por este número não recebem resposta automática da IA. O atendimento por pessoas continua normal.'
+    rotulo: 'Sofia responde neste número',
+    descricao: 'Desligado, só a equipe responde quem escrever para este número.'
   },
   {
     campo: 'rejeitarChamadas',
-    rotulo: 'Rejeitar chamadas de voz e vídeo automaticamente',
-    descricao: 'Envia uma mensagem padrão informando que o WhatsApp é exclusivo para atendimento via texto.'
+    rotulo: 'Recusar ligações',
+    descricao: 'Recusa chamadas de voz e vídeo e avisa que o atendimento é por mensagem.'
   },
   {
     campo: 'marcarComoLida',
-    rotulo: 'Marcar mensagens como lidas automaticamente',
-    descricao: 'Envia o status azul de confirmação de leitura assim que a mensagem chega ao sistema.'
+    rotulo: 'Marcar como lida ao chegar',
+    descricao: 'O cliente vê os tiques azuis assim que a mensagem chega.'
   },
   {
     campo: 'sincronizarContatos',
-    rotulo: 'Sincronizar nomes de novos contatos',
-    descricao: 'Usa o nome do perfil do WhatsApp no cadastro de quem ainda está como “Contato WhatsApp”.'
+    rotulo: 'Usar o nome do perfil do WhatsApp',
+    descricao: 'Preenche o nome de quem ainda está como “Contato WhatsApp”.'
   }
 ];
 
@@ -81,11 +81,9 @@ export function Preferencias({ canal, ehDev }) {
   }
 
   return (
-    <Cartao titulo="Configurações da instância">
+    <Cartao titulo="Preferências do número">
       <form className="cx-config" onSubmit={gravar}>
-        <p className="texto-fraco">Ajuste o comportamento do robô para chamadas e leitura de mensagens.</p>
-
-        {ehDev ? <NomeEditavel canal={canal} /> : <NomeSomenteLeitura canal={canal} />}
+        {ehDev && <NomeEditavel canal={canal} />}
 
         {INTERRUPTORES.map(({ campo, rotulo, descricao }) => (
           <div className="cx-config__item" key={campo}>
@@ -115,35 +113,27 @@ export function Preferencias({ canal, ehDev }) {
           </p>
         )}
 
-        <div className="linha">
-          <Botao type="submit" carregando={salvar.isPending} disabled={!mudou || bloqueado || salvar.isPending}>
-            Salvar configurações do WhatsApp
-          </Botao>
-          {mudou && !salvar.isPending && (
-            <Botao type="button" variante="fantasma" onClick={() => setRascunho({})}>
-              Descartar alterações
-            </Botao>
-          )}
-          {/* Regiao viva sempre presente: o leitor de tela anuncia o resultado. */}
-          <span className="cx-salvo" role="status">
-            {salvar.isSuccess && !mudou ? 'Configurações salvas.' : mudou ? 'Há alterações não salvas.' : ''}
+        {/* Sem nada mudado, a barra e so a regiao viva (vazia ou "salvo"): um
+            botao desabilitado ali so ocupava espaco. Mudou, ela acende. */}
+        <div className={`cx-salvar${mudou || salvar.isPending ? ' cx-salvar--pendente' : ''}`}>
+          <span className="cx-salvo crescer" role="status">
+            {salvar.isSuccess && !mudou ? '✓ Preferências salvas.' : mudou ? 'Você tem alterações não salvas.' : ''}
           </span>
+          {(mudou || salvar.isPending) && (
+            <>
+              {!salvar.isPending && (
+                <Botao type="button" variante="fantasma" tamanho="sm" onClick={() => setRascunho({})}>
+                  Descartar
+                </Botao>
+              )}
+              <Botao type="submit" tamanho="sm" carregando={salvar.isPending} disabled={bloqueado || salvar.isPending}>
+                Salvar
+              </Botao>
+            </>
+          )}
         </div>
       </form>
     </Cartao>
-  );
-}
-
-function NomeSomenteLeitura({ canal }) {
-  return (
-    <div className="cx-nome">
-      <span className="campo__rotulo">Nome identificador da instância</span>
-      <p className="cx-nome__valor">
-        <span className="cx-nome__prefixo">instancia/</span>
-        {canal.nome}
-        <span className="cx-tag">Sessão Baileys</span>
-      </p>
-    </div>
   );
 }
 
@@ -168,7 +158,7 @@ function NomeEditavel({ canal }) {
   return (
     <div className="cx-nome">
       <label htmlFor={id} className="campo__rotulo">
-        Nome identificador da instância
+        Nome do número (aparece para a equipe)
       </label>
       <div className="cx-nome__linha">
         <Entrada

@@ -41,7 +41,7 @@ export async function rotasAuth(app) {
    * POST /api/auth/login
    * Publica por necessidade — e a porta de entrada.
    */
-  app.post('/api/auth/login', { config: apenas.publico }, async (req, res) => {
+  app.post('/api/auth/login', { config: { ...apenas.publico, bancoReal: true } }, async (req, res) => {
     const { username, senha, empresa } = loginSchema.parse(req.body);
 
     const { token, expiraEm, usuario } = await service.login({
@@ -64,13 +64,15 @@ export async function rotasAuth(app) {
    * Publica de proposito: deslogar precisa funcionar mesmo com token ja
    * expirado ou invalido. Exigir login pra sair seria um beco sem saida.
    */
-  app.post('/api/auth/logout', { config: apenas.publico }, async (req, res) => {
+  app.post('/api/auth/logout', { config: { ...apenas.publico, bancoReal: true } }, async (req, res) => {
     const token =
       req.cookies?.[NOME_COOKIE] ||
       (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
 
     await service.logout(token);
     res.clearCookie(NOME_COOKIE, { path: '/' });
+    // Saiu do sistema: a proxima entrada comeca no banco de verdade.
+    res.clearCookie('plataforma_demonstracao', { path: '/' });
 
     return { ok: true };
   });
@@ -81,7 +83,7 @@ export async function rotasAuth(app) {
   });
 
   /** POST /api/auth/trocar-senha */
-  app.post('/api/auth/trocar-senha', { config: apenas.atendente }, async (req, res) => {
+  app.post('/api/auth/trocar-senha', { config: { ...apenas.atendente, bancoReal: true } }, async (req, res) => {
     const { senhaAtual, novaSenha } = trocarSenhaSchema.parse(req.body);
 
     await service.trocarSenha({ userId: req.usuario.id, senhaAtual, novaSenha });

@@ -1,9 +1,10 @@
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { professionals } from '../../db/schema/crm.js';
 import { professionalServices, services } from '../../db/schema/catalog.js';
 import { appointments } from '../../db/schema/scheduling.js';
 import { users } from '../../db/schema/auth.js';
+import { conversations } from '../../db/schema/conversations.js';
 import { ID } from '../../core/ids.js';
 import { NaoEncontrado, RegraDeNegocio } from '../../core/errors.js';
 import { formatarBRL } from '../../core/money.js';
@@ -301,6 +302,17 @@ export async function excluirProfissional(tenantId, id, { usuario } = {}) {
 // ============================================================================
 
 export async function listarAtendentes(tenantId) {
+  // Quantas conversas abertas estao com cada um AGORA — a mesma conta que a
+  // distribuicao usa para saber quem esta na capacidade maxima. Com a equipe
+  // grande, e o que mostra de relance quem esta sobrecarregado.
+  // `"users"."id"` por extenso: ver `atendentesDisponiveis` (conversas.repo).
+  const emAtendimento = sql`(
+    SELECT COUNT(*) FROM ${conversations}
+    WHERE ${conversations.assignedUserId} = ${sql.identifier('users')}.${sql.identifier('id')}
+      AND ${conversations.status} != 'finalizada'
+      AND ${conversations.deletedAt} IS NULL
+  )`;
+
   const linhas = await db
     .select({
       id: users.id,
@@ -312,12 +324,14 @@ export async function listarAtendentes(tenantId) {
       ativo: users.ativo,
       statusPresenca: users.statusPresenca,
       capacidadeSimultanea: users.capacidadeSimultanea,
-      ultimoLoginEm: users.ultimoLoginEm
+      ultimoLoginEm: users.ultimoLoginEm,
+      avatar: users.avatar,
+      emAtendimento: emAtendimento.as('em_atendimento')
     })
     .from(users)
     .where(and(eq(users.tenantId, tenantId), isNull(users.deletedAt)))
     .orderBy(asc(users.nome));
 
   // O perfil de desenvolvimento nao e gente da empresa: nao aparece na equipe.
-  return linhas.filter((u) => u.cargo !== 'dev');
+  return linhas.filter((u) => u.cargo !== 'dev').map((u) => ({ ...u, emAtendimento: Number(u.emAtendimento) || 0 }));
 }

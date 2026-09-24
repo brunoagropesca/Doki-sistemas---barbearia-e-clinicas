@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import { Aviso, Botao, Carregando, FotoLead, Status, Vazio } from '../componentes/ui.jsx';
@@ -13,6 +13,14 @@ import { useAuth } from '../lib/autenticacao.jsx';
 import { PerfilAtendente } from './conversas/PerfilAtendente.jsx';
 import { VistaAgendamentos, VistaFinalizados } from './conversas/Vistas.jsx';
 import './Conversas.css';
+
+/**
+ * No celular a lista e a conversa sao "telas" diferentes: abrir uma conversa
+ * (ou uma vista) EMPILHA no historico, para o voltar do Android — e o gesto de
+ * voltar — fechar a conversa em vez de sair da mesa. No computador as duas
+ * colunas estao lado a lado: trocar de conversa so substitui o endereco.
+ */
+const ehCelular = () => window.matchMedia('(max-width: 820px)').matches;
 
 /**
  * Mesa de atendimento.
@@ -71,6 +79,20 @@ export function Conversas() {
   const vista = ['finalizados', 'agendamentos'].includes(params.get('vista')) ? params.get('vista') : null;
 
   const queryClient = useQueryClient();
+  const local = useLocation();
+  const navegar = useNavigate();
+
+  /** Vai para o novo endereco: empilhado no celular, substituido no computador. */
+  function empilhar(novos) {
+    if (ehCelular()) setParams(novos, { state: { empilhado: true } });
+    else setParams(novos, { replace: true });
+  }
+
+  /** Fecha o que esta aberto: no celular, volta o que foi empilhado. */
+  function desempilhar(novos) {
+    if (local.state?.empilhado) navegar(-1);
+    else setParams(novos, { replace: true });
+  }
 
   // Conexoes: o filtro por canal so existe para o que esta CONECTADO agora.
   // Sem nenhuma conexao no ar nao ha o que separar, e a barra nem aparece.
@@ -109,14 +131,14 @@ export function Conversas() {
     const novos = new URLSearchParams(params);
     novos.set('id', id);
     novos.delete('vista');
-    setParams(novos, { replace: true });
+    empilhar(novos);
   }
 
   /** Abre uma conversa a partir de uma vista: ao voltar, cai de volta na vista. */
   function abrirDaVista(id) {
     const novos = new URLSearchParams(params);
     novos.set('id', id);
-    setParams(novos, { replace: true });
+    empilhar(novos);
   }
 
   function escolherVista(v) {
@@ -124,7 +146,8 @@ export function Conversas() {
     novos.delete('id');
     if (v) novos.set('vista', v);
     else novos.delete('vista');
-    setParams(novos, { replace: true });
+    if (v) empilhar(novos);
+    else desempilhar(novos);
   }
 
   function trocarFiltro(chave) {
@@ -211,19 +234,30 @@ export function Conversas() {
                 <div className="conversa__conteudo">
                 <div className="conversa__topo">
                   <strong className="conversa__nome">{c.leadNome}</strong>
-                  <span className="conversa__hora">{quando(c.ultimaMensagemEm)}</span>
+                  <span className={`conversa__hora${c.naoLidas > 0 ? ' conversa__hora--nova' : ''}`}>{quando(c.ultimaMensagemEm)}</span>
                 </div>
-                <div className="conversa__previa">{c.ultimaMensagemPreview || 'Sem mensagens'}</div>
+                {/* Como no WhatsApp: o contador fica na linha da previa, nunca
+                    disputa espaco com as etiquetas (ali ele era empurrado para
+                    fora do cartao quando o nome do atendente era comprido). */}
+                <div className="conversa__linha">
+                  <span className="conversa__previa">{c.ultimaMensagemPreview || 'Sem mensagens'}</span>
+                  {c.naoLidas > 0 && <span className="conversa__nao-lidas">{c.naoLidas}</span>}
+                </div>
                 <div className="conversa__rodape">
                   {c.canalChave && (
                     <span className="conversa__canal" title={`${NOME_CANAL[c.canal] ?? c.canal} — ${c.canalNome ?? c.canalChave}`}>
                       <span aria-hidden="true">{ICONE_CANAL[c.canal] ?? '💬'}</span> {c.canalChave}
                     </span>
                   )}
-                  <Status valor={c.status} />
+                  {/* Com atendente, o selo ja diz quem: "Com Camila" (o nome solto
+                      numa coluna estreita virava "C..."). */}
+                  <Status valor={c.status} rotulo={c.status === 'humana' && c.atendenteNome ? `Com ${c.atendenteNome.split(' ')[0]}` : undefined} />
                   <Humor valor={c.humor} compacto />
-                  {c.atendenteNome && <span className="texto-fraco">{c.atendenteNome}</span>}
-                  {c.naoLidas > 0 && <span className="conversa__nao-lidas">{c.naoLidas}</span>}
+                  {c.atendenteNome && c.status !== 'humana' && (
+                    <span className="conversa__atendente" title={`Com ${c.atendenteNome}`}>
+                      {c.atendenteNome.split(' ')[0]}
+                    </span>
+                  )}
                 </div>
                 </div>
               </button>
@@ -240,15 +274,15 @@ export function Conversas() {
             aoVoltar={() => {
               const novos = new URLSearchParams(params);
               novos.delete('id');
-              setParams(novos, { replace: true });
+              desempilhar(novos);
             }}
             aoMudar={() => queryClient.invalidateQueries({ queryKey: ['conversas'] })}
             veioDeLista={Boolean(vista)}
           />
         ) : vista === 'finalizados' ? (
-          <VistaFinalizados aoAbrir={abrirDaVista} />
+          <VistaFinalizados aoAbrir={abrirDaVista} aoVoltar={() => escolherVista(null)} />
         ) : vista === 'agendamentos' ? (
-          <VistaAgendamentos aoAbrir={abrirDaVista} />
+          <VistaAgendamentos aoAbrir={abrirDaVista} aoVoltar={() => escolherVista(null)} />
         ) : (
           <Vazio titulo="Escolha uma conversa" descricao="Selecione alguém na lista ao lado para ver o histórico e responder." />
         )}

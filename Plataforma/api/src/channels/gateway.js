@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
-import { db } from '../db/client.js';
+import { db, emDemonstracao } from '../db/client.js';
+import { RegraDeNegocio } from '../core/errors.js';
 import { channelInstances } from '../db/schema/conversations.js';
 import { comContexto } from '../core/logger.js';
 import { mascarar, normalizarTelefone } from '../core/phone.js';
@@ -43,7 +44,23 @@ export function registrarAdaptador(canal, adaptador) {
   log.info({ canal }, 'Adaptador de canal registrado');
 }
 
+/**
+ * Na DEMONSTRACAO nada sai para o mundo real: responder um cliente ficticio
+ * nao pode virar uma mensagem de verdade pelo numero da empresa (a conexao W1
+ * da demonstracao tem o mesmo nome da real). Os envios dao certo "de mentira"
+ * e conectar/parear e recusado.
+ */
+const ADAPTADOR_DEMONSTRACAO = Object.freeze({
+  enviar: async () => ({ idExterno: `demo_${Date.now()}` }),
+  fotoDePerfil: async () => null,
+  conectar: async () => {
+    throw new RegraDeNegocio('Na demonstração nenhum WhatsApp é conectado de verdade. Saia da demonstração para conectar o número da empresa.');
+  },
+  desconectar: async () => {}
+});
+
 export function obterAdaptador(canal) {
+  if (emDemonstracao()) return ADAPTADOR_DEMONSTRACAO;
   return adaptadores.get(canal) ?? null;
 }
 

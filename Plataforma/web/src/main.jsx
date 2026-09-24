@@ -5,7 +5,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ProvedorAuth } from './lib/autenticacao.jsx';
 import { ProvedorTextos } from './lib/textos.jsx';
 import { App } from './App.jsx';
+import { registrarServiceWorker } from './lib/appInstalado.js';
 import './estilos/global.css';
+// Por ultimo: os ajustes de celular valem por cima de qualquer tela.
+import './estilos/celular.css';
+
+// App instalado no celular (PWA). Ver lib/appInstalado.js e public/sw.js.
+registrarServiceWorker();
 
 /**
  * Ponto de entrada da interface.

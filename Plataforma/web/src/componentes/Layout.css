@@ -12,12 +12,17 @@
 }
 
 /* ─── MENU LATERAL ─────────────────────────────────────── */
+/*
+ * Dois jeitos: aberto (icone + nome, por secao) e recolhido (so a fileira de
+ * icones — o nome vem na dica do mouse). Recolhido continua sendo um menu de
+ * verdade, clicavel: nada de espiar nem abinha escondida.
+ */
 .menu {
   width: var(--largura-menu);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(8, 11, 26, 0.55);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
   border-right: 1px solid var(--borda);
@@ -27,234 +32,136 @@
   top: 0;
   height: 100%;
   overflow: hidden;
-  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease;
+  transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
+.layout--recolhido .menu { width: var(--largura-menu-icones); }
 
-/*
- * RECOLHIDO: o menu fecha como uma sanfona (a largura vai a zero) e o
- * conteudo desliza junto para a esquerda, em vez de espremer os textos
- * enquanto a animacao acontece.
- */
-.menu > * {
-  width: var(--largura-menu);
-  flex-shrink: 0;
-  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-}
-/*
- * RECOLHIDO: sobra na pagina exatamente a faixa da fileira de icones, vazia.
- * E a margem que a espiada vai ocupar — assim ela nunca cobre o conteudo, e
- * nada na tela se mexe quando o menu entra e sai.
- */
-.layout--recolhido .menu {
-  width: var(--largura-menu-icones);
-  opacity: 0;
-  border-right-color: transparent;
-  pointer-events: none;
-}
-.layout--recolhido .menu > * { transform: translateX(-16px); }
-
-/*
- * ESPIANDO: o mouse na abinha traz so a fileira de icones. E uma espiada —
- * some sozinha quando o mouse sai. Abrir de vez continua sendo um clique.
- *
- * So no computador: no celular o menu ja e uma gaveta inteira pelo botao ☰.
- */
-@media (min-width: 821px) {
-/* Espiar so ACENDE a fileira que ja esta reservada: nada muda de lugar. */
-.layout--espiando .menu {
-  opacity: 1;
-  pointer-events: auto;
-  border-right-color: var(--borda);
-}
-.layout--espiando .menu > * { transform: none; }
-
-/* Recolhido, o menu ja esta montado como fileira de icones (mesmo invisivel):
-   assim a espiada entra pronta, sem um pulo de layout no meio da animacao. */
-.layout--recolhido .menu > * { width: var(--largura-menu-icones); }
-.layout--recolhido .menu__marca { justify-content: center; padding: var(--e4) 0; }
-.layout--recolhido .menu__marca > .crescer,
-.layout--recolhido .menu__recolher,
-/* O bloco nome+cargo inteiro, nao so o texto: sobrando um `.crescer` vazio
-   (flex:1) ali dentro, ele ainda puxava a foto para a esquerda em vez de
-   deixar o `justify-content: center` do `.menu__usuario` centralizar. */
-.layout--recolhido .menu__usuario > .crescer,
-.layout--recolhido .menu__seta,
-.layout--recolhido .menu__rodape .botao { display: none; }
-
-.layout--recolhido .menu__nav { padding: var(--e3) var(--e1); }
-.layout--recolhido .menu__item {
-  position: relative;
-  justify-content: center;
-  gap: 0;
-  padding: 10px 0;
-}
-.layout--recolhido .menu__item > .crescer { display: none; }
-.layout--recolhido .menu__badge {
-  position: absolute;
-  top: 2px;
-  right: 6px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  font-size: 10px;
-}
-.layout--recolhido .menu__usuario { justify-content: center; padding: var(--e2) 0; }
-.layout--recolhido .menu__rodape { padding: var(--e2) var(--e1); }
-}
-
-/*
- * So agrupa a abinha e o `<aside>` na ARVORE do DOM (ver o comentario no
- * Layout.jsx) — nao gera caixa propria, entao nao muda o layout em nada:
- * o `<aside>` continua sendo o item flex de `.layout`, e a abinha continua
- * `position: fixed`, relativa a tela.
- */
-.layout__zona-menu { display: contents; }
-
-.menu__recolher {
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--borda);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--texto-suave);
-  font-size: 17px;
-  line-height: 1;
-  cursor: pointer;
-  transition: background 0.14s, color 0.14s, border-color 0.14s;
-}
-.menu__recolher:hover { background: rgba(255,255,255,0.12); color: var(--texto); border-color: var(--borda-forte); }
-
-/*
- * A abinha de puxar: fica colada na borda esquerda, so o cantinho aparecendo.
- * Ao passar o mouse ela cresce e acende — "me puxa".
- */
-.layout__puxar {
-  position: fixed;
-  /* Recolhido, fica no canto da tela; ao espiar, desliza junto com a fileira
-     de icones e para na borda dela (dentro do respiro do conteudo, sem cobrir
-     nada). Ver `.layout--espiando` abaixo. */
-  left: 0;
-  top: 50%;
-  z-index: 60;
-  width: 20px;
-  height: 78px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 1px solid var(--borda-forte);
-  border-left: 0;
-  border-radius: 0 12px 12px 0;
-  background: linear-gradient(135deg, rgba(24,86,255,0.28), rgba(124,58,237,0.22));
-  backdrop-filter: var(--blur-leve);
-  -webkit-backdrop-filter: var(--blur-leve);
-  color: var(--texto);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: var(--sombra);
-  /* Escondida enquanto o menu esta aberto: sai de cena pela propria borda. */
-  /* Menu aberto: sai de cena pela propria borda esquerda da tela. */
-  transform: translate(-100%, -50%);
-  opacity: 0;
-  visibility: hidden;
-  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease,
-    width 0.16s ease, background 0.16s ease, visibility 0s linear 0.3s,
-    left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.layout--recolhido .layout__puxar {
-  transform: translate(0, -50%);
-  opacity: 1;
-  visibility: visible;
-  transition-delay: 0s, 0.08s, 0s, 0s, 0s, 0s;
-}
-/* Espiando, a abinha acompanha a fileira e para na borda dela — continua
-   sendo ELA a seta que abre o menu inteiro. */
-.layout--espiando .layout__puxar {
-  left: var(--largura-menu-icones);
-  width: 22px;
-  background: linear-gradient(135deg, rgba(24,86,255,0.55), rgba(124,58,237,0.45));
-}
-/* Cresce um pouco no hover, mas sem passar do respiro do conteudo (24px):
-   assim ela nunca encosta na lista que comeca logo ali. */
-.layout--recolhido .layout__puxar:hover,
-.layout--recolhido .layout__puxar:focus-visible {
-  width: 24px;
-  background: linear-gradient(135deg, rgba(24,86,255,0.55), rgba(124,58,237,0.45));
-  outline: none;
-  box-shadow: var(--sombra), var(--glow-pri);
-}
-/* Um respiro de "estou aqui" logo que o menu some. */
-.layout--recolhido .layout__puxar span { animation: puxar-acenar 2.4s ease-in-out 0.6s 2; }
-@keyframes puxar-acenar {
-  0%, 100% { transform: translateX(0); }
-  50% { transform: translateX(3px); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .menu, .menu > *, .layout__puxar { transition-duration: 0.01ms; }
-  .layout--recolhido .layout__puxar span { animation: none; }
-}
-
+/* ── Marca ── */
 .menu__marca {
   display: flex;
   align-items: center;
-  gap: var(--e2);
-  padding: var(--e5) var(--e4);
+  gap: var(--e3);
+  height: 60px;
+  flex-shrink: 0;
+  padding: 0 var(--e4);
   font-weight: 700;
   font-size: 15px;
   letter-spacing: -0.02em;
-  border-bottom: 1px solid var(--borda);
-  background: linear-gradient(135deg, rgba(24,86,255,0.08), transparent);
 }
 .menu__logo {
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--primaria), #7c3aed);
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
   color: #fff;
-  font-size: 16px;
-  box-shadow: 0 0 16px rgba(24, 86, 255, 0.4);
+  background: linear-gradient(135deg, var(--primaria), #7c3aed);
+  box-shadow: 0 0 16px rgba(24, 86, 255, 0.35);
 }
-
-.menu__nav {
-  flex: 1;
-  padding: var(--e3) var(--e2);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  overflow-y: auto;
+.menu__logo svg { width: 20px; height: 20px; }
+/* Logo enviado pela empresa: inteiro (contain, nunca cortado) sobre um fundo
+   escuro neutro. Fundo BRANCO sumia com logos de desenho branco e fundo
+   transparente — o caso comum de logo feito para tema escuro. */
+.menu__logo--imagem {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--borda-forte);
+  box-shadow: none;
+  overflow: hidden;
 }
+.menu__logo--imagem img { width: 100%; height: 100%; object-fit: contain; }
+.menu__nome-sistema { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.menu__item {
+/* Logo + nome da empresa: leva a Base de conhecimento (onde se trocam). */
+.menu__empresa {
   display: flex;
   align-items: center;
   gap: var(--e3);
-  padding: 10px var(--e3);
+  min-width: 0;
+  margin: 0 -6px;
+  padding: 6px;
   border-radius: var(--raio);
-  color: var(--texto-suave);
-  font-size: 13.5px;
-  font-weight: 500;
-  text-decoration: none;
-  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
-}
-.menu__item:hover {
-  background: var(--superficie-2);
   color: var(--texto);
   text-decoration: none;
+  transition: background 0.15s;
 }
+a.menu__empresa:hover { background: var(--superficie-2); text-decoration: none; }
+a.menu__empresa.active { background: none; }
+
+/* ── Navegacao por secoes ── */
+.menu__nav {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  padding: var(--e1) var(--e3) var(--e3);
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Barra de rolagem so quando precisa, fina e da cor do tema. */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+.menu__nav::-webkit-scrollbar { width: 6px; }
+.menu__nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 6px; }
+.menu__nav::-webkit-scrollbar-button { display: none; }
+
+.menu__secao { display: flex; flex-direction: column; gap: 2px; }
+.menu__secao-titulo {
+  height: 20px;
+  padding: 0 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--texto-fraco);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.menu__secao-itens { display: flex; flex-direction: column; gap: 2px; }
+
+.menu__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  background: none;
+  color: var(--texto-suave);
+  font-family: var(--fonte);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.menu__item:hover { background: var(--superficie-2); color: var(--texto); text-decoration: none; }
 .menu__item--ativo {
-  background: linear-gradient(135deg, rgba(24,86,255,0.22), rgba(24,86,255,0.1));
+  background: var(--primaria-suave);
+  border-color: rgba(24, 86, 255, 0.28);
   color: #fff;
-  border: 1px solid rgba(24, 86, 255, 0.3);
-  box-shadow: var(--glow-pri);
 }
-.menu__icone { font-size: 16px; width: 20px; text-align: center; }
+/* Tracinho de "voce esta aqui" na borda esquerda. */
+.menu__item--ativo::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--primaria);
+  box-shadow: 0 0 10px var(--primaria);
+}
+.menu__icone { width: 19px; height: 19px; flex-shrink: 0; }
+.menu__item--ativo .menu__icone { color: #8db6ff; }
+.menu__rotulo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 .menu__badge {
   min-width: 20px;
@@ -276,32 +183,38 @@
   50% { box-shadow: 0 0 20px rgba(234, 33, 67, 0.8); }
 }
 
+/* ── Rodape: recolher + conta ── */
 .menu__rodape {
-  padding: var(--e3);
-  border-top: 1px solid var(--borda);
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: var(--e2);
-  background: rgba(0,0,0,0.1);
+  padding: var(--e2) var(--e3) var(--e3);
+  border-top: 1px solid var(--borda);
 }
+.menu__recolher { color: var(--texto-fraco); }
+
+.menu__conta { display: flex; align-items: center; gap: var(--e1); }
 .menu__usuario {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--e3);
-  padding: var(--e2);
-  border-radius: var(--raio);
+  padding: 6px;
   border: 1px solid transparent;
+  border-radius: var(--raio);
   color: inherit;
   text-decoration: none;
   transition: background 0.15s, border-color 0.15s;
 }
-.menu__usuario:hover { background: rgba(255,255,255,0.06); border-color: var(--borda); }
-.menu__usuario--ativo { background: var(--primaria-suave); border-color: rgba(24,86,255,0.3); }
-.menu__seta { color: var(--texto-fraco); font-size: 18px; line-height: 1; }
+.menu__usuario:hover { background: var(--superficie-2); text-decoration: none; }
+.menu__usuario--ativo { background: var(--primaria-suave); border-color: rgba(24, 86, 255, 0.28); }
+.menu__quem { display: flex; flex-direction: column; min-width: 0; }
 .menu__avatar {
   position: relative;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -311,14 +224,6 @@
   color: #fff;
   font-weight: 700;
   font-size: 13px;
-  box-shadow: 0 0 12px rgba(24,86,255,0.35);
-}
-.menu__nome {
-  font-size: 13px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .menu__avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .menu__presenca {
@@ -333,10 +238,71 @@
 }
 .menu__presenca--online { background: var(--sucesso); }
 .menu__presenca--ausente { background: var(--alerta); }
-.menu__cargo {
-  font-size: 11px;
+.menu__nome {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu__cargo { font-size: 11px; color: var(--texto-fraco); white-space: nowrap; }
+.menu__sair {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  background: none;
   color: var(--texto-fraco);
-  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.menu__sair svg { width: 18px; height: 18px; }
+.menu__sair:hover { background: var(--perigo-suave); color: #ff6b82; }
+
+/*
+ * RECOLHIDO (so computador): a mesma estrutura, so que os nomes somem e
+ * tudo centraliza na fileira. Os titulos das secoes viram uma linha fina,
+ * para os grupos continuarem separados.
+ */
+@media (min-width: 821px) {
+  .layout--recolhido .menu__marca { justify-content: center; padding: 0; }
+  .layout--recolhido .menu__empresa { flex: none; margin: 0; }
+  .layout--recolhido .menu__nome-sistema,
+  .layout--recolhido .menu__rotulo,
+  .layout--recolhido .menu__quem,
+  .layout--recolhido .menu__cargo { display: none; }
+
+  .layout--recolhido .menu__nav { padding: var(--e2) 10px var(--e4); gap: var(--e3); }
+  .layout--recolhido .menu__secao-titulo {
+    height: 1px;
+    margin: 0 8px var(--e2);
+    padding: 0;
+    font-size: 0;
+    background: var(--borda);
+  }
+  .layout--recolhido .menu__secao:first-child .menu__secao-titulo { display: none; }
+  .layout--recolhido .menu__item { justify-content: center; padding: 0; gap: 0; }
+  .layout--recolhido .menu__badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 10px;
+  }
+
+  .layout--recolhido .menu__rodape { padding: var(--e2) 10px var(--e3); }
+  .layout--recolhido .menu__conta { flex-direction: column; gap: var(--e2); }
+  .layout--recolhido .menu__usuario { flex: none; padding: 4px; }
+  .layout--recolhido .menu__sair { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu { transition-duration: 0.01ms; }
 }
 
 /* ─── CONTEÚDO ─────────────────────────────────────────── */
@@ -351,62 +317,320 @@
   padding-bottom: max(var(--e5), env(safe-area-inset-bottom, 0px));
 }
 
-/* ─── BOTÃO MOBILE ─────────────────────────────────────── */
-.layout__abrir-menu {
-  display: none;
-  position: fixed;
-  top: max(var(--e3), env(safe-area-inset-top, 0px));
-  left: var(--e3);
-  z-index: 60;
-  width: 40px;
-  height: 40px;
-  align-items: center;
-  justify-content: center;
-  background: var(--superficie);
-  backdrop-filter: var(--blur-leve);
-  -webkit-backdrop-filter: var(--blur-leve);
-  border: 1px solid var(--borda-forte);
-  border-radius: var(--raio);
-  font-size: 17px;
-  color: var(--texto);
-  cursor: pointer;
-  box-shadow: var(--sombra);
-}
-.layout__fundo {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  z-index: 70;
+
+/* ─── CASCA DE APLICATIVO (celular) ───────────────────────
+ * Barra do topo, barra de abas e a folha do "Mais" so existem no celular.
+ * No computador nada disto aparece e o menu lateral segue como sempre.
+ */
+.layout__topo,
+.layout__rodape,
+.layout__fundo,
+.menu__fechar-folha,
+.menu__secao--app { display: none; }
+
+@media (max-width: 820px) {
+  /* Coluna: topo fixo, conteudo que rola, abas fixas. `dvh` acompanha a
+     barra do navegador que aparece e some (o `vh` deixaria as abas por
+     baixo dela). */
+  .layout {
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  /* ── Topo ── */
+  .layout__topo {
+    display: flex;
+    align-items: center;
+    gap: var(--e3);
+    flex-shrink: 0;
+    z-index: 40;
+    min-height: calc(54px + env(safe-area-inset-top, 0px));
+    padding: env(safe-area-inset-top, 0px) var(--e3) 0 var(--e4);
+    background: rgba(5, 8, 20, 0.78);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border-bottom: 1px solid var(--borda);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .layout__topo-logo { width: 28px; height: 28px; flex-shrink: 0; font-size: 14px; }
+  .layout__titulo {
+    flex: 1;
+    min-width: 0;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .layout__voltar {
+    width: 38px;
+    height: 38px;
+    margin-left: -10px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    padding: 0 0 4px;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--texto);
+    font-size: 34px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .layout__voltar:active { background: var(--superficie-2); }
+  .layout__eu { display: flex; border-radius: 50%; text-decoration: none; }
+  .layout__eu:hover { text-decoration: none; }
+  .layout__eu .menu__avatar { width: 32px; height: 32px; font-size: 12px; }
+
+  /* ── Conteudo: so ele rola, e a rolagem nao "vaza" para a pagina. ── */
+  .conteudo {
+    flex: 1;
+    padding: var(--e3);
+    padding-bottom: var(--e5);
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── Abas ── */
+  .layout__rodape { display: block; flex-shrink: 0; z-index: 40; }
+  .layout__abas {
+    display: flex;
+    height: calc(60px + env(safe-area-inset-bottom, 0px));
+    padding: 0 var(--e1) env(safe-area-inset-bottom, 0px);
+    background: rgba(8, 11, 26, 0.92);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border-top: 1px solid var(--borda);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .aba {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--texto-fraco);
+    font-family: var(--fonte);
+    font-size: 10.5px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .aba:hover { text-decoration: none; }
+  .aba__icone {
+    position: relative;
+    width: 52px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    transition: background 0.2s, color 0.2s, transform 0.12s;
+  }
+  .aba__icone svg { width: 23px; height: 23px; }
+  .aba:active .aba__icone { transform: scale(0.9); }
+  .aba--ativa { color: var(--texto); }
+  .aba--ativa .aba__icone { background: var(--primaria-suave); color: #8db6ff; }
+  .aba__badge {
+    position: absolute;
+    top: -2px;
+    right: 4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    display: grid;
+    place-items: center;
+    border: 2px solid #080b1a;
+    border-radius: 999px;
+    background: var(--perigo);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  /* Conversa aberta: tela cheia, como no WhatsApp. */
+  .layout--conversa-aberta .layout__topo,
+  .layout--conversa-aberta .layout__rodape { display: none; }
+  .layout--conversa-aberta .conteudo {
+    padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Teclado aberto: as abas saem, o campo fica com a tela. */
+  .layout--digitando .layout__rodape { display: none; }
+
+  /* ── Folha do "Mais": sobe de baixo, com o resto do menu em grade. ── */
+  .layout__fundo {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    animation: fadeIn 0.2s ease;
+  }
+  .menu {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 80;
+    width: 100%;
+    height: auto;
+    max-height: 85dvh;
+    padding-top: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: rgba(10, 14, 30, 0.97);
+    border-right: 0;
+    border-top: 1px solid var(--borda-forte);
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.6);
+    transform: translateY(105%);
+    visibility: hidden;
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.3s;
+  }
+  .menu--aberto {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s;
+  }
+  .layout--recolhido .menu { width: 100%; }
+
+  .menu__marca {
+    position: relative;
+    height: auto;
+    padding: 22px var(--e4) var(--e2);
+  }
+  /* A "alcinha" de folha que se puxa. */
+  .menu__marca::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 38px;
+    height: 4px;
+    margin-left: -19px;
+    border-radius: 999px;
+    background: var(--borda-forte);
+  }
+  .menu__fechar-folha {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--borda);
+    border-radius: 50%;
+    background: var(--superficie);
+    color: var(--texto-suave);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  /* Secoes com titulo e, embaixo, os itens em grade de 3. */
+  .menu__nav { flex: 0 1 auto; gap: var(--e3); padding: 0 var(--e3) var(--e3); }
+  .menu__secao-itens {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--e2);
+  }
+  /* Secao cujos itens ja estao todos na barra de abas: some inteira. */
+  .menu__secao:not(:has(.menu__item:not(.menu__item--na-barra))) { display: none; }
+
+  .menu__item {
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    height: auto;
+    min-height: 80px;
+    padding: var(--e3) 6px;
+    border-color: var(--borda);
+    border-radius: 14px;
+    background: var(--superficie);
+    font-size: 12px;
+    line-height: 1.25;
+    text-align: center;
+    white-space: normal;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .menu__item:active { transform: scale(0.97); }
+  .menu__item--ativo::before { display: none; }
+  .menu__icone { width: 24px; height: 24px; }
+  .menu__rotulo { flex: none; overflow: visible; }
+  .menu__item--na-barra { display: none; }
+  .menu__item--instalar {
+    font-weight: 600;
+    color: var(--texto);
+    background: linear-gradient(135deg, rgba(24, 86, 255, 0.25), rgba(124, 58, 237, 0.2));
+    border-color: rgba(24, 86, 255, 0.35);
+  }
+  .menu__badge { position: absolute; top: 6px; right: 8px; }
+
+  /* O recolher e do computador; no celular a conta ocupa o rodape. */
+  .menu__recolher { display: none; }
+  .menu__rodape { padding: var(--e3); }
+  .menu__secao--app { display: flex; }
 }
 
 @media (max-width: 820px) {
-  .layout__abrir-menu { display: flex; }
-  .layout__fundo { display: block; }
-
-  .menu {
-    position: fixed;
-    left: 0;
-    top: 0;
-    z-index: 80;
-    transform: translateX(-100%);
-    transition: transform 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    box-shadow: var(--sombra-g);
+  /* Conversa em tela cheia: sem faixa de aviso e sem moldura de cartao —
+     o fio vai de ponta a ponta, como num app de mensagens. */
+  .layout--conversa-aberta .licenca-faixa { display: none; }
+  .layout--conversa-aberta .mesa__fio {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
-  .menu--aberto { transform: translateX(0); }
+}
 
-  /* No celular o menu ja e uma gaveta com o botao ☰: recolher nao se aplica. */
-  .menu__recolher, .layout__puxar { display: none; }
-  .layout--recolhido .menu {
-    width: var(--largura-menu);
-    opacity: 1;
-    pointer-events: auto;
-  }
-  .layout--recolhido .menu > * { transform: none; }
-
-  .conteudo {
-    padding: var(--e4);
-    padding-top: calc(var(--e7) + env(safe-area-inset-top, 0px));
-  }
+/* ─── Faixa do modo demonstracao ─── */
+.faixa-demo {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  margin-bottom: var(--e3);
+  padding: 8px 10px 8px 14px;
+  border: 1px solid rgba(167, 139, 250, 0.55);
+  border-radius: var(--raio);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.92), rgba(24, 86, 255, 0.88));
+  color: #fff;
+  font-size: 13px;
+  box-shadow: var(--sombra);
+}
+.faixa-demo__ponto { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #fff; animation: pulsar-demo 1.6s ease-in-out infinite; }
+@keyframes pulsar-demo { 50% { opacity: 0.35; } }
+.faixa-demo__sair {
+  flex: none;
+  padding: 5px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.faixa-demo__sair:hover { background: rgba(255, 255, 255, 0.28); }
+@media (max-width: 820px) {
+  .faixa-demo { font-size: 12px; }
+  .faixa-demo .crescer { line-height: 1.3; }
+  /* No celular a faixa fica numa linha so: presa no topo, nao pode comer a tela. */
+  .faixa-demo { padding-top: 6px; padding-bottom: 6px; }
+  .faixa-demo__detalhe { display: none; }
 }

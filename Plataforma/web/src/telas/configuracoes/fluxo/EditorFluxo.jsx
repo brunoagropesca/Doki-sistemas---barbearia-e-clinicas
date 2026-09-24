@@ -17,6 +17,7 @@ import '@xyflow/react/dist/style.css';
 import { LIMITES, motivoParaRecusarLigacao, organizarFluxo, validarFluxo } from '@regras-do-fluxo';
 import { api } from '../../../lib/api.js';
 import { Aviso, Botao, Carregando } from '../../../componentes/ui.jsx';
+import { Icone } from '../../../componentes/Icone.jsx';
 import { ArestaRemovivel } from './ArestaRemovivel.jsx';
 import { ContextoEditor, TIPOS_DE_NO_REACT_FLOW } from './Nos.jsx';
 import { PainelFluxo } from './PainelFluxo.jsx';
@@ -61,7 +62,8 @@ function Editor({ inicial }) {
   const [config, setConfig] = useState(inicial.fluxo.config ?? {});
   const [modificado, setModificado] = useState(false);
   const [editando, setEditando] = useState(null);
-  const [seletor, setSeletor] = useState(null); // { x, y, fluxo: {x,y}, origem?: {no, handle} }
+  const [seletor, setSeletor] = useState(null); // { x, y, ancora?, fluxo: {x,y}, origem?: {no, handle} }
+  const botaoAdicionar = useRef(null);
   const [aviso, setAviso] = useState(null);
 
   const mexeu = () => setModificado(true);
@@ -200,17 +202,28 @@ function Editor({ inicial }) {
   // --- Criar e mexer em passos ---------------------------------------------
 
   /**
-   * Abre a lista de tipos onde a pessoa clicou ou soltou a linha. Quem cuida
-   * de caber dentro do canvas e a propria lista (ela se mede); aqui so
+   * Abre a lista de tipos no ponto (da TELA) em que a pessoa soltou a linha.
+   * Quem cuida de caber na janela e a propria lista (ela se mede); aqui so
    * guardamos o ponto do canvas em que o passo novo vai nascer.
    */
   function abrirSeletor(clientX, clientY, origem = null) {
-    const caixa = canvasRef.current.getBoundingClientRect();
+    setSeletor({ x: clientX, y: clientY, fluxo: screenToFlowPosition({ x: clientX, y: clientY }), origem });
+  }
+
+  /**
+   * "+ Adicionar passo": a lista abre como menu do botao (alterna), e o passo
+   * novo nasce no CENTRO da parte do canvas que esta a vista — um pouco
+   * deslocado a cada criacao, para dois passos novos nao nascerem empilhados.
+   */
+  function alternarAdicionar() {
+    if (seletor && !seletor.origem) return setSeletor(null);
+    const c = canvasRef.current.getBoundingClientRect();
+    const centro = screenToFlowPosition({ x: c.left + c.width / 2, y: c.top + c.height / 2 });
+    const passo = (nodes.length % 5) * 28;
     setSeletor({
-      x: clientX - caixa.left,
-      y: clientY - caixa.top,
-      fluxo: screenToFlowPosition({ x: clientX, y: clientY }),
-      origem
+      ancora: botaoAdicionar.current.getBoundingClientRect(),
+      fluxo: { x: centro.x - 140 + passo, y: centro.y - 70 + passo },
+      origem: null
     });
   }
 
@@ -359,44 +372,46 @@ function Editor({ inicial }) {
     <ContextoEditor.Provider value={contexto}>
       <div className="fluxo">
         <header className="fluxo__topo">
-          <div className="crescer">
+          <div className="fluxo__titulo">
             <h1>Menu do WhatsApp</h1>
-            <p className="texto-fraco">
-              Arraste da bolinha de uma opção até outro passo para ligar. Clique duas vezes num passo para editar.
-            </p>
-          </div>
-
-          <div className="fluxo__estado">
-            {erros > 0 ? (
-              <span className="fluxo__selo fluxo__selo--erro">{erros} {erros === 1 ? 'erro' : 'erros'}</span>
-            ) : avisos > 0 ? (
-              <span className="fluxo__selo fluxo__selo--aviso">{avisos} {avisos === 1 ? 'aviso' : 'avisos'}</span>
-            ) : null}
-            <span className={`fluxo__selo ${modificado ? 'fluxo__selo--pendente' : 'fluxo__selo--salvo'}`}>
-              {modificado ? '● Não salvo' : '✓ Salvo'}
-            </span>
+            <div className="fluxo__estado">
+              <span className={`fluxo__selo ${modificado ? 'fluxo__selo--pendente' : 'fluxo__selo--salvo'}`}>
+                {modificado ? '● Alterações não salvas' : '✓ Salvo'}
+              </span>
+              {erros > 0 ? (
+                <span className="fluxo__selo fluxo__selo--erro">{erros} {erros === 1 ? 'erro' : 'erros'}</span>
+              ) : avisos > 0 ? (
+                <span className="fluxo__selo fluxo__selo--aviso">{avisos} {avisos === 1 ? 'aviso' : 'avisos'}</span>
+              ) : null}
+              <span className="fluxo__contagem">
+                {nodes.length} de {LIMITES.nos} passos
+              </span>
+            </div>
           </div>
 
           <div className="fluxo__acoes">
             <Botao
+              ref={botaoAdicionar}
               variante="secundario"
               tamanho="sm"
-              onClick={() => {
-                // Abre no meio do canvas: e onde o passo novo vai nascer.
-                const r = canvasRef.current.getBoundingClientRect();
-                abrirSeletor(r.left + r.width / 2, r.top + r.height / 2);
-              }}
+              data-abre-seletor
+              aria-haspopup="menu"
+              aria-expanded={Boolean(seletor && !seletor.origem)}
+              onClick={alternarAdicionar}
             >
-              + Adicionar passo
+              <Icone nome="adicionar" className="fluxo__icone" />
+              Adicionar passo
+              <span className="fluxo__seta" aria-hidden="true">▾</span>
             </Botao>
-            <Botao variante="fantasma" tamanho="sm" onClick={organizar} title="Arruma os passos em colunas, do início para a direita">
+            <Botao variante="fantasma" tamanho="sm" onClick={organizar} title="Arruma os passos como uma árvore, do início para a direita">
+              <Icone nome="organizar" className="fluxo__icone" />
               Organizar
             </Botao>
-            <Link to="/ia?aba=simulador">
-              <Botao variante="fantasma" tamanho="sm" type="button">
-                Simulador
-              </Botao>
+            <Link to="/ia?aba=simulador" className="botao botao--fantasma botao--sm" title="Testar com a IA e o menu juntos">
+              <Icone nome="testar" className="fluxo__icone" />
+              Simulador
             </Link>
+            <span className="fluxo__divisor" aria-hidden="true" />
             <Botao
               tamanho="sm"
               onClick={() => salvar.mutate()}
@@ -457,10 +472,16 @@ function Editor({ inicial }) {
               />
             </ReactFlow>
 
+            {/* O jeito de usar, dentro do proprio canvas (e nao numa linha a mais no topo). */}
+            <div className="fluxo__dica" aria-hidden="true">
+              Arraste a bolinha de uma opção até um passo para ligar · solte no vazio para criar · duplo clique edita
+            </div>
+
             {seletor && (
               <SeletorDeNo
                 x={seletor.x}
                 y={seletor.y}
+                ancora={seletor.ancora}
                 titulo={seletor.origem ? 'Ligar a um passo novo' : 'Adicionar passo'}
                 aoEscolher={criar}
                 aoFechar={fecharSeletor}
