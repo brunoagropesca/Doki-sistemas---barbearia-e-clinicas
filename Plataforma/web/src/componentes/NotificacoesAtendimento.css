@@ -1,0 +1,197 @@
+/* ================================================================
+ * NOTIFICACOES DE ATENDIMENTO — "a IA passou um cliente para voce"
+ *
+ * Pilha no canto inferior direito, acima de modais (o atendente pode estar
+ * com uma ficha aberta) e abaixo do aviso da gerencia, que e a camada maxima.
+ * ================================================================ */
+
+.notificacoes {
+  position: fixed;
+  right: var(--e4);
+  bottom: var(--e4);
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  width: min(380px, calc(100vw - 2 * var(--e4)));
+  max-height: calc(100vh - 2 * var(--e4));
+  overflow-y: auto;
+}
+
+.notificacao {
+  position: relative;
+  display: flex;
+  gap: var(--e3);
+  padding: var(--e3) var(--e4);
+  padding-right: var(--e6);
+  overflow: hidden;
+  background: rgba(10, 14, 30, 0.96);
+  border: 1px solid var(--primaria);
+  border-left-width: 5px;
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra-g);
+  animation: notificacao-entra 0.25s ease-out;
+}
+
+@keyframes notificacao-entra {
+  from { transform: translateX(24px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+.notificacao__icone {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primaria-suave);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.notificacao__corpo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notificacao__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e2);
+}
+.notificacao__rotulo {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--primaria);
+}
+.notificacao__hora {
+  font-size: 12px;
+  color: var(--texto-fraco);
+}
+
+.notificacao__cliente {
+  font-size: 16px;
+  color: var(--texto);
+}
+
+.notificacao__motivo {
+  margin: 2px 0 0;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--texto-suave);
+  overflow-wrap: anywhere;
+}
+
+.notificacao__acoes {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: var(--e2);
+}
+
+.notificacao__atender {
+  padding: 8px 20px;
+  border: none;
+  border-radius: var(--raio);
+  background: var(--primaria);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.notificacao__atender:hover:not(:disabled) { filter: brightness(1.12); }
+.notificacao__atender:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.notificacao__atender:disabled { opacity: 0.7; cursor: wait; }
+
+.notificacao__fechar {
+  position: absolute;
+  top: var(--e2);
+  right: var(--e2);
+  background: none;
+  border: none;
+  color: var(--texto-fraco);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.notificacao__fechar:hover { color: var(--texto); }
+
+/* Barrinha que mostra quanto falta para o cartao comum sumir. */
+.notificacao__tempo {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--primaria);
+  transform-origin: left;
+  animation-name: notificacao-tempo;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes notificacao-tempo {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+/* ─── URGENTE: cliente frustrado ─────────────────────────── */
+
+.notificacao--urgente {
+  border-color: var(--perigo);
+  background: #1a0710;
+  animation: notificacao-entra 0.25s ease-out, notificacao-pulsa 1.2s ease-in-out infinite;
+}
+
+@keyframes notificacao-pulsa {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 33, 67, 0.65), var(--sombra-g); }
+  50%      { box-shadow: 0 0 0 10px rgba(234, 33, 67, 0), var(--sombra-g); }
+}
+
+.notificacao--urgente .notificacao__icone {
+  background: var(--perigo);
+  color: #fff;
+  font-weight: 800;
+  font-size: 20px;
+}
+
+.notificacao__selo {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--perigo);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.notificacao__dica {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #ffb3c0;
+}
+
+.notificacao--urgente .notificacao__atender {
+  background: var(--perigo);
+  font-size: 15px;
+  padding: 10px 26px;
+}
+
+.notificacao--erro {
+  border-color: var(--alerta);
+  color: var(--texto);
+  font-size: 13.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notificacao, .notificacao--urgente { animation: none; }
+  .notificacao--urgente { box-shadow: 0 0 0 3px rgba(234, 33, 67, 0.6), var(--sombra-g); }
+}

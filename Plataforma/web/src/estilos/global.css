@@ -1,0 +1,195 @@
+﻿/*
+ * ============================================================
+ * GLASSMORPHISM DESIGN SYSTEM — Plataforma de Atendimento
+ * Baseado no skill glassmorphism | Tokens: Plus Jakarta Sans
+ * ============================================================
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@700&family=Bebas+Neue&display=swap');
+
+/* ─── TOKENS ─────────────────────────────────────────── */
+:root {
+  color-scheme: dark;
+
+  /* Marca */
+  --primaria:         #1856FF;
+  --primaria-escura:  #1240d6;
+  --primaria-suave:   rgba(24, 86, 255, 0.15);
+  --primaria-glow:    rgba(24, 86, 255, 0.35);
+
+  /* Estados */
+  --sucesso:          #07CA6B;
+  --sucesso-suave:    rgba(7, 202, 107, 0.12);
+  --alerta:           #E89558;
+  --alerta-suave:     rgba(232, 149, 88, 0.12);
+  --perigo:           #EA2143;
+  --perigo-suave:     rgba(234, 33, 67, 0.12);
+  --info:             #38BDF8;
+  --info-suave:       rgba(56, 189, 248, 0.12);
+
+  /* Superfícies glass — dark base */
+  --fundo:            #050814;
+  --superficie:       rgba(255, 255, 255, 0.05);
+  --superficie-2:     rgba(255, 255, 255, 0.08);
+  --superficie-3:     rgba(255, 255, 255, 0.12);
+  --borda:            rgba(255, 255, 255, 0.08);
+  --borda-forte:      rgba(255, 255, 255, 0.15);
+  --blur:             saturate(180%) blur(20px);
+  --blur-leve:        saturate(160%) blur(12px);
+
+  /* Texto */
+  --texto:            #F0F4FF;
+  --texto-suave:      rgba(240, 244, 255, 0.65);
+  --texto-fraco:      rgba(240, 244, 255, 0.38);
+
+  /* Espaçamento */
+  --e1: 4px;
+  --e2: 8px;
+  --e3: 12px;
+  --e4: 16px;
+  --e5: 24px;
+  --e6: 32px;
+  --e7: 48px;
+
+  --raio:    10px;
+  --raio-g:  16px;
+  --raio-xl: 24px;
+
+  --sombra:   0 4px 24px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0,0,0,0.3);
+  --sombra-g: 0 8px 40px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0,0,0,0.4);
+  --glow-pri: 0 0 24px rgba(24, 86, 255, 0.25);
+
+  --fonte:      'Plus Jakarta Sans', system-ui, sans-serif;
+  --fonte-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --largura-menu: 248px;
+  /* Menu recolhido, ao espiar com o mouse: so a fileira de icones. */
+  --largura-menu-icones: 66px;
+}
+
+/* ─── RESET ──────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+html, body, #raiz {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--fonte);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--texto);
+  background: var(--fundo);
+  -webkit-font-smoothing: antialiased;
+  /* Gradient mesh background */
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 10%,  rgba(24, 86, 255, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 80%,  rgba(120, 40, 255, 0.14) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 60% 20%,  rgba(7, 202, 107, 0.07) 0%, transparent 50%);
+  background-attachment: fixed;
+}
+
+h1, h2, h3, h4 {
+  margin: 0;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+h1 { font-size: 24px; }
+h2 { font-size: 18px; }
+h3 { font-size: 15px; }
+
+p { margin: 0; }
+
+a {
+  color: var(--primaria);
+  text-decoration: none;
+}
+a:hover { text-decoration: underline; }
+
+:focus-visible {
+  outline: 2px solid var(--primaria);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ================================================================
+ * SELECT NATIVO GLOBAL
+ * Garante que todo <select> da aplicacao (com ou sem .entrada)
+ * receba o tratamento glassmorphism.
+ * ================================================================ */
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  width: 100%;
+  padding: 9px 36px 9px 12px;
+  font-family: var(--fonte);
+  font-size: 14px;
+  color: var(--texto);
+  background-color: rgba(255, 255, 255, 0.05);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0b4ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"),
+    linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  background-repeat: no-repeat, no-repeat;
+  background-position: right 12px center, 0 0;
+  background-size: 14px, 100%;
+
+  backdrop-filter: saturate(160%) blur(12px);
+  -webkit-backdrop-filter: saturate(160%) blur(12px);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+  cursor: pointer;
+  line-height: 1.5;
+  transition: border-color 0.18s, box-shadow 0.18s, background-color 0.18s;
+}
+
+select:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--primaria);
+  box-shadow: 0 0 0 3px rgba(24, 86, 255, 0.2), 0 0 16px rgba(24, 86, 255, 0.1);
+  background-color: rgba(24, 86, 255, 0.06);
+}
+
+select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Popup de opções — dark forçado */
+select option {
+  background-color: #0d1220;
+  color: #e8eeff;
+}
+
+select option:checked {
+  background-color: #1856ff;
+  color: #ffffff;
+}
+
+select optgroup {
+  background-color: #070c18;
+  color: rgba(160, 180, 255, 0.5);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}

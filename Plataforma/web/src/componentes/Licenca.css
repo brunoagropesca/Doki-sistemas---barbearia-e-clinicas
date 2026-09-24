@@ -1,0 +1,73 @@
+/* ================================================================
+ * LICENCA — tela de bloqueio, faixa de aviso e ativacao
+ * ================================================================ */
+
+.licenca-bloqueio {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--e4);
+  background: var(--fundo);
+}
+
+.licenca-bloqueio__caixa {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  padding: var(--e6) var(--e5);
+  background: var(--superficie);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio-xl);
+  box-shadow: var(--sombra-g);
+  text-align: center;
+}
+.licenca-bloqueio__caixa h1 { margin: 0; }
+.licenca-bloqueio__caixa p { margin: 0; }
+.licenca-bloqueio__icone { font-size: 44px; }
+.licenca-bloqueio__motivo { font-size: 16px; font-weight: 600; }
+.licenca-bloqueio__caixa .licenca__ativar { text-align: left; }
+
+.licenca__codigo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e3);
+  flex-wrap: wrap;
+  padding: var(--e3) var(--e4);
+  border: 1px dashed var(--borda-forte);
+  border-radius: var(--raio);
+  background: rgba(255, 255, 255, 0.03);
+}
+.licenca__codigo strong { font-size: 20px; letter-spacing: 0.08em; }
+
+.licenca__copiar {
+  padding: 4px 10px;
+  border: 1px solid var(--borda-forte);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.licenca__ativar { display: flex; flex-direction: column; gap: var(--e3); }
+.licenca__serial { font-family: var(--fonte-mono); font-size: 12px; word-break: break-all; min-height: 72px; }
+
+.licenca-faixa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+  flex-wrap: wrap;
+  margin-bottom: var(--e4);
+  padding: var(--e2) var(--e4);
+  border-radius: var(--raio);
+  font-size: 13.5px;
+}
+.licenca-faixa a { font-weight: 700; color: inherit; }
+.licenca-faixa--aviso { border: 1px solid var(--alerta); background: var(--alerta-suave); }
+.licenca-faixa--tolerancia { border: 1px solid var(--perigo); background: var(--perigo-suave); }

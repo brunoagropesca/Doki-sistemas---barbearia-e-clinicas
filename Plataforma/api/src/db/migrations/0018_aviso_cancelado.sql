@@ -1,0 +1,1 @@
+ALTER TABLE `team_alerts` ADD `cancelado_em` integer;

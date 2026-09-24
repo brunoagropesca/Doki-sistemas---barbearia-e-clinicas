@@ -1,0 +1,150 @@
+/* ================================================================
+ * AVISO URGENTE — recado da gerencia por cima de tudo
+ *
+ * Camada maxima (z-index acima de qualquer modal) e fundo que pisca em
+ * vermelho. O texto em si NAO pisca: piscar a mensagem atrapalharia
+ * justamente a leitura dela. Chama atencao a moldura; a leitura fica calma.
+ * ================================================================ */
+
+.aviso-urgente {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--e4);
+  background: rgba(40, 0, 8, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: aviso-urgente-fundo 1s ease-in-out infinite;
+}
+
+@keyframes aviso-urgente-fundo {
+  0%, 100% { background: rgba(40, 0, 8, 0.82); }
+  50%      { background: rgba(234, 33, 67, 0.55); }
+}
+
+.aviso-urgente__caixa {
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100vh - 2 * var(--e4));
+  overflow-y: auto;
+  background: #120a12;
+  border: 3px solid var(--perigo);
+  border-radius: var(--raio-g);
+  box-shadow: 0 0 0 0 rgba(234, 33, 67, 0.7), 0 24px 80px rgba(0, 0, 0, 0.8);
+  animation: aviso-urgente-borda 1s ease-in-out infinite, aviso-urgente-entrada 0.25s ease-out;
+}
+
+@keyframes aviso-urgente-borda {
+  0%, 100% { border-color: var(--perigo); box-shadow: 0 0 0 0 rgba(234, 33, 67, 0.7), 0 24px 80px rgba(0, 0, 0, 0.8); }
+  50%      { border-color: #ffd23f;       box-shadow: 0 0 0 14px rgba(234, 33, 67, 0),  0 24px 80px rgba(0, 0, 0, 0.8); }
+}
+
+@keyframes aviso-urgente-entrada {
+  from { transform: scale(0.9); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.aviso-urgente__faixa {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e4) var(--e5);
+  background: var(--perigo);
+  color: #fff;
+}
+
+.aviso-urgente__icone {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--perigo);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 800;
+  animation: aviso-urgente-icone 1s ease-in-out infinite;
+}
+
+@keyframes aviso-urgente-icone {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.15); }
+}
+
+.aviso-urgente__titulo {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.aviso-urgente__origem {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+/* A mensagem: grande, alto contraste, quebra de linha preservada. */
+.aviso-urgente__mensagem {
+  margin: 0;
+  padding: var(--e5);
+  font-size: 22px;
+  line-height: 1.45;
+  font-weight: 600;
+  color: #fff;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.aviso-urgente__rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+  padding: var(--e4) var(--e5) var(--e5);
+}
+
+.aviso-urgente__restantes {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.aviso-urgente__entendi {
+  min-width: 160px;
+  padding: 14px 28px;
+  border: none;
+  border-radius: var(--raio);
+  background: var(--perigo);
+  color: #fff;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.aviso-urgente__entendi:hover:not(:disabled) { filter: brightness(1.1); }
+.aviso-urgente__entendi:focus-visible { outline: 3px solid #ffd23f; outline-offset: 3px; }
+.aviso-urgente__entendi:disabled { opacity: 0.7; cursor: wait; }
+
+.aviso-urgente__erro {
+  margin: 0;
+  padding: 0 var(--e5) var(--e4);
+  color: #ffb3c0;
+  font-size: 13px;
+}
+
+@media (max-width: 520px) {
+  .aviso-urgente__mensagem { font-size: 19px; }
+  .aviso-urgente__rodape { flex-direction: column-reverse; align-items: stretch; }
+  .aviso-urgente__entendi { width: 100%; }
+}
+
+/* Quem pediu menos movimento ao sistema: pisca devagar, sem pulsar o icone. */
+@media (prefers-reduced-motion: reduce) {
+  .aviso-urgente { animation-duration: 3s; }
+  .aviso-urgente__caixa { animation: aviso-urgente-borda 3s ease-in-out infinite; }
+  .aviso-urgente__icone { animation: none; }
+}

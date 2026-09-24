@@ -1,0 +1,113 @@
+/* ================================================================
+ * FUNCOES DO SISTEMA — pagina do perfil DEV
+ * ================================================================ */
+
+.funcoes-dev { gap: var(--e5); }
+
+.funcoes-dev__topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e4);
+  flex-wrap: wrap;
+}
+
+.funcoes-dev__resumo {
+  padding: var(--e2) var(--e4);
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--texto-suave);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.funcoes-dev__resumo strong { color: var(--texto); font-size: 15px; }
+.funcoes-dev__resumo--alerta { border-color: var(--alerta); background: var(--alerta-suave); }
+
+.funcoes-dev__grupo { display: flex; flex-direction: column; gap: var(--e3); }
+.funcoes-dev__grupo-topo { display: flex; align-items: baseline; gap: var(--e3); flex-wrap: wrap; }
+.funcoes-dev__grupo-topo h2 { margin: 0; font-size: 17px; }
+
+.funcoes-dev__grade {
+  display: grid;
+  gap: var(--e3);
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
+
+.funcao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  padding: var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-left: 4px solid var(--sucesso);
+  border-radius: var(--raio-g);
+}
+.funcao--desligada {
+  border-left-color: var(--texto-fraco);
+  background: rgba(255, 255, 255, 0.02);
+}
+.funcao--desligada .funcao__titulo,
+.funcao--desligada .funcao__descricao { opacity: 0.7; }
+
+.funcao__topo { display: flex; align-items: flex-start; gap: var(--e3); }
+.funcao__titulo { margin: 0 0 2px; font-size: 15px; }
+
+.funcao__estado {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--texto-fraco);
+}
+.funcao__estado--ligada { color: var(--sucesso); }
+
+.funcao__descricao { margin: 0; font-size: 13.5px; color: var(--texto-suave); }
+.funcao__efeito {
+  margin: 0;
+  padding: var(--e2) var(--e3);
+  border-radius: var(--raio);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12.5px;
+  color: var(--texto-suave);
+}
+.funcao__efeito strong { color: var(--texto); }
+
+/* Interruptor (switch): alvo grande, estado legivel pela cor e pela posicao. */
+.interruptor {
+  position: relative;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 26px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.interruptor--ligado { background: var(--sucesso); }
+.interruptor:focus-visible { outline: 3px solid var(--primaria); outline-offset: 2px; }
+.interruptor:disabled { opacity: 0.6; cursor: wait; }
+.interruptor__bola {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s ease;
+}
+.interruptor--ligado .interruptor__bola { transform: translateX(22px); }
+
+/* Faixa que o DEV ve numa tela cuja funcao esta desligada. */
+.faixa-funcao-desligada {
+  margin-bottom: var(--e4);
+  padding: var(--e3) var(--e4);
+  border: 1px solid var(--alerta);
+  border-radius: var(--raio);
+  background: var(--alerta-suave);
+  font-size: 13.5px;
+}

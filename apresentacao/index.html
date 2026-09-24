@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plataforma Barbearia 360 | Apresentação Comercial</title>
+  
+  <!-- Google Fonts: Bangers (Headings), Plus Jakarta Sans (Body), IBM Plex Mono (Data) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=IBM+Plex+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* ==========================================================================
+       DESIGN SYSTEM - CREATIVE STYLE (Editorial & Pop, Light Mode)
+       ========================================================================== */
+    :root {
+      --font-display: 'Bangers', cursive, system-ui;
+      --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+
+      --color-primary: #2563EB;
+      --color-primary-light: #DBEAFE;
+      --color-secondary: #7C3AED;
+      --color-secondary-light: #EDE9FE;
+      --color-accent: #F59E0B;
+      --color-accent-light: #FEF3C7;
+      --color-success: #10B981;
+      --color-success-light: #D1FAE5;
+      --color-danger: #EF4444;
+      --color-danger-light: #FEE2E2;
+      
+      --color-ink: #0F172A;
+      --color-surface: #FFFFFF;
+      --color-bg: #F8FAFC;
+      --color-cream: #FEFCE8;
+      
+      --border-thick: 2.5px solid var(--color-ink);
+      --border-thin: 1.5px solid var(--color-ink);
+      --shadow-offset: 4px 4px 0px var(--color-ink);
+      --shadow-offset-lg: 6px 6px 0px var(--color-ink);
+      --shadow-offset-sm: 2px 2px 0px var(--color-ink);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-pill: 9999px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background-color: var(--color-bg);
+      color: var(--color-ink);
+      min-height: 100vh;
+      overflow-x: hidden;
+      user-select: none;
+      background-image: radial-gradient(#CBD5E1 1.2px, transparent 1.2px);
+      background-size: 24px 24px;
+    }
+
+    /* Top Navigation Bar */
+    header.deck-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 64px;
+      background: var(--color-surface);
+      border-bottom: var(--border-thick);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+      box-shadow: 0 4px 0px rgba(15, 23, 42, 0.05);
+    }
+
+    .brand-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--color-cream);
+      border: var(--border-thin);
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      box-shadow: var(--shadow-offset-sm);
+      font-weight: 800;
+      font-size: 0.95rem;
+      letter-spacing: 0.5px;
+    }
+
+    .brand-pill .scissors {
+      font-size: 1.2rem;
+      color: var(--color-primary);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .slide-counter {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding: 6px 12px;
+      background: var(--color-primary-light);
+      border: var(--border-thin);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-offset-sm);
+    }
+
+    .btn-icon {
+      background: var(--color-surface);
+      border: var(--border-thin);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      cursor: pointer;
+      font-family: var(--font-body);
+      font-weight: 700;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: var(--shadow-offset-sm);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+
+    .btn-icon:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: var(--shadow-offset);
+    }
+
+    .btn-icon:active {
+      transform: translate(1px, 1px);
+      box-shadow: none;
+    }
+
+    /* Progress Bar */
+    .progress-track {
+      position: fixed;
+      top: 64px;
+      left: 0;
+      width: 100%;
+      height: 6px;
+      background: #E2E8F0;
+      z-index: 99;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 11.11%;
+      background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Main Deck Container */
+    main.deck-viewport {
+      padding-top: 70px;
+      padding-bottom: 74px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 1240px;
+      margin: 0 auto;
+      padding-left: 20px;
+      padding-right: 20px;
+    }
+
+    /* Slide Card */
+    .slide {
+      display: none;
+      width: 100%;
+      background: var(--color-surface);
+      border: var(--border-thick);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-offset-lg);
+      padding: 44px;
+      position: relative;
+      animation: slideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      min-height: 650px;
+    }
+
+    .slide.active {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.99);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Typography */
+    h1.display-title {
+      font-family: var(--font-display);
+      font-size: 3.5rem;
+      letter-spacing: 1.5px;
+      line-height: 1.05;
+      text-transform: uppercase;
+      color: var(--color-ink);
+      margin-bottom: 16px;
+    }
+
+    h2.slide-heading {
+      font-family: var(--font-display);
+      font-size: 2.8rem;
+      letter-spacing: 1.2px;
+      line-height: 1.1;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    p.lead-text {
+      font-size: 1.25rem;
+      color: #334155;
+      line-height: 1.5;
+      font-weight: 500;
+      max-width: 800px;
+    }
+
+    .badge-pop {
+      display: inline-block;
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      border: var(--border-thin);
+      box-shadow: var(--shadow-offset-sm);
+      margin-bottom: 14px;
+    }
+
+    .badge-blue { background: var(--color-primary-light); color: var(--color-primary); }
+    .badge-purple { background: var(--color-secondary-light); color: var(--color-secondary); }
+    .badge-green { background: var(--color-success-light); color: #065F46; }
+    .badge-amber { background: var(--color-accent-light); color: #92400E; }
+    .badge-red { background: var(--color-danger-light); color: var(--color-danger); }
+
+    /* Highlights & Cards */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      margin-top: 24px;
+      align-items: stretch;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-top: 24px;
+      align-items: stretch;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .card-box {
+      background: var(--color-surface);
+      border: var(--border-thick);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-offset);
+      padding: 24px;
+      transition: transform 0.15s, box-shadow 0.15s;
+      position: relative;
+    }
+
+    .card-box:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: var(--shadow-offset-lg);
+    }
+
+    .card-danger {
+      background: #FFF5F5;
+      border-color: #991B1B;
+    }
+
+    .card-success {
+      background: #F0FDF4;
+      border-color: #166534;
+    }
+
+    .card-primary {
+      background: #F0F7FF;
+      border-color: #1E40AF;
+    }
+
+    .card-purple {
+      background: #FAF5FF;
+      border-color: #6B21A8;
+    }
+
+    /* Agent Showcase Cards */
+    .agent-avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: var(--border-thick);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow-offset-sm);
+    }
+
+    .agent-title {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .agent-role {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: inline-block;
+      padding: 2px 8px;
+      background: rgba(0,0,0,0.05);
+      border-radius: 4px;
+    }
+
+    /* Interactive WhatsApp Mockup */
+    .whatsapp-window {
+      background: #EFEAE2;
+      border: var(--border-thick);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-offset);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 440px;
+    }
+
+    .wa-header {
+      background: #075E54;
+      color: white;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: var(--border-thin);
+    }
+
+    .wa-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #128C7E;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      border: 1.5px solid white;
+    }
+
+    .wa-info h4 {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .wa-info span {
+      font-size: 0.75rem;
+      opacity: 0.85;
+    }
+
+    .wa-chat-body {
+      padding: 16px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background-image: radial-gradient(#000000 0.5px, transparent 0.5px);
+      background-size: 16px 16px;
+      opacity: 0.98;
+    }
+
+    .bubble {
+      max-width: 82%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      position: relative;
+      border: 1.5px solid rgba(15, 23, 42, 0.8);
+      box-shadow: 2px 2px 0px rgba(0,0,0,0.2);
+    }
+
+    .bubble-client {
+      align-self: flex-start;
+      background: #FFFFFF;
+      border-top-left-radius: 2px;
+    }
+
+    .bubble-sofia {
+      align-self: flex-end;
+      background: #D9FDD3;
+      border-top-right-radius: 2px;
+    }
+
+    .audio-player-mock {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+    }
+
+    .btn-play-audio {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: var(--border-thin);
+      background: var(--color-primary);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1.1rem;
+      box-shadow: 1px 1px 0px var(--color-ink);
+      flex-shrink: 0;
+    }
+
+    .audio-waveform {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 24px;
+      flex: 1;
+    }
+
+    .audio-bar {
+      width: 4px;
+      background: #64748B;
+      border-radius: 2px;
+      height: 12px;
+      transition: height 0.2s;
+    }
+
+    .audio-bar.playing {
+      animation: wave 0.6s infinite alternate ease-in-out;
+    }
+
+    @keyframes wave {
+      0% { height: 6px; background: var(--color-primary); }
+      100% { height: 24px; background: var(--color-secondary); }
+    }
+
+    .transcription-box {
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #F1F5F9;
+      border-left: 3px solid var(--color-primary);
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: #334155;
+    }
+
+    .bubble-time {
+      font-size: 0.7rem;
+      color: #64748B;
+      text-align: right;
+      margin-top: 4px;
+      font-family: var(--font-mono);
+    }
+
+    /* ROI Interactive Calculator */
+    .roi-panel {
+      background: var(--color-cream);
+      border: var(--border-thick);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-offset);
+      padding: 24px;
+    }
+
+    .calc-slider-group {
+      margin-bottom: 20px;
+    }
+
+    .calc-slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 8px;
+    }
+
+    .calc-val {
+      font-family: var(--font-mono);
+      color: var(--color-primary);
+      font-size: 1.15rem;
+      background: white;
+      padding: 2px 8px;
+      border: var(--border-thin);
+      border-radius: 6px;
+      box-shadow: var(--shadow-offset-sm);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 12px;
+      border-radius: 6px;
+      background: #CBD5E1;
+      border: var(--border-thin);
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      border: var(--border-thick);
+      cursor: pointer;
+      box-shadow: 2px 2px 0px var(--color-ink);
+    }
+
+    .roi-output-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .roi-metric-card {
+      background: var(--color-surface);
+      border: var(--border-thick);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-offset);
+      padding: 16px;
+      text-align: center;
+    }
+
+    .roi-metric-number {
+      font-family: var(--font-display);
+      font-size: 2.8rem;
+      letter-spacing: 1px;
+      color: var(--color-success);
+      line-height: 1;
+      margin: 8px 0;
+    }
+
+    .roi-metric-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #475569;
+    }
+
+    /* Bottom Controller Bar */
+    footer.deck-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 64px;
+      background: var(--color-surface);
+      border-top: var(--border-thick);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-nav {
+      background: var(--color-ink);
+      color: white;
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      letter-spacing: 1px;
+      border: var(--border-thick);
+      border-radius: var(--radius-sm);
+      padding: 8px 24px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: var(--shadow-offset);
+      transition: all 0.1s;
+    }
+
+    .btn-nav.btn-primary {
+      background: var(--color-primary);
+    }
+
+    .btn-nav:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: var(--shadow-offset-lg);
+    }
+
+    .btn-nav:active {
+      transform: translate(2px, 2px);
+      box-shadow: none;
+    }
+
+    .btn-nav:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    .keyboard-hints {
+      font-size: 0.85rem;
+      color: #64748B;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    kbd {
+      background: #F1F5F9;
+      border: var(--border-thin);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.75rem;
+      box-shadow: 1px 1px 0px rgba(0,0,0,0.15);
+    }
+
+    /* List styling with custom bullet chips */
+    ul.check-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    ul.check-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    ul.check-list li .chip {
+      font-size: 1.2rem;
+      line-height: 1;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: var(--border-thin);
+      box-shadow: var(--shadow-offset-sm);
+      flex-shrink: 0;
+    }
+
+    /* CTA Big Button */
+    .btn-cta-giant {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: var(--color-primary);
+      color: white;
+      font-family: var(--font-display);
+      font-size: 2rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 20px 48px;
+      border: var(--border-thick);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-offset-lg);
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .btn-cta-giant:hover {
+      transform: translate(-3px, -3px);
+      box-shadow: 8px 8px 0px var(--color-ink);
+      background: #1D4ED8;
+    }
+
+    .btn-cta-giant:active {
+      transform: translate(2px, 2px);
+      box-shadow: none;
+    }
+
+    /* PRINT / PDF STYLESHEET */
+    @media print {
+      body {
+        background: white !important;
+        background-image: none !important;
+      }
+      header.deck-header,
+      footer.deck-footer,
+      .progress-track,
+      .btn-icon,
+      .nav-buttons,
+      .keyboard-hints {
+        display: none !important;
+      }
+      main.deck-viewport {
+        padding: 0 !important;
+        max-width: 100% !important;
+        display: block !important;
+      }
+      .slide {
+        display: block !important;
+        page-break-after: always;
+        break-after: page;
+        min-height: 100vh !important;
+        margin-bottom: 20px;
+        box-shadow: none !important;
+        border: 2px solid #000 !important;
+      }
+    }
+
+    /* Responsive tweaks */
+    @media (max-width: 900px) {
+      .grid-2, .grid-3, .grid-4 {
+        grid-template-columns: 1fr;
+      }
+      h1.display-title { font-size: 2.5rem; }
+      h2.slide-heading { font-size: 2rem; }
+      .slide { padding: 24px; min-height: auto; }
+      .keyboard-hints { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP HEADER -->
+  <header class="deck-header">
+    <div class="brand-pill">
+      <span class="scissors">✂</span>
+      <span>PLATAFORMA BARBEARIA 360</span>
+      <span style="font-size:0.75rem; background: var(--color-primary); color:white; padding:2px 6px; border-radius:4px;">IA COMERCIAL</span>
+    </div>
+
+    <div class="header-actions">
+      <div class="slide-counter" id="slideIndicator">Slide 01 / 09</div>
+      <button class="btn-icon" id="btnFullscreen" title="Tela Cheia (Atalho: tecla F)">
+        <span>⛶</span> <span>Tela Cheia</span>
+      </button>
+      <button class="btn-icon" onclick="window.print()" title="Salvar apresentação em PDF">
+        <span>🖨</span> <span>Exportar PDF</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- PROGRESS BAR -->
+  <div class="progress-track">
+    <div class="progress-fill" id="progressBar"></div>
+  </div>
+
+  <!-- SLIDES VIEWPORT -->
+  <main class="deck-viewport">
+
+    <!-- ====================================================================
+         SLIDE 1: CAPA DE IMPACTO
+         ==================================================================== -->
+    <section class="slide active" id="slide-1">
+      <div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <span class="badge-pop badge-blue">💈 Sistema de Atendimento & Vendas</span>
+          <span class="badge-pop badge-purple">⚡ Inteligência Artificial Dedicada</span>
+        </div>
+        
+        <h1 class="display-title" style="margin-top:10px;">
+          Cadeiras Cheias.<br>
+          WhatsApp Respondido em Segundos.<br>
+          <span style="color: var(--color-primary); text-decoration: underline decoration-thickness: 6px;">Lucro no Piloto Automático.</span>
+        </h1>
+        
+        <p class="lead-text" style="font-size:1.35rem; margin-top: 14px;">
+          Descubra como colocar <strong>três especialistas digitais</strong> trabalhando 24 horas por dia dentro do WhatsApp da sua barbearia para atender clientes, gerenciar a agenda sem furos e lotar os horários vazios da semana.
+        </p>
+      </div>
+
+      <div class="grid-4" style="margin-top: 36px;">
+        <div class="card-box card-primary" style="text-align:center;">
+          <div style="font-size: 2.2rem; margin-bottom:8px;">🎧</div>
+          <div style="font-family:var(--font-display); font-size:1.4rem;">Ouve Áudios</div>
+          <p style="font-size:0.85rem; color:#475569; margin-top:4px;">Transcreve e responde notas de voz instantaneamente</p>
+        </div>
+        <div class="card-box card-success" style="text-align:center;">
+          <div style="font-size: 2.2rem; margin-bottom:8px;">📅</div>
+          <div style="font-family:var(--font-display); font-size:1.4rem;">Agenda Blindada</div>
+          <p style="font-size:0.85rem; color:#475569; margin-top:4px;">Calcula corte, barba e intervalo sem overbooking</p>
+        </div>
+        <div class="card-box card-purple" style="text-align:center;">
+          <div style="font-size: 2.2rem; margin-bottom:8px;">🎯</div>
+          <div style="font-family:var(--font-display); font-size:1.4rem;">Reativação Ativa</div>
+          <p style="font-size:0.85rem; color:#475569; margin-top:4px;">Chama quem não corta há 20 dias no ritmo certo</p>
+        </div>
+        <div class="card-box" style="text-align:center; background:#FEF3C7; border-color:#B45309;">
+          <div style="font-size: 2.2rem; margin-bottom:8px;">💰</div>
+          <div style="font-family:var(--font-display); font-size:1.4rem;">Mais Faturamento</div>
+          <p style="font-size:0.85rem; color:#475569; margin-top:4px;">Zero perda de clientes por demora na resposta</p>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding-top:16px; border-top:1px dashed #CBD5E1;">
+        <span style="font-family:var(--font-mono); font-size:0.9rem; color:#64748B;">Apresentação exclusiva para proprietários de barbearia</span>
+        <span style="font-weight:700; color:var(--color-primary); cursor:pointer;" onclick="goToSlide(2)">Avançar apresentação ➔</span>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         SLIDE 2: O DIAGNÓSTICO (ONDE A BARBEARIA PERDE DINHEIRO)
+         ==================================================================== -->
+    <section class="slide" id="slide-2">
+      <div>
+        <span class="badge-pop badge-red">🚨 O Diagnóstico Real</span>
+        <h2 class="slide-heading">Onde a sua barbearia está sangrando dinheiro todo mês?</h2>
+        <p class="lead-text">
+          Enquanto a máquina de cortar cabelo está ligada e as mãos estão ocupadas, seu WhatsApp recebe mensagens a todo momento. Veja o que acontece de verdade nos bastidores:
+        </p>
+      </div>
+
+      <div class="grid-2" style="margin-top: 20px;">
+        <div class="card-box card-danger">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+            <span style="font-size:2rem;">⏳</span>
+            <h3 style="font-family:var(--font-display); font-size:1.6rem; color:#991B1B;">1. O cliente impaciente que vai embora</h3>
+          </div>
+          <p style="font-size:1rem; color:#4B5563; line-height:1.5;">
+            O cliente manda: <em>"Tem horário pra hoje às 18h?"</em>. Você está atendendo e só responde 40 minutos depois. Nesse intervalo, <strong>ele já chamou o concorrente da rua de trás</strong> que respondeu primeiro.
+          </p>
+        </div>
+
+        <div class="card-box card-danger">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+            <span style="font-size:2rem;">🎤</span>
+            <h3 style="font-family:var(--font-display); font-size:1.6rem; color:#991B1B;">2. O recado de áudio ignorado</h3>
+          </div>
+          <p style="font-size:1rem; color:#4B5563; line-height:1.5;">
+            Com a barbearia barulhenta ou enquanto corta cabelo, você <strong>não consegue ouvir áudios de 45 segundos</strong>. O cliente fica no vácuo e a venda do combo corte + barba é perdida.
+          </p>
+        </div>
+
+        <div class="card-box card-danger">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+            <span style="font-size:2rem;">📉</span>
+            <h3 style="font-family:var(--font-display); font-size:1.6rem; color:#991B1B;">3. As terças e quartas-feiras vazias</h3>
+          </div>
+          <p style="font-size:1rem; color:#4B5563; line-height:1.5;">
+            Sexta e sábado a casa lota, mas no início da semana os barbeiros ficam olhando para o teto. <strong>Você tem centenas de clientes na lista de contatos</strong>, mas ninguém tem tempo de mandar mensagem para eles um por um.
+          </p>
+        </div>
+
+        <div class="card-box card-danger">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+            <span style="font-size:2rem;">💥</span>
+            <h3 style="font-family:var(--font-display); font-size:1.6rem; color:#991B1B;">4. Confusão de horário e marcação dupla</h3>
+          </div>
+          <p style="font-size:1rem; color:#4B5563; line-height:1.5;">
+            Marcar na pressa no caderninho ou bloco de notas gera cliente esperando 30 minutos na recepção, barbeiro irritado e cliente constrangido.
+          </p>
+        </div>
+      </div>
+
+      <div style="background:#FEE2E2; border:var(--border-thin); border-radius:var(--radius-sm); padding:12px 18px; margin-top:16px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-weight:700; color:#991B1B;">💸 Resultado: Cada cliente perdido por falta de resposta rápida custa em média R$ 60 a R$ 120 direto do seu bolso.</span>
+        <span style="font-family:var(--font-mono); font-weight:700; color:#991B1B;">Até R$ 3.000+/mês desperdiçados</span>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         SLIDE 3: A NOVA EQUIPE DIGITAL (SOFIA, ATENA, AQUILES)
+         ==================================================================== -->
+    <section class="slide" id="slide-3">
+      <div>
+        <span class="badge-pop badge-purple">👥 O Time dos Sonhos</span>
+        <h2 class="slide-heading">Apresentando: Sua Nova Equipe Digital de Especialistas</h2>
+        <p class="lead-text">
+          Você não precisa contratar mais recepcionistas nem se sobrecarregar no celular. Nossa plataforma entrega <strong>três especialistas digitais dedicados</strong> integrados ao seu WhatsApp:
+        </p>
+      </div>
+
+      <div class="grid-3" style="margin-top: 24px;">
+        <!-- SOFIA -->
+        <div class="card-box card-primary">
+          <div class="agent-avatar" style="background:#DBEAFE; border-color:#2563EB;">👩‍💼</div>
+          <div class="agent-title" style="color:#2563EB;">SOFIA</div>
+          <div class="agent-role">Atendimento & Recepção 24/7</div>
+          <p style="font-size:0.95rem; color:#334155; line-height:1.5;">
+            Conversa com os clientes no WhatsApp no tom amigável e descontraído da sua barbearia. <strong>Ouve áudios de voz</strong>, responde dúvidas de preços, localização e tira o dono do WhatsApp.
+          </p>
+          <div style="margin-top:14px; padding-top:12px; border-top:1px solid #BFDBFE; font-size:0.85rem; font-weight:700; color:#1D4ED8;">
+            ✔ Responde em menos de 5 segundos<br>
+            ✔ Fala a língua da sua barbearia
+          </div>
+        </div>
+
+        <!-- ATENA -->
+        <div class="card-box card-success">
+          <div class="agent-avatar" style="background:#D1FAE5; border-color:#059669;">🧠</div>
+          <div class="agent-title" style="color:#059669;">ATENA</div>
+          <div class="agent-role">Gerente da Agenda & Operação</div>
+          <p style="font-size:0.95rem; color:#334155; line-height:1.5;">
+            O cérebro técnico. Calcula com precisão matemática o tempo de cada corte, barba, horário de descanso do profissional e <strong>nunca faz encaixe errado nem marca por cima de ninguém</strong>.
+          </p>
+          <div style="margin-top:14px; padding-top:12px; border-top:1px solid #A7F3D0; font-size:0.85rem; font-weight:700; color:#047857;">
+            ✔ Cria, remarca e cancela no banco<br>
+            ✔ Zero overbooking ou conflito
+          </div>
+        </div>
+
+        <!-- AQUILES -->
+        <div class="card-box card-purple">
+          <div class="agent-avatar" style="background:#EDE9FE; border-color:#7C3AED;">🏹</div>
+          <div class="agent-title" style="color:#7C3AED;">AQUILES</div>
+          <div class="agent-role">Especialista em Vendas & Reativação</div>
+          <p style="font-size:0.95rem; color:#334155; line-height:1.5;">
+            O responsável por lotar a casa nos dias calmos. Encontra clientes que cortaram há mais de 20 ou 30 dias e envia <strong>mensagens hiperpersonalizadas</strong> convidando para renovar o visual.
+          </p>
+          <div style="margin-top:14px; padding-top:12px; border-top:1px solid #DDD6FE; font-size:0.85rem; font-weight:700; color:#5B21B6;">
+            ✔ Mensagens únicas (nada de robô chato)<br>
+            ✔ Você aprova tudo antes de enviar
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--color-cream); border:var(--border-thin); border-radius:var(--radius-sm); padding:12px 18px; margin-top:20px; text-align:center;">
+        <span style="font-family:var(--font-display); font-size:1.2rem; letter-spacing:0.5px;">
+          ⚡ Trabalham juntos, 24 horas por dia, 365 dias por ano. Sem encargos, sem atestados e sem erros.
+        </span>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         SLIDE 4: SOFIA - ATENDIMENTO & ÁUDIO (MOCKUP INTERATIVO)
+         ==================================================================== -->
+    <section class="slide" id="slide-4">
+      <div>
+        <span class="badge-pop badge-blue">🎧 Demonstração Interativa</span>
+        <h2 class="slide-heading">Sofia: A Recepcionista que Ouve Áudios e Encanta o Cliente</h2>
+        <p class="lead-text">
+          O cliente de barbearia tem pressa e costuma mandar áudio dirigindo ou no trabalho. A Sofia escuta, transcreve com tecnologia Whisper de alta fidelidade e resolve em segundos:
+        </p>
+      </div>
+
+      <div class="grid-2" style="margin-top: 18px;">
+        <!-- Mockup WhatsApp -->
+        <div class="whatsapp-window">
+          <div class="wa-header">
+            <div class="wa-avatar">S</div>
+            <div class="wa-info">
+              <h4>Sofia • Barbearia Premium</h4>
+              <span>online agora • Atendente Inteligente</span>
+            </div>
+          </div>
+          
+          <div class="wa-chat-body" id="chatDemoBody">
+            <!-- Mensagem 1: Cliente manda áudio -->
+            <div class="bubble bubble-client">
+              <div class="audio-player-mock">
+                <button class="btn-play-audio" id="btnAudioDemo" title="Clique para reproduzir simulação de áudio">
+                  <span id="audioPlayIcon">▶</span>
+                </button>
+                <div class="audio-waveform" id="waveformBars">
+                  <div class="audio-bar" style="height:10px;"></div>
+                  <div class="audio-bar" style="height:16px;"></div>
+                  <div class="audio-bar" style="height:22px;"></div>
+                  <div class="audio-bar" style="height:14px;"></div>
+                  <div class="audio-bar" style="height:18px;"></div>
+                  <div class="audio-bar" style="height:8px;"></div>
+                  <div class="audio-bar" style="height:20px;"></div>
+                  <div class="audio-bar" style="height:12px;"></div>
+                </div>
+                <span style="font-size:0.75rem; font-family:var(--font-mono); color:#475569;" id="audioTimer">0:08</span>
+              </div>
+              
+              <div class="transcription-box" id="audioTranscriptText">
+                <strong>Transcrição Inteligente:</strong> "Fala meu querido, beleza? Tem como dar um talento na barba e degradê hoje às 17h com o Marcos?"
+              </div>
+              <div class="bubble-time">16:42 • Mensagem de voz</div>
+            </div>
+
+            <!-- Mensagem 2: Sofia responde -->
+            <div class="bubble bubble-sofia">
+              Fala Gabriel, beleza pura! 💈<br><br>
+              Dei uma olhada na escala do Marcos aqui: às <strong>17h</strong> ele está finalizando uma química, mas consigo encaixar seu <strong>Degradê + Barba Terapia às 17:30</strong> ou às <strong>18:15</strong>.<br><br>
+              Qual desses fica melhor pra você dar esse talento no visual hoje?
+              <div class="bubble-time">16:42 • Sofia respondeu em 2.4s ✓✓</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Explicações laterais -->
+        <div style="display:flex; flex-direction:column; justify-content:center;">
+          <div class="card-box card-primary" style="margin-bottom:16px;">
+            <h3 style="font-family:var(--font-display); font-size:1.5rem; color:#1E40AF; margin-bottom:8px;">
+              🎙 Nunca mais ignore um áudio de cliente
+            </h3>
+            <p style="font-size:0.95rem; color:#334155; line-height:1.45;">
+              A transcrição vira texto em menos de 1 segundo. A Sofia entende sotaques, gírias e o estilo do seu cliente, sem você precisar colocar o fone de ouvido no meio do expediente.
+            </p>
+          </div>
+
+          <div class="card-box card-success">
+            <h3 style="font-family:var(--font-display); font-size:1.5rem; color:#065F46; margin-bottom:8px;">
+              ⚡ Segurança Absoluta (Zero Erros)
+            </h3>
+            <p style="font-size:0.95rem; color:#334155; line-height:1.45;">
+              A Sofia <strong>não inventa horários nem chuta preços</strong>. Para checar a vaga, ela consulta a Atena no banco de dados da sua barbearia com a precisão de um relógio suíço.
+            </p>
+          </div>
+
+          <div style="margin-top:14px; display:flex; align-items:center; gap:8px;">
+            <span class="chip" style="background:#DBEAFE; border:var(--border-thin); padding:4px 8px; border-radius:6px; font-weight:700; font-size:0.85rem;">Dica ao vivo:</span>
+            <span style="font-size:0.85rem; color:#475569;">Clique no botão de play verde no slide para simular a transcrição do áudio!</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         SLIDE 5: ATENA - GESTÃO DA AGENDA
+         ==================================================================== -->
+    <section class="slide" id="slide-5">
+      <div>
+        <span class="badge-pop badge-green">🧠 Operação Blindada</span>
+        <h2 class="slide-heading">Atena: A Gerente da Agenda que Elimina Erros e Conflitos</h2>
+        <p class="lead-text">
+          Um dos maiores problemas de qualquer barbearia é o encaixe mal feito: serviço de 50 minutos agendado em janela de 30 minutos. A Atena resolve isso com cálculo em tempo real:
+        </p>
+      </div>
+
+      <div class="grid-2" style="margin-top: 24px;">
+        <div class="card-box">
+          <h3 style="font-family:var(--font-display); font-size:1.6rem; margin-bottom:12px; color:var(--color-primary);">
+            📐 Como a Atena calcula cada vaga:
+          </h3>
+          <ul class="check-list">
+            <li>
+              <span class="chip" style="background:var(--color-primary-light);">1</span>
+              <div>
+                <strong>Jornada Real do Profissional:</strong>
+                <p style="font-size:0.9rem; color:#64748B;">Sabe exatamente a que horas cada barbeiro entra, almoça e sai.</p>
+              </div>
+            </li>
+            <li>
+              <span class="chip" style="background:var(--color-secondary-light);">2</span>
+              <div>
+                <strong>Tempo Somado dos Serviços:</strong>
+                <p style="font-size:0.9rem; color:#64748B;">Corte (30 min) + Barba Terapia (25 min) = Bloco real de 55 minutos reservado.</p>
+              </div>
+            </li>
+            <li>
+              <span class="chip" style="background:var(--color-success-light);">3</span>
+              <div>
+                <strong>Intervalo de Higienização:</strong>
+                <p style="font-size:0.9rem; color:#64748B;">Garante 5 a 10 minutos entre clientes para limpar a cadeira e esterilizar as máquinas.</p>
+              </div>
+            </li>
+            <li>
+              <span class="chip" style="background:var(--color-accent-light);">4</span>
+              <div>
+                <strong>Remarcações Sem Estresse:</strong>
+                <p style="font-size:0.9rem; color:#64748B;">Se o cliente pede para trocar o dia pelo WhatsApp, a Atena desocupa a vaga antiga na hora e encaixa na nova.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <!-- Visual card comparison -->
+          <div class="card-box card-danger" style="padding:18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="color:#991B1B; font-family:var(--font-display); font-size:1.3rem;">❌ Sem a Plataforma:</strong>
+              <span class="badge-pop badge-red" style="font-size:0.8rem; margin:0;">Agenda no papel / WhatsApp solto</span>
+            </div>
+            <p style="font-size:0.9rem; color:#7F1D1D; margin-top:8px;">
+              Cliente marca 17:00, barbeiro estava almoçando, atraso de 40 min, cliente insatisfeito desabafando no Google e perdendo a fidelidade.
+            </p>
+          </div>
+
+          <div class="card-box card-success" style="padding:18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="color:#166534; font-family:var(--font-display); font-size:1.3rem;">✔ Com a Atena Cuidando:</strong>
+              <span class="badge-pop badge-green" style="font-size:0.8rem; margin:0;">Sincronia Total 100% Digital</span>
+            </div>
+            <p style="font-size:0.9rem; color:#14532D; margin-top:8px;">
+              Agenda sincronizada com o celular de cada barbeiro da equipe. O cliente recebe lembrete automático e você tem previsibilidade absoluta do dia.
+            </p>
+          </div>
+
+          <div class="card-box card-purple" style="padding:16px; text-align:center;">
+            <span style="font-family:var(--font-mono); font-size:0.9rem; font-weight:700; color:#5B21B6;">
+              🔒 Segurança: A Atena só altera horários do cliente que está falando. Dados dos outros clientes ficam 100% blindados e confidenciais.
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         SLIDE 6: AQUILES - MÁQUINA DE DISPAROS & REATIVAÇÃO
+         ==================================================================== -->
+    <section class="slide" id="slide-6">
+      <div>
+        <span class="badge-pop badge-purple">🏹 Faturamento Ativo</span>
+        <h2 class="slide-heading">Aquiles: A Máquina de Lotar Cadeiras na Terça e Quarta</h2>
+        <p class="lead-text">
+          O maior patrimônio da sua barbearia é a lista de clientes que já cortaram com você. O Aquiles transforma essa lista em dinheiro vivo toda semana:
+        </p>
+      </div>
+
+      <div class="grid-2" style="margin-top: 20px;">
+        <div>
+          <div class="card-box card-purple" style="margin-bottom:16px;">
+            <h3 style="font-family:var(--font-display); font-size:1.5rem; color:#5B21B6; margin-bottom:8px;">
+              🎯 O Fim do Spam Robótico
+            </h3>
+            <p style="font-size:0.95rem; color:#334155; line-height:1.5;">
+              Ninguém aguenta receber aquela mensagem fria e chata de lista de transmissão. O Aquiles analisa o histórico de cada cliente e escreve uma mensagem <strong>exclusiva e natural</strong> para ele.
+            </p>
+          </div>
+
+          <div class="card-box" style="background:#FFFBEB; border-color:#D97706;">
+            <h4 style="font-family:var(--font-display); font-size:1.3rem; color:#92400E; margin-bottom:6px;">
+              🛡 Proteção Total Contra Bloqueios no WhatsApp:
+            </h4>
+            <ul style="font-size:0.9rem; color:#451A03; list-style:none; display:flex; flex-direction:column; gap:6px;">
+              <li>✔ <strong>Simulação de digitação:</strong> Mostra "digitando..." antes de enviar</li>
+              <li>✔ <strong>Intervalo inteligente:</strong> Espera entre cada mensagem para parecer humano</li>
+              <li>✔ <strong>Controle do Dono:</strong> Você revisa e aprova as mensagens em 1 clique antes do envio</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Exemplo de mensagem gerada pelo Aquiles -->
+        <div class="card-box" style="background:#F8FAFC; border:var(--border-thick);">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #CBD5E1; padding-bottom:8px; margin-bottom:12px;">
+            <span style="font-family:var(--font-mono); font-weight:700; font-size:0.85rem; color:#7C3AED;">EXEMPLO REAL DE DISPARO DO AQUILES</span>
+            <span style="background:#D1FAE5; color:#065F46; font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px;">Aprovado pelo Dono</span>
+          </div>
+
+          <div style="background:#FFFFFF; border:1.5px solid #0F172A; border-radius:10px; padding:14px; box-shadow:2px 2px 0px rgba(0,0,0,0.1);">
+            <p style="font-size:0.95rem; line-height:1.45; color:#1E293B;">
+              <em>"Fala Lucas, tudo bem irmão? Cara, vi aqui que já faz 22 dias do seu último degradê com o Marcos. Amanhã à tarde (quarta-feira) temos uma janela exclusiva às 15:30. Bora renovar o visual pra já chegar no fim de semana alinhado? Se quiser te garanto essa vaga agora!"</em>
+            </p>
+            <div style="text-align:right; font-size:0.75rem; color:#64748B; margin-top:6px; font-family:var(--font-mono);">
+              Enviado via WhatsApp • 14:15
+            </div>
+          </div>
+
+          <div style="margin-top:14px; padding:12px; background:#F0FDF4; border:1px solid #86EFAC; border-radius:8px;">
+            <strong style="color:#166534; font-size:0.9rem;">📊 O Poder da Recorrência:</strong>
+            <p style="font-size:0.85rem; color:#14532D; margin-top:4px;">
+              Se você antecipar o retorno de apenas 30 clientes de 35 dias para 20 dias, você injeta <strong>mais de R$ 1.800 de faturamento limpo</strong> todo mês na mesma cadeira.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         SLIDE 7: PAINEL DO DONO & LIVECHAT
+         ==================================================================== -->
+    <section class="slide" id="slide-7">
+      <div>
+        <span class="badge-pop badge-blue">💻 Controle Total</span>
+        <h2 class="slide-heading">Você Sempre no Comando da Sua Barbearia</h2>
+        <p class="lead-text">
+          A automação trabalha para você, mas quem manda é você. Uma mesa de atendimento completa para você e seus atendentes acompanharem tudo em tempo real:
+        </p>
+      </div>
+
+      <div class="grid-3" style="margin-top: 24px;">
+        <div class="card-box">
+          <div style="font-size:2.5rem; margin-bottom:12px;">🕹</div>
+          <h3 style="font-family:var(--font-display); font-size:1.5rem; margin-bottom:8px; color:var(--color-primary);">
+            Assuma com 1 Clique
+          </h3>
+          <p style="font-size:0.95rem; color:#475569; line-height:1.45;">
+            Quer falar pessoalmente com um amigo ou cliente VIP? Clique em <strong>"Assumir Atendimento"</strong> e a IA pausa na hora. A conversa é toda sua.
+          </p>
+        </div>
+
+        <div class="card-box">
+          <div style="font-size:2.5rem; margin-bottom:12px;">📱</div>
+          <h3 style="font-family:var(--font-display); font-size:1.5rem; margin-bottom:8px; color:var(--color-secondary);">
+            Até 5 WhatsApps
+          </h3>
+          <p style="font-size:0.95rem; color:#475569; line-height:1.45;">
+            Conecte o número principal da barbearia e números adicionais. Recusa ligações chatas de telemarketing e avisa educadamente em texto.
+          </p>
+        </div>
+
+        <div class="card-box">
+          <div style="font-size:2.5rem; margin-bottom:12px;">📊</div>
+          <h3 style="font-family:var(--font-display); font-size:1.5rem; margin-bottom:8px; color:var(--color-success);">
+            Auditoria & Histórico
+          </h3>
+          <p style="font-size:0.95rem; color:#475569; line-height:1.45;">
+            Saiba exatamente quantos agendamentos foram feitos pela Sofia, o faturamento estimado do mês e o histórico completo de serviços de cada cliente.
+          </p>
+        </div>
+      </div>
+
+      <div class="card-box" style="background:var(--color-cream); margin-top:20px; display:flex; align-items:center; justify-content:space-between; gap:20px;">
+        <div>
+          <h4 style="font-family:var(--font-display); font-size:1.4rem; color:var(--color-ink);">
+            Transparência e Liberdade para o Dono
+          </h4>
+          <p style="font-size:0.95rem; color:#475569;">
+            Você finalmente pode tirar um final de semana de descanso sem ficar escravo do celular da barbearia respondendo se tem vaga no sábado de manhã.
+          </p>
+        </div>
+        <div style="font-family:var(--font-display); font-size:2.2rem; color:var(--color-primary); white-space:nowrap;">
+          PAZ DE ESPÍRITO 🛡
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         SLIDE 8: CALCULADORA INTERATIVA DE ROI
+         ==================================================================== -->
+    <section class="slide" id="slide-8">
+      <div>
+        <span class="badge-pop badge-amber">💰 Faça as Contas com o Dono</span>
+        <h2 class="slide-heading">Calculadora de Retorno: Quanto Dinheiro a Mais Entra no Seu Bolso?</h2>
+        <p class="lead-text">
+          Ajuste os valores reais da sua barbearia e veja o impacto financeiro de não perder mais clientes e reativar quem estava esquecido:
+        </p>
+      </div>
+
+      <div class="grid-2" style="margin-top: 20px;">
+        <!-- Painel de Sliders -->
+        <div class="roi-panel">
+          <div class="calc-slider-group">
+            <div class="calc-slider-label">
+              <span>Número de Barbeiros na Casa:</span>
+              <span class="calc-val" id="valBarbeiros">3 barbeiros</span>
+            </div>
+            <input type="range" id="sliderBarbeiros" min="1" max="10" value="3" step="1">
+          </div>
+
+          <div class="calc-slider-group">
+            <div class="calc-slider-label">
+              <span>Valor Médio do Corte / Combo:</span>
+              <span class="calc-val" id="valPreco">R$ 50,00</span>
+            </div>
+            <input type="range" id="sliderPreco" min="25" max="150" value="50" step="5">
+          </div>
+
+          <div class="calc-slider-group">
+            <div class="calc-slider-label">
+              <span>Agendamentos extras resgatados por dia (por cadeira):</span>
+              <span class="calc-val" id="valResgate">2 clientes/dia</span>
+            </div>
+            <input type="range" id="sliderResgate" min="1" max="5" value="2" step="1">
+          </div>
+
+          <div style="background:white; border:var(--border-thin); padding:10px 14px; border-radius:8px; font-size:0.85rem; color:#64748B;">
+            💡 <em>Considerando 26 dias úteis no mês. Clientes que antes iam para o concorrente pela demora ou voltam pelas campanhas do Aquiles.</em>
+          </div>
+        </div>
+
+        <!-- Resultados do Cálculo -->
+        <div style="display:flex; flex-direction:column; justify-content:space-between;">
+          <div class="roi-output-grid">
+            <div class="roi-metric-card" style="background:#F0FDF4; border-color:#16A34A;">
+              <div class="roi-metric-label">Lucro Extra / Mês</div>
+              <div class="roi-metric-number" id="resLucroMes">R$ 7.800</div>
+              <p style="font-size:0.8rem; color:#15803D; font-weight:600;">+ 156 novos serviços fechados</p>
+            </div>
+
+            <div class="roi-metric-card" style="background:#EFF6FF; border-color:#2563EB;">
+              <div class="roi-metric-label">Lucro Extra / Ano</div>
+              <div class="roi-metric-number" style="color:#2563EB;" id="resLucroAno">R$ 93.600</div>
+              <p style="font-size:0.8rem; color:#1E40AF; font-weight:600;">Faturamento que você perdia</p>
+            </div>
+          </div>
+
+          <div class="card-box" style="background:var(--color-cream); border:var(--border-thick); margin-top:16px; text-align:center;">
+            <h4 style="font-family:var(--font-display); font-size:1.4rem; color:var(--color-ink);">
+              O SISTEMA SE PAGA NA PRIMEIRA SEMANA!
+            </h4>
+            <p style="font-size:0.95rem; color:#334155; margin-top:4px;">
+              Basta <strong>1 corte recuperado na semana inteira</strong> para o custo da plataforma já estar 100% coberto. Todo o restante é lucro limpo no seu caixa.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         SLIDE 9: FECHAMENTO & PROPOSTA IRRECUSÁVEL
+         ==================================================================== -->
+    <section class="slide" id="slide-9">
+      <div style="text-align:center; max-width:860px; margin:0 auto;">
+        <span class="badge-pop badge-green" style="font-size:1.3rem;">🚀 O Próximo Passo para a Sua Barbearia</span>
+        
+        <h2 class="slide-heading" style="font-size:3.2rem; margin-top:10px;">
+          Bora colocar a Sofia, a Atena e o Aquiles para trabalhar por você?
+        </h2>
+        
+        <p class="lead-text" style="margin: 12px auto 0 auto; font-size:1.3rem;">
+          Você não precisa trocar de número de telefone, não precisa instalar programas complicados e não precisa assinar nenhum contrato amarrado.
+        </p>
+      </div>
+
+      <div class="grid-3" style="margin-top: 28px;">
+        <div class="card-box card-primary" style="text-align:center;">
+          <div style="font-size:2rem; margin-bottom:8px;">📱</div>
+          <div style="font-family:var(--font-display); font-size:1.3rem;">No Seu Próprio WhatsApp</div>
+          <p style="font-size:0.9rem; color:#475569; margin-top:6px;">Conectamos via QR Code em 3 minutos mantendo seus clientes atuais.</p>
+        </div>
+
+        <div class="card-box card-success" style="text-align:center;">
+          <div style="font-size:2rem; margin-bottom:8px;">🛡</div>
+          <div style="font-family:var(--font-display); font-size:1.3rem;">7 Dias de Teste Sem Risco</div>
+          <p style="font-size:0.9rem; color:#475569; margin-top:6px;">Teste na prática. Se não dobrar sua agilidade e encantar os clientes, você não paga nada.</p>
+        </div>
+
+        <div class="card-box card-purple" style="text-align:center;">
+          <div style="font-size:2rem; margin-bottom:8px;">⚡</div>
+          <div style="font-family:var(--font-display); font-size:1.3rem;">Configuração Assistida</div>
+          <p style="font-size:0.9rem; color:#475569; margin-top:6px;">Cadastramos seus serviços, preços e barbeiros junto com você.</p>
+        </div>
+      </div>
+
+      <div style="text-align:center; margin-top:32px;">
+        <button class="btn-cta-giant" id="btnCtaFinal" onclick="alert('Excelente decisão! Vamos iniciar o teste prático no WhatsApp da sua barbearia agora mesmo.')">
+          <span>QUERO TESTAR NA MINHA BARBEARIA AGORA</span> <span>🔥</span>
+        </button>
+        <div style="margin-top:10px; font-size:0.9rem; color:#64748B; font-weight:600;">
+          Sem multas rescisórias • Cancelamento simples a qualquer momento
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM CONTROLLER BAR -->
+  <footer class="deck-footer">
+    <div class="keyboard-hints">
+      <span>Navegue:</span>
+      <kbd>←</kbd> <kbd>→</kbd> ou <kbd>Espaço</kbd>
+      <span>• Tela Cheia:</span> <kbd>F</kbd>
+      <span>• Início:</span> <kbd>Home</kbd>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn-nav" id="btnPrevSlide" onclick="prevSlide()">
+        <span>◄</span> <span>ANTERIOR</span>
+      </button>
+      <button class="btn-nav btn-primary" id="btnNextSlide" onclick="nextSlide()">
+        <span>PRÓXIMO</span> <span>►</span>
+      </button>
+    </div>
+  </footer>
+
+  <!-- SCRIPT: INTERATIVIDADE E CONTROLES -->
+  <script>
+    // State
+    const totalSlides = 9;
+    let currentSlide = 1;
+    let isPlayingAudio = false;
+    let audioProgressInterval = null;
+
+    // Elements
+    const slideIndicator = document.getElementById('slideIndicator');
+    const progressBar = document.getElementById('progressBar');
+    const btnPrev = document.getElementById('btnPrevSlide');
+    const btnNext = document.getElementById('btnNextSlide');
+    const btnFullscreen = document.getElementById('btnFullscreen');
+
+    function updateDeck() {
+      // Hide all slides
+      for (let i = 1; i <= totalSlides; i++) {
+        const slideEl = document.getElementById(`slide-${i}`);
+        if (slideEl) {
+          slideEl.classList.remove('active');
+        }
+      }
+
+      // Show active slide
+      const currentSlideEl = document.getElementById(`slide-${currentSlide}`);
+      if (currentSlideEl) {
+        currentSlideEl.classList.add('active');
+      }
+
+      // Update counter and progress
+      slideIndicator.textContent = `Slide ${String(currentSlide).padStart(2, '0')} / ${String(totalSlides).padStart(2, '0')}`;
+      const percentage = (currentSlide / totalSlides) * 100;
+      progressBar.style.width = `${percentage}%`;
+
+      // Update button states
+      btnPrev.disabled = currentSlide === 1;
+      if (currentSlide === totalSlides) {
+        btnNext.innerHTML = `<span>REVER INÍCIO</span> <span>↺</span>`;
+      } else {
+        btnNext.innerHTML = `<span>PRÓXIMO</span> <span>►</span>`;
+      }
+
+      // Scroll to top of slide on change
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goToSlide(index) {
+      if (index >= 1 && index <= totalSlides) {
+        currentSlide = index;
+        updateDeck();
+      }
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides) {
+        currentSlide++;
+      } else {
+        currentSlide = 1; // loop back to cover
+      }
+      updateDeck();
+    }
+
+    function prevSlide() {
+      if (currentSlide > 1) {
+        currentSlide--;
+        updateDeck();
+      }
+    }
+
+    // Keyboard navigation
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        goToSlide(1);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        goToSlide(totalSlides);
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
+      }
+    });
+
+    // Fullscreen toggle
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+    btnFullscreen.addEventListener('click', toggleFullscreen);
+
+    // Audio Player Simulation in Slide 4
+    const btnAudioDemo = document.getElementById('btnAudioDemo');
+    const audioPlayIcon = document.getElementById('audioPlayIcon');
+    const audioTimer = document.getElementById('audioTimer');
+    const waveformBars = document.querySelectorAll('#waveformBars .audio-bar');
+    const audioTranscript = document.getElementById('audioTranscriptText');
+
+    if (btnAudioDemo) {
+      btnAudioDemo.addEventListener('click', () => {
+        if (isPlayingAudio) {
+          stopAudioDemo();
+        } else {
+          startAudioDemo();
+        }
+      });
+    }
+
+    function startAudioDemo() {
+      isPlayingAudio = true;
+      audioPlayIcon.textContent = '❚❚';
+      btnAudioDemo.style.background = '#10B981';
+      waveformBars.forEach(b => b.classList.add('playing'));
+      audioTranscript.style.boxShadow = '0 0 10px rgba(37, 99, 235, 0.4)';
+      
+      let seconds = 0;
+      clearInterval(audioProgressInterval);
+      audioProgressInterval = setInterval(() => {
+        seconds++;
+        audioTimer.textContent = `0:0${Math.min(seconds, 8)}`;
+        if (seconds >= 8) {
+          stopAudioDemo();
+        }
+      }, 1000);
+    }
+
+    function stopAudioDemo() {
+      isPlayingAudio = false;
+      audioPlayIcon.textContent = '▶';
+      btnAudioDemo.style.background = 'var(--color-primary)';
+      waveformBars.forEach(b => b.classList.remove('playing'));
+      clearInterval(audioProgressInterval);
+      audioTimer.textContent = '0:08';
+      audioTranscript.style.boxShadow = 'none';
+    }
+
+    // Interactive ROI Calculator in Slide 8
+    const sliderBarbeiros = document.getElementById('sliderBarbeiros');
+    const sliderPreco = document.getElementById('sliderPreco');
+    const sliderResgate = document.getElementById('sliderResgate');
+
+    const valBarbeiros = document.getElementById('valBarbeiros');
+    const valPreco = document.getElementById('valPreco');
+    const valResgate = document.getElementById('valResgate');
+
+    const resLucroMes = document.getElementById('resLucroMes');
+    const resLucroAno = document.getElementById('resLucroAno');
+
+    function calculateROI() {
+      const barbeiros = parseInt(sliderBarbeiros.value, 10);
+      const preco = parseInt(sliderPreco.value, 10);
+      const resgatesDia = parseInt(sliderResgate.value, 10);
+
+      valBarbeiros.textContent = `${barbeiros} barbeiro${barbeiros > 1 ? 's' : ''}`;
+      valPreco.textContent = `R$ ${preco},00`;
+      valResgate.textContent = `${resgatesDia} cliente${resgatesDia > 1 ? 's' : ''}/dia`;
+
+      // 26 dias úteis por mês
+      const diasMes = 26;
+      const totalClientesMes = barbeiros * resgatesDia * diasMes;
+      const lucroMes = totalClientesMes * preco;
+      const lucroAno = lucroMes * 12;
+
+      resLucroMes.textContent = `R$ ${lucroMes.toLocaleString('pt-BR')}`;
+      resLucroAno.textContent = `R$ ${lucroAno.toLocaleString('pt-BR')}`;
+    }
+
+    if (sliderBarbeiros && sliderPreco && sliderResgate) {
+      sliderBarbeiros.addEventListener('input', calculateROI);
+      sliderPreco.addEventListener('input', calculateROI);
+      sliderResgate.addEventListener('input', calculateROI);
+      calculateROI();
+    }
+
+    // Touch Swipe Detection for mobile/tablets
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    document.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    }, { passive: true });
+
+    function handleSwipe() {
+      const threshold = 50;
+      if (touchEndX < touchStartX - threshold) {
+        nextSlide();
+      }
+      if (touchEndX > touchStartX + threshold) {
+        prevSlide();
+      }
+    }
+
+    // Initial setup
+    updateDeck();
+  </script>
+</body>
+</html>

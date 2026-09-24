@@ -1,0 +1,224 @@
+/* Campanhas: lista com progresso, assistente em etapas e relatorio */
+
+/* ─── BARRA DE PROGRESSO ─────────────────────────────────── */
+.progresso { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }
+.progresso__topo { display: flex; justify-content: space-between; align-items: baseline; gap: var(--e2); font-size: 12px; }
+.progresso__numeros { font-family: var(--fonte-mono); color: var(--texto-suave); }
+.progresso__pct { font-family: var(--fonte-mono); font-weight: 700; color: var(--texto); }
+.progresso__trilho {
+  position: relative; height: 8px; overflow: hidden;
+  background: var(--superficie-2); border: 1px solid var(--borda); border-radius: 999px;
+}
+.progresso--grande .progresso__trilho { height: 14px; }
+.progresso__barra {
+  position: absolute; inset: 0 auto 0 0; border-radius: 999px;
+  background: linear-gradient(90deg, var(--primaria), var(--info));
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.progresso__legenda { font-size: 12px; color: var(--texto-fraco); display: flex; align-items: center; gap: 6px; }
+
+/* Enviando: listras que andam + um brilho que corre a barra. */
+.progresso--ativo .progresso__barra {
+  background-image:
+    linear-gradient(135deg, rgba(255,255,255,0.22) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.22) 50%, rgba(255,255,255,0.22) 75%, transparent 75%, transparent),
+    linear-gradient(90deg, var(--primaria), var(--info));
+  background-size: 16px 16px, 100% 100%;
+  animation: progresso-listras 0.9s linear infinite;
+  box-shadow: 0 0 12px var(--primaria-glow);
+}
+.progresso--ativo .progresso__barra::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+  background-size: 40% 100%; background-repeat: no-repeat;
+  animation: progresso-brilho 1.8s ease-in-out infinite;
+}
+.progresso--gerando .progresso__barra { background: linear-gradient(90deg, #8b5cf6, var(--info)); }
+.progresso--gerando.progresso--ativo .progresso__barra {
+  background-image:
+    linear-gradient(135deg, rgba(255,255,255,0.2) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.2) 75%, transparent 75%, transparent),
+    linear-gradient(90deg, #8b5cf6, var(--info));
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
+}
+.progresso--esperando .progresso__barra { background: var(--alerta); }
+.progresso--pausada .progresso__barra { background: var(--alerta); opacity: 0.8; }
+.progresso--concluida .progresso__barra { background: var(--sucesso); }
+.progresso--cancelada .progresso__barra { background: var(--texto-fraco); }
+
+@keyframes progresso-listras { from { background-position: 0 0, 0 0; } to { background-position: 16px 0, 0 0; } }
+@keyframes progresso-brilho { 0% { background-position: -40% 0; } 100% { background-position: 140% 0; } }
+
+.pulso { width: 8px; height: 8px; border-radius: 50%; background: var(--primaria); flex: none; }
+.pulso--ativo { animation: pulso 1.4s ease-out infinite; }
+.pulso--alerta { background: var(--alerta); }
+@keyframes pulso {
+  0% { box-shadow: 0 0 0 0 var(--primaria-glow); }
+  100% { box-shadow: 0 0 0 8px transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progresso__barra, .progresso__barra::after, .pulso--ativo { animation: none !important; }
+}
+
+/* ─── LISTA ──────────────────────────────────────────────── */
+.camp-lista__nome { display: flex; flex-direction: column; gap: 2px; min-width: 200px; }
+.camp-lista__nome button { all: unset; cursor: pointer; font-weight: 700; }
+.camp-lista__nome button:hover { color: var(--primaria); }
+.camp-lista__nome button:focus-visible { outline: 2px solid var(--primaria); outline-offset: 2px; border-radius: 4px; }
+.camp-lista__objetivo { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.camp-controles { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
+.camp-controle {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; font: inherit; font-size: 12px; font-weight: 700;
+  color: var(--texto-suave); background: var(--superficie); border: 1px solid var(--borda); border-radius: 8px; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.camp-controle:hover:not(:disabled) { background: var(--superficie-2); border-color: var(--borda-forte); color: var(--texto); }
+.camp-controle:disabled { opacity: 0.35; cursor: not-allowed; }
+.camp-controle svg { width: 14px; height: 14px; }
+.camp-controle--iniciar:not(:disabled) { color: var(--sucesso); border-color: rgba(7, 202, 107, 0.35); }
+.camp-controle--pausar:not(:disabled) { color: var(--alerta); border-color: rgba(232, 149, 88, 0.35); }
+.camp-controle--parar:not(:disabled) { color: #ff6b82; border-color: rgba(234, 33, 67, 0.35); }
+.camp-resultado { display: flex; flex-direction: column; gap: 1px; font-size: 12px; color: var(--texto-fraco); white-space: nowrap; }
+.camp-resultado b { font-family: var(--fonte-mono); font-size: 13px; color: var(--texto); font-weight: 700; }
+.camp-resultado--falha, .camp-resultado--falha b { color: #ff6b82; }
+
+/* ─── ASSISTENTE ─────────────────────────────────────────── */
+.assist { display: flex; flex-direction: column; gap: var(--e4); }
+.assist__voltar { all: unset; cursor: pointer; font-size: 13px; color: var(--texto-suave); }
+.assist__voltar:hover { color: var(--texto); }
+
+.etapas { display: flex; gap: var(--e2); list-style: none; margin: 0; padding: 0; }
+.etapas__item { flex: 1; min-width: 0; position: relative; }
+.etapas__item + .etapas__item::before {
+  content: ''; position: absolute; top: 15px; right: calc(50% + 22px); width: calc(100% - 44px); height: 2px;
+  background: var(--borda-forte);
+}
+.etapas__item--feito + .etapas__item::before { background: var(--sucesso); }
+.etapas__botao {
+  all: unset; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%;
+  color: var(--texto-fraco); font-size: 12px; text-align: center; cursor: default;
+}
+.etapas__botao:not(:disabled) { cursor: pointer; }
+.etapas__botao:focus-visible .etapas__bolinha { outline: 2px solid var(--primaria); outline-offset: 2px; }
+.etapas__bolinha {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--fundo); border: 1px solid var(--borda-forte); font-family: var(--fonte-mono); font-size: 13px;
+  position: relative; z-index: 1;
+}
+.etapas__item--feito .etapas__botao { color: var(--texto-suave); }
+.etapas__item--feito .etapas__bolinha { background: #0b2a1c; border-color: var(--sucesso); color: var(--sucesso); }
+.etapas__item--atual .etapas__botao { color: var(--texto); font-weight: 700; }
+.etapas__item--atual .etapas__bolinha { background: var(--primaria); border-color: var(--primaria); color: #fff; box-shadow: var(--glow-pri); }
+
+/* Gruda no pe da tela enquanto a etapa rola: o "Continuar" esta sempre a mao. */
+.assist__rodape {
+  position: sticky; bottom: 0; z-index: 20; margin-top: var(--e2);
+  display: flex; justify-content: space-between; align-items: center; gap: var(--e3); flex-wrap: wrap;
+  padding: var(--e3) var(--e4); background: rgba(5, 8, 20, 0.88); backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--borda); border-radius: var(--raio-g);
+}
+.assist__rodape-info { font-size: 13px; color: var(--texto-suave); }
+.assist__rodape .linha { flex-wrap: nowrap; }
+
+.assist__duas { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 380px); gap: var(--e4); align-items: start; }
+@media (max-width: 1000px) { .assist__duas { grid-template-columns: 1fr; } }
+
+.assist__secao { display: flex; flex-direction: column; gap: var(--e3); }
+.assist__secao h3 { margin: 0; font-size: 14px; }
+.assist__ajuda { margin: 0; font-size: 13px; color: var(--texto-fraco); }
+
+/* Etapa 2: contatos */
+.filtros-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.filtro-chip {
+  padding: 5px 11px; font: inherit; font-size: 12px; color: var(--texto-suave); cursor: pointer;
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: 999px;
+}
+.filtro-chip:hover { border-color: var(--borda-forte); color: var(--texto); }
+.filtro-chip--ativo { background: var(--primaria-suave); border-color: var(--primaria); color: var(--texto); }
+
+.lista-contatos { max-height: 460px; overflow-y: auto; border: 1px solid var(--borda); border-radius: var(--raio); }
+.lista-contatos__item {
+  display: flex; align-items: center; gap: var(--e3); padding: 8px 12px; cursor: pointer;
+  border-bottom: 1px solid var(--borda);
+}
+.lista-contatos__item:last-child { border-bottom: 0; }
+.lista-contatos__item:hover { background: var(--superficie); }
+.lista-contatos__item--marcado { background: var(--primaria-suave); }
+.lista-contatos__item--fora { opacity: 0.55; cursor: not-allowed; }
+.lista-contatos__item input { accent-color: var(--primaria); width: 16px; height: 16px; }
+.lista-contatos__dados { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.lista-contatos__dados small { color: var(--texto-fraco); font-size: 12px; }
+
+.publico-painel { position: sticky; top: var(--e4); }
+.publico-total { font-size: 32px; font-weight: 800; font-family: var(--fonte-mono); line-height: 1; }
+.publico-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 320px; overflow-y: auto; }
+.publico-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; font: inherit; font-size: 12px;
+  color: var(--texto); background: var(--superficie-2); border: 1px solid var(--borda); border-radius: 999px; cursor: pointer;
+}
+.publico-chip:hover { border-color: var(--perigo); }
+.publico-chip span { color: var(--texto-fraco); font-size: 14px; line-height: 1; }
+
+/* Etapa 3: IA */
+.segmentos { display: inline-flex; padding: 3px; gap: 3px; background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; flex-wrap: wrap; }
+.segmento {
+  padding: 6px 12px; font: inherit; font-size: 13px; color: var(--texto-suave); cursor: pointer;
+  background: transparent; border: 0; border-radius: 7px;
+}
+.segmento:hover { color: var(--texto); }
+.segmento--ativo { background: var(--primaria); color: #fff; font-weight: 700; }
+.exemplos { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.previas { display: flex; flex-direction: column; gap: var(--e3); }
+.previa { display: flex; flex-direction: column; gap: 6px; }
+.previa__nome { font-size: 12px; color: var(--texto-fraco); }
+
+/* A mensagem aparece como o cliente vai ver: um balao do WhatsApp. */
+.balao {
+  position: relative; align-self: flex-start; max-width: 100%;
+  padding: 8px 12px; background: #005c4b; color: #e9edef; border-radius: 10px 10px 10px 2px;
+  font-size: 14px; line-height: 1.45; white-space: pre-wrap; word-break: break-word;
+}
+.contexto-ia { font-size: 12px; color: var(--texto-fraco); }
+.contexto-ia summary { cursor: pointer; user-select: none; }
+.contexto-ia ul { margin: 6px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 2px; }
+
+/* Etapa 4: revisao */
+.revisao-topo { display: flex; justify-content: space-between; align-items: center; gap: var(--e3); flex-wrap: wrap; }
+.cartoes-msg { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--e3); }
+.cartao-msg {
+  display: flex; flex-direction: column; gap: var(--e2); padding: var(--e3);
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-g);
+  transition: border-color 0.2s;
+}
+.cartao-msg--aprovada { border-color: rgba(7, 202, 107, 0.45); }
+.cartao-msg--reserva { border-color: rgba(232, 149, 88, 0.45); }
+.cartao-msg__topo { display: flex; align-items: center; gap: var(--e2); }
+.cartao-msg__topo > span:not([class]) { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cartao-msg__topo strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cartao-msg__topo small { color: var(--texto-fraco); font-size: 12px; white-space: nowrap; }
+.cartao-msg textarea {
+  min-height: 92px; resize: vertical; background: #0b2e28; border-color: rgba(0, 168, 132, 0.35); color: #e9edef;
+  font-size: 14px; line-height: 1.45;
+}
+.cartao-msg__acoes { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.cartao-msg__acoes .crescer { font-size: 11px; color: var(--texto-fraco); }
+
+.gerando { display: flex; flex-direction: column; align-items: center; gap: var(--e4); padding: var(--e7) var(--e4); text-align: center; }
+.gerando .progresso { width: min(520px, 100%); }
+.gerando__titulo { margin: 0; font-size: 18px; }
+
+/* Etapa 5: envio */
+.estimativa {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--e3);
+  padding: var(--e4); background: var(--primaria-suave); border: 1px solid rgba(24, 86, 255, 0.35); border-radius: var(--raio-g);
+}
+.estimativa div { display: flex; flex-direction: column; gap: 2px; }
+.estimativa strong { font-size: 20px; font-family: var(--fonte-mono); }
+.estimativa span { font-size: 12px; color: var(--texto-suave); }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Relatorio */
+.relatorio-topo { display: flex; justify-content: space-between; gap: var(--e4); align-items: flex-start; flex-wrap: wrap; }
+.relatorio-metricas { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--e3); }
+.resposta { margin-top: 4px; font-size: 12px; color: var(--texto-suave); }

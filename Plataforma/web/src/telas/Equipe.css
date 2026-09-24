@@ -1,0 +1,401 @@
+/* ================================================================
+ * EQUIPE — profissionais e atendentes
+ * ================================================================ */
+
+.equipe-grade {
+  display: grid;
+  gap: var(--e3);
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
+
+.pessoa {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  padding: var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+}
+.pessoa--inativa { opacity: 0.6; }
+
+.pessoa__topo {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+}
+
+/* A cor da borda e a mesma do profissional na agenda: quem olha o calendario
+   reconhece de quem e o horario sem ler o nome. */
+.pessoa__foto {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  border-radius: 50%;
+  border: 2px solid var(--borda-forte);
+  background: var(--superficie-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  overflow: hidden;
+}
+.pessoa__foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pessoa__servicos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 24px;
+}
+
+/* Linha de servico que o profissional nao faz: presente, mas recuada. */
+.linha--apagada { opacity: 0.45; }
+
+.cor-opcao {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.cor-opcao--ativa {
+  border-color: var(--texto);
+  box-shadow: 0 0 0 2px var(--fundo), 0 0 0 4px currentColor;
+}
+
+.jornada {
+  display: grid;
+  gap: var(--e2);
+}
+.jornada__dia {
+  display: grid;
+  grid-template-columns: 130px 1fr 1fr;
+  gap: var(--e2);
+  align-items: center;
+}
+
+/* ─── CAMPO DE FOTO ─────────────────────────────────────── */
+
+.foto-campo {
+  display: flex;
+  gap: var(--e4);
+  align-items: center;
+}
+
+.foto-campo__previa {
+  width: 96px;
+  height: 96px;
+  flex: 0 0 96px;
+  border-radius: var(--raio);
+  border: 1px dashed var(--borda-forte);
+  background: var(--superficie);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 12px;
+}
+.foto-campo__previa img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 720px) {
+  .jornada__dia { grid-template-columns: 1fr 1fr; }
+  .jornada__dia label { grid-column: 1 / -1; }
+}
+
+/* ─── OPCOES DE CONFIGURACAO ─────────────────────────────
+ * Alvo de clique grande: a linha inteira (caixa + titulo + explicacao)
+ * seleciona, nao so o quadradinho de 13px.
+ * ─────────────────────────────────────────────────────── */
+
+.opcao {
+  display: flex;
+  gap: var(--e3);
+  align-items: flex-start;
+  cursor: pointer;
+}
+.opcao input { margin-top: 3px; flex: 0 0 auto; }
+.opcao input:disabled { cursor: not-allowed; }
+.opcao input:disabled ~ span { opacity: 0.6; }
+
+.opcao--cartao {
+  padding: var(--e3);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: var(--superficie);
+}
+.opcao--cartao:hover { border-color: var(--borda-forte); }
+.opcao--ativa {
+  border-color: var(--primaria);
+  background: var(--primaria-suave);
+}
+
+.lista-regra {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  margin: 0;
+  padding-left: var(--e4);
+  font-size: 14px;
+}
+
+/* ─── ACOES DO ATENDENTE ────────────────────────────────── */
+
+.pessoa-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* Previa do aviso: a mesma cara do popup que o atendente vai ver. */
+.aviso-previa {
+  border: 2px solid var(--perigo);
+  border-radius: var(--raio);
+  overflow: hidden;
+  background: #120a12;
+}
+.aviso-previa__faixa {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  padding: var(--e2) var(--e3);
+  background: var(--perigo);
+  color: #fff;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+.aviso-previa__icone {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--perigo);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+.aviso-previa__texto {
+  margin: 0;
+  padding: var(--e3);
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.aviso-previa__texto--vazio {
+  color: var(--texto-fraco);
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* ─── FICHA DO PROFISSIONAL EM TRES COLUNAS ─────────────────
+ * Dados | Servicos | Jornada, lado a lado: a ficha inteira cabe na tela
+ * sem rolar para achar a jornada embaixo da tabela de servicos.
+ * ─────────────────────────────────────────────────────── */
+
+.ficha-colunas {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(380px, 1.3fr) minmax(300px, 1fr);
+  gap: var(--e5);
+  align-items: start;
+}
+
+.ficha-coluna {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  min-width: 0;
+  padding: var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+}
+
+.ficha-coluna__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  margin: 0;
+  padding-bottom: var(--e3);
+  border-bottom: 1px solid var(--borda);
+  font-size: 15px;
+}
+
+.ficha-coluna__numero {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 50%;
+  background: var(--primaria-suave);
+  color: var(--primaria);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.ficha-coluna .jornada__dia { grid-template-columns: 110px 1fr 1fr; }
+
+/* Tela menor: duas colunas (a jornada desce), e no celular uma so. */
+@media (max-width: 1280px) {
+  .ficha-colunas { grid-template-columns: minmax(260px, 1fr) minmax(360px, 1.4fr); }
+  .ficha-colunas > .ficha-coluna:last-child { grid-column: 1 / -1; }
+}
+@media (max-width: 820px) {
+  .ficha-colunas { grid-template-columns: 1fr; }
+}
+
+/* ─── FICHA SEM ROLAGEM ─────────────────────────────────────
+ * No computador a ficha inteira cabe na tela: o modal tem a altura da
+ * janela e cada coluna ocupa o espaco que sobra. Se uma coluna crescer
+ * alem disso (muitos servicos no catalogo), so ELA rola — a ficha nao.
+ * ─────────────────────────────────────────────────────── */
+
+.ficha-colunas .campo { margin-bottom: 0; }
+.ficha-colunas .entrada { padding: 7px 10px; font-size: 13.5px; }
+.ficha-colunas .entrada--area { min-height: 56px; }
+.ficha-colunas .foto-campo__previa { width: 64px; height: 64px; flex-basis: 64px; }
+.ficha-colunas .foto-campo .texto-fraco { font-size: 12px; }
+.ficha-colunas .tabela th { padding: 6px 8px; }
+.ficha-colunas .tabela td { padding: 6px 8px; }
+.ficha-colunas .jornada { gap: 6px; }
+.ficha-coluna p.texto-fraco { margin: 0; font-size: 12.5px; }
+
+/* Nome/Funcao e Telefone/Login lado a lado. */
+.ficha-campos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--e3);
+}
+
+@media (min-width: 1281px) and (min-height: 640px) {
+  .modal--ficha {
+    height: calc(100vh - 64px);
+    display: flex;
+    flex-direction: column;
+  }
+  .modal--ficha .modal__corpo {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--e3);
+    padding: var(--e4) var(--e5);
+    overflow: hidden;
+  }
+  .modal--ficha .ficha-colunas {
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+  }
+  .modal--ficha .ficha-coluna {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+/* ─── METRICAS DO PROFISSIONAL ──────────────────────────── */
+
+.ficha-metricas {
+  display: flex;
+  align-items: stretch;
+  gap: var(--e3);
+  flex-shrink: 0;
+}
+
+.ficha-metricas__periodos {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.ficha-metricas__periodo {
+  padding: 3px 10px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.ficha-metricas__periodo:hover { border-color: var(--borda-forte); color: var(--texto); }
+.ficha-metricas__periodo--ativo {
+  border-color: var(--primaria);
+  background: var(--primaria-suave);
+  color: var(--texto);
+}
+
+.ficha-metricas__carregando {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: var(--e3);
+}
+
+.ficha-metricas__blocos {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--e2);
+}
+
+.ficha-metrica {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--e2) var(--e3);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+.ficha-metrica__rotulo {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-fraco);
+}
+.ficha-metrica__valor {
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--texto);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ficha-metrica__valor--texto { font-size: 15px; }
+.ficha-metrica__detalhe {
+  font-size: 11.5px;
+  color: var(--texto-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ficha-metrica--perigo { border-color: var(--perigo); background: var(--perigo-suave); }
+.ficha-metrica--perigo .ficha-metrica__valor { color: var(--perigo); }
+
+@media (max-width: 1280px) {
+  .ficha-metricas { flex-direction: column; }
+  .ficha-metricas__periodos { flex-direction: row; flex-wrap: wrap; }
+  .ficha-metricas__blocos { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}
+@media (max-width: 520px) {
+  .ficha-campos { grid-template-columns: 1fr; }
+}

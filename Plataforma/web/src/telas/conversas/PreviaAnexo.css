@@ -1,0 +1,307 @@
+/* ================================================================
+ * PREVIA DO ANEXO + EDITOR DE FOTO
+ * Cobre a conversa inteira, como no WhatsApp.
+ * ================================================================ */
+
+.previa {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  /* Fundo opaco: com transparencia, o cabecalho da conversa "vazava" por tras. */
+  background:
+    radial-gradient(120% 80% at 50% 45%, rgba(24,86,255,0.10), transparent 60%),
+    #070a16;
+  border-radius: inherit;
+  animation: previa-entrar 0.16s ease-out;
+}
+@keyframes previa-entrar {
+  from { opacity: 0; transform: scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .previa { animation: none; }
+}
+
+.previa__topo {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e3) var(--e4);
+  border-bottom: 1px solid var(--borda);
+  background: rgba(255,255,255,0.02);
+}
+.previa__fechar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--borda);
+  border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+  color: var(--texto);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.previa__fechar:hover { background: rgba(234,33,67,0.15); border-color: rgba(234,33,67,0.4); }
+.previa__titulo { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.previa__nome {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.previa__tamanho { font-size: 12px; color: var(--texto-fraco); }
+
+/*
+ * O palco: a midia fica SEMPRE dentro de uma folga generosa. A caixa interna
+ * e absoluta para ter tamanho definido — e ela que o editor mede para caber
+ * a foto inteira sem rolar e sem encostar nas bordas.
+ */
+.previa__palco {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.previa__palco-interno {
+  position: absolute;
+  inset: clamp(16px, 4vh, 40px) clamp(16px, 5vw, 64px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.previa__midia {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08);
+  background: #000;
+}
+
+.previa__documento {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e2);
+  text-align: center;
+  max-width: 360px;
+  padding: var(--e6) var(--e5);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-xl);
+  background: rgba(255,255,255,0.03);
+  word-break: break-word;
+}
+.previa__doc-icone {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #8b74ff, #6246ea);
+  box-shadow: 0 12px 32px rgba(127,102,255,0.35);
+  margin-bottom: var(--e3);
+}
+.previa__doc-icone svg { width: 44px; height: 44px; }
+.previa__doc-ext {
+  position: absolute;
+  bottom: -9px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #fff;
+  color: #4c3bd1;
+}
+
+.previa__rodape {
+  display: flex;
+  gap: var(--e2);
+  align-items: center;
+  padding: var(--e3) var(--e4);
+  padding-bottom: max(var(--e3), env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--borda);
+  background: rgba(255,255,255,0.02);
+}
+.previa__legenda {
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  padding: 0 var(--e4);
+  font-family: var(--fonte);
+  font-size: 14px;
+  color: var(--texto);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--borda-forte);
+  border-radius: 23px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.previa__legenda::placeholder { color: var(--texto-fraco); }
+.previa__legenda:focus { outline: none; border-color: var(--primaria); box-shadow: 0 0 0 3px rgba(24,86,255,0.2); }
+.previa__enviar { width: 50px; height: 50px; }
+
+/* ----------------------------------------------------------------
+ * Barra de ferramentas do editor
+ * ---------------------------------------------------------------- */
+
+.editor__barra {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  margin-top: var(--e3);
+  padding: 6px;
+  max-width: calc(100% - 2 * var(--e3));
+  overflow-x: auto;
+  border: 1px solid var(--borda-forte);
+  border-radius: 999px;
+  background: rgba(16, 20, 38, 0.9);
+  box-shadow: var(--sombra);
+  scrollbar-width: none;
+}
+.editor__barra::-webkit-scrollbar { display: none; }
+.editor__grupo { display: flex; gap: 2px; flex-shrink: 0; }
+.editor__divisor { width: 1px; height: 24px; flex-shrink: 0; background: var(--borda-forte); }
+
+.editor__ferramenta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--texto-suave);
+  font-family: var(--fonte);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.editor__ferramenta:hover:not(:disabled) { background: rgba(255,255,255,0.08); color: var(--texto); }
+.editor__ferramenta:disabled { opacity: 0.35; cursor: not-allowed; }
+.editor__ferramenta--ativa {
+  background: var(--primaria);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(24,86,255,0.45);
+}
+.editor__ferramenta--ativa:hover:not(:disabled) { background: var(--primaria-escura); color: #fff; }
+.editor__ferramenta:focus-visible { outline: 2px solid var(--primaria); outline-offset: 2px; }
+
+.editor__cores { display: flex; gap: 6px; padding: 0 4px; flex-shrink: 0; }
+.editor__cor {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.25);
+  background: var(--cor);
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.editor__cor:hover { transform: scale(1.15); }
+.editor__cor--ativa {
+  transform: scale(1.18);
+  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--primaria), 0 0 12px var(--cor);
+}
+.editor__cor:focus-visible { outline: 2px solid var(--primaria); outline-offset: 2px; }
+
+.editor__fontes { display: flex; gap: 6px; padding: 0 4px; flex-shrink: 0; }
+.editor__fonte {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1.5px solid var(--borda-forte);
+  background: rgba(255,255,255,0.05);
+  color: var(--texto);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, transform 0.12s;
+}
+.editor__fonte:hover { background: rgba(255,255,255,0.1); }
+.editor__fonte--ativa {
+  border-color: var(--primaria);
+  background: var(--primaria-suave);
+  color: #7eb0ff;
+  transform: scale(1.06);
+}
+.editor__fonte:focus-visible { outline: 2px solid var(--primaria); outline-offset: 2px; }
+
+.editor__dica {
+  margin: var(--e2) var(--e4) 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--texto-fraco);
+}
+
+/* ----------------------------------------------------------------
+ * A foto em edicao
+ * ---------------------------------------------------------------- */
+
+.editor__tela {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.1);
+  touch-action: none;
+  user-select: none;
+  background:
+    repeating-conic-gradient(rgba(255,255,255,0.06) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
+}
+.editor__tela--lapis,
+.editor__tela--pincel { cursor: crosshair; }
+.editor__tela--texto { cursor: text; }
+
+.editor__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.editor__canvas--rascunho { pointer-events: none; }
+
+.editor__texto {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  min-width: 3ch;
+  padding: 2px 8px;
+  border: 1.5px dashed rgba(255,255,255,0.75);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.25);
+  line-height: 1.15;
+  text-align: center;
+  /* Contorno fino em `em`: acompanha o tamanho da fonte, igual ao traço fino
+     desenhado no canvas — um contorno grosso virava mancha borrada. */
+  text-shadow:
+    -0.045em -0.045em 0 var(--contorno), 0.045em -0.045em 0 var(--contorno),
+    -0.045em 0.045em 0 var(--contorno), 0.045em 0.045em 0 var(--contorno);
+  outline: none;
+}
+.editor__texto::placeholder { color: rgba(255,255,255,0.55); }
+
+@media (max-width: 640px) {
+  .editor__rotulo { display: none; }
+  .editor__ferramenta { padding: 0 9px; }
+  .editor__cor { width: 20px; height: 20px; }
+  .previa__palco-interno { inset: 12px; }
+  /* No celular a barra quebra em duas linhas em vez de esconder cores e o Desfazer. */
+  .editor__barra {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 6px;
+    border-radius: 18px;
+    overflow: visible;
+  }
+  .editor__barra > .editor__divisor:nth-of-type(2) { display: none; }
+}

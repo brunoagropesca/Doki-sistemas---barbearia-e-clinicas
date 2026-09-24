@@ -1,0 +1,149 @@
+/* ================================================================
+ * CONTATOS: lista com acoes e ficha em duas colunas
+ * ================================================================ */
+
+/* ─── FICHA (tela dividida) ────────────────────────────────── */
+
+.ficha {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) 1fr;
+  gap: var(--e4);
+  align-items: start;
+}
+
+/* Numa tela estreita as duas colunas viram uma so, o cadastro em cima. */
+@media (max-width: 1000px) {
+  .ficha { grid-template-columns: 1fr; }
+}
+
+.ficha__cabeca {
+  display: flex;
+  gap: var(--e3);
+  align-items: center;
+  padding-bottom: var(--e3);
+  border-bottom: 1px solid var(--borda);
+}
+
+.ficha__nome { display: block; font-size: 18px; }
+
+.ficha__tag {
+  padding: 2px 8px;
+  background: var(--primaria-suave);
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ficha__tag:hover { color: #ff6b82; border-color: rgba(234, 33, 67, 0.4); }
+
+/* ─── CHAVES (campanhas, IA) ───────────────────────────────── */
+
+.chaves { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--e2); }
+
+.chave {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e3);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.chave:hover { border-color: var(--borda-forte); }
+.chave__texto { display: flex; flex-direction: column; min-width: 0; }
+.chave__texto small { color: var(--texto-fraco); font-size: 12px; }
+
+.chave__trilho {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 22px;
+  padding: 2px;
+  background: var(--superficie-2);
+  border: 1px solid var(--borda-forte);
+  border-radius: 999px;
+  transition: background 140ms ease;
+}
+.chave__bolinha {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--texto-fraco);
+  transition: transform 140ms ease, background 140ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chave__trilho, .chave__bolinha { transition: none; }
+}
+
+.chave--ligada .chave__bolinha { transform: translateX(16px); background: #fff; }
+.chave--ligada.chave--primaria .chave__trilho { background: var(--primaria); border-color: var(--primaria); }
+.chave--ligada.chave--sucesso .chave__trilho { background: var(--sucesso); border-color: var(--sucesso); }
+
+/* ─── HISTORICO DE AGENDAMENTOS ────────────────────────────── */
+
+.historico { display: flex; flex-direction: column; gap: var(--e2); margin: 0; padding: 0; list-style: none; }
+
+.historico__item {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  gap: var(--e3);
+  align-items: center;
+  padding: var(--e3);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-left: 3px solid var(--borda-forte);
+  border-radius: var(--raio);
+}
+.historico__item--concluido { border-left-color: var(--sucesso); }
+.historico__item--cancelado,
+.historico__item--faltou { border-left-color: #ea2143; }
+.historico__item--confirmado { border-left-color: var(--primaria); }
+
+.historico__quando { display: flex; flex-direction: column; }
+.historico__corpo { display: flex; flex-direction: column; min-width: 0; }
+
+/* ─── LISTA DE CONTATOS ────────────────────────────────────── */
+
+.filtros-crm { display: flex; flex-wrap: wrap; gap: var(--e2); }
+
+.filtro-crm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px var(--e3);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.filtro-crm:hover { border-color: var(--borda-forte); color: var(--texto); }
+.filtro-crm--ativo { background: var(--primaria-suave); border-color: var(--primaria); color: var(--texto); }
+.filtro-crm small { color: var(--texto-fraco); font-family: var(--fonte-mono); }
+
+/* Barra que aparece quando ha contatos marcados. */
+.massa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+  padding: var(--e3);
+  background: var(--primaria-suave);
+  border: 1px solid var(--primaria);
+  border-radius: var(--raio);
+}
+.massa__contagem { margin-right: auto; font-weight: 600; }
+
+.contato__acoes { display: flex; gap: 4px; justify-content: flex-end; }
+
+.contato__quem { display: flex; align-items: center; gap: var(--e3); }
+
+td.contato__marca, th.contato__marca { width: 36px; }

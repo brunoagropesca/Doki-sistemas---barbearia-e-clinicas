@@ -1,0 +1,200 @@
+/* ================================================================
+ * QUADRO DE ATENDIMENTO
+ *
+ * Oito colunas que nao cabem numa tela: o quadro rola na horizontal e
+ * cada coluna rola na vertical, como todo kanban. No celular as colunas
+ * ficam estreitas mas continuam lado a lado — empilhar oito colunas
+ * viraria uma lista de 200 linhas sem nocao de etapa.
+ * ================================================================ */
+
+.quadro {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(216px, 1fr);
+  gap: var(--e3);
+  overflow-x: auto;
+  padding-bottom: var(--e3);
+  align-items: start;
+  /* Barra de rolagem discreta: fina e quase invisivel, acende so com o mouse
+     em cima do quadro. A barra cinza padrao do navegador brigava com o tema.
+     Rolar continua funcionando igual (roda do mouse com Shift, arrastar, touch). */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s;
+}
+.quadro:hover { scrollbar-color: rgba(24, 86, 255, 0.35) transparent; }
+.quadro::-webkit-scrollbar { height: 6px; }
+.quadro::-webkit-scrollbar-track { background: transparent; }
+.quadro::-webkit-scrollbar-thumb { background: transparent; border-radius: 6px; }
+.quadro:hover::-webkit-scrollbar-thumb { background: rgba(24, 86, 255, 0.35); }
+.quadro::-webkit-scrollbar-thumb:hover { background: rgba(24, 86, 255, 0.55); }
+
+/* A mesma discricao na rolagem vertical de cada coluna. */
+.quadro__cartoes { scrollbar-width: thin; scrollbar-color: var(--borda-forte) transparent; }
+.quadro__cartoes::-webkit-scrollbar { width: 4px; }
+.quadro__cartoes::-webkit-scrollbar-track { background: transparent; }
+.quadro__cartoes::-webkit-scrollbar-thumb { background: var(--borda-forte); border-radius: 4px; }
+
+.quadro__coluna {
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+  max-height: calc(100vh - 300px);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+/* Alvo de soltura: o retangulo inteiro muda, nao so a borda — a mao
+   precisa saber onde o cartao vai cair antes de largar. */
+.quadro__coluna--alvo {
+  background: var(--primaria-suave);
+  border-color: var(--primaria);
+}
+
+.quadro__topo {
+  padding: var(--e3);
+  border-top: 3px solid var(--borda-forte);
+  border-top-left-radius: var(--raio-g);
+  border-top-right-radius: var(--raio-g);
+  border-bottom: 1px solid var(--borda);
+}
+.quadro__topo p {
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.quadro__contador {
+  background: var(--superficie-3);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-family: var(--fonte-mono);
+}
+
+.quadro__cartoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  padding: var(--e2);
+  overflow-y: auto;
+}
+
+.quadro__vazio {
+  color: var(--texto-fraco);
+  font-size: 13px;
+  padding: var(--e3);
+  text-align: center;
+}
+
+.cartao-q {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+  padding: var(--e2) var(--e3);
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-left: 3px solid var(--borda-forte);
+  border-radius: var(--raio);
+  cursor: grab;
+}
+.cartao-q:active { cursor: grabbing; }
+.cartao-q:hover { border-color: var(--borda-forte); }
+
+/* ----------------------------------------------------------------
+ * Cartao que precisa de uma PESSOA (na fila, ou cliente sem resposta).
+ * Pisca como notificacao: um anel laranja que acende e apaga devagar.
+ * So o anel pulsa — o texto fica parado para continuar legivel.
+ * ---------------------------------------------------------------- */
+.cartao-q--atencao {
+  position: relative;
+  /* Contexto proprio: o brilho (::before) fica ATRAS do texto e na frente do fundo. */
+  isolation: isolate;
+  border-color: var(--alerta);
+  animation: cartao-q-borda 1.6s ease-in-out infinite;
+}
+/* O pulso e POR DENTRO do cartao: um brilho externo seria cortado pela
+   rolagem da coluna (overflow), e ai o "piscar" quase nao aparecia. */
+.cartao-q--atencao::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: rgba(232, 149, 88, 0.26);
+  pointer-events: none;
+  animation: cartao-q-pisca 1.6s ease-in-out infinite;
+}
+/* Com o mouse em cima, para de piscar: a pessoa ja viu. */
+.cartao-q--atencao:hover,
+.cartao-q--atencao:hover::before { animation-play-state: paused; }
+
+@keyframes cartao-q-pisca {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 1; }
+}
+@keyframes cartao-q-borda {
+  0%, 100% { box-shadow: inset 0 0 0 0 rgba(232, 149, 88, 0); }
+  50% { box-shadow: inset 0 0 0 1px rgba(232, 149, 88, 0.9), 0 0 0 2px rgba(232, 149, 88, 0.45); }
+}
+
+.cartao-q__atencao {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--alerta);
+  background: var(--alerta-suave);
+  border-radius: 999px;
+  padding: 1px 8px 1px 6px;
+}
+.cartao-q__ponto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--alerta);
+  animation: cartao-q-ponto 1.6s ease-in-out infinite;
+}
+@keyframes cartao-q-ponto {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* Quem pediu menos movimento no sistema ve o destaque parado, sem piscar. */
+@media (prefers-reduced-motion: reduce) {
+  .cartao-q--atencao,
+  .cartao-q--atencao::before,
+  .cartao-q__ponto { animation: none; }
+  .cartao-q--atencao::before { opacity: 0.6; }
+}
+
+/* Cartao de conversa: ainda nao ha horario, o tracejado diz isso sem texto. */
+.cartao-q--conversa { border-style: dashed; border-left-style: solid; }
+
+.cartao-q__corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cartao-q__titulo {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cartao-q__resumo {
+  font-size: 12px;
+  color: var(--texto-suave);
+  border-left: 2px solid var(--borda);
+  padding-left: var(--e2);
+  margin-top: 2px;
+}

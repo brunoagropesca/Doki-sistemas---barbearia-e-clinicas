@@ -1,0 +1,82 @@
+/* ================================================================
+ * TEXTOS DO SISTEMA — pagina do perfil DEV
+ * ================================================================ */
+
+.textos-dev { gap: var(--e5); }
+
+.textos-dev__topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e4);
+  flex-wrap: wrap;
+}
+
+.textos-dev__secao { display: flex; flex-direction: column; gap: var(--e3); }
+.textos-dev__secao h2 { margin: 0; font-size: 17px; }
+.textos-dev__secao > p { margin: 0; }
+
+.textos-dev__mensagens {
+  display: grid;
+  gap: var(--e3);
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
+
+.textos-dev__mensagem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  padding: var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+}
+.textos-dev__mensagem p { margin: 0; font-size: 12.5px; }
+.textos-dev__mensagem--alterada { border-color: #ffd23f; }
+
+.textos-dev__selo {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--texto-fraco);
+}
+.textos-dev__selo--alterada { color: #ffd23f; }
+
+.textos-dev__manual {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto;
+  gap: var(--e2);
+  align-items: center;
+}
+
+.textos-dev__seta { color: var(--texto-fraco); }
+
+.textos-dev__lista { display: flex; flex-direction: column; gap: 6px; }
+
+.textos-dev__linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  gap: var(--e2);
+  align-items: center;
+  padding: 6px var(--e3);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.textos-dev__original {
+  font-size: 13.5px;
+  color: var(--texto-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.textos-dev__acoes { display: flex; gap: 6px; }
+
+@media (max-width: 720px) {
+  .textos-dev__manual,
+  .textos-dev__linha { grid-template-columns: 1fr; }
+  .textos-dev__seta { display: none; }
+}

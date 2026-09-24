@@ -1,0 +1,20 @@
+# Como o Git trata as quebras de linha.
+#
+# Windows termina linha com dois caracteres (CRLF); Mac e Linux com um (LF).
+# Sem esta configuracao, o Git fica avisando "LF will be replaced by CRLF" a
+# cada arquivo salvo, e um dia mostra um arquivo inteiro como "modificado"
+# quando so a quebra de linha mudou.
+#
+# A regra: no repositorio, tudo em LF. Na sua maquina, o Git converte.
+* text=auto eol=lf
+
+# Arquivos .bat SAO executados pelo Windows e precisam de CRLF de verdade:
+# alguns comandos falham de formas estranhas com LF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binarios: o Git nao deve mexer em nada dentro deles.
+*.png binary
+*.jpg binary
+*.ico binary
+*.db binary

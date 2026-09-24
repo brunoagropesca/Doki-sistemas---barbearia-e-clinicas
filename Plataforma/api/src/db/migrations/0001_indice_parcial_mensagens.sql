@@ -1,0 +1,2 @@
+DROP INDEX `idx_msg_external`;--> statement-breakpoint
+CREATE UNIQUE INDEX `idx_msg_external_entrada` ON `messages` (`tenant_id`,`external_id`) WHERE "messages"."direcao" = 'entrada' AND "messages"."external_id" IS NOT NULL;

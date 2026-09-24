@@ -1,0 +1,45 @@
+/* Assistente de agendamento em etapas */
+
+.passos { display: flex; gap: var(--e2); list-style: none; margin: 0 0 var(--e5); padding: 0; }
+.passos__item { flex: 1; min-width: 0; }
+.passos__botao {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%;
+  padding: 0; background: none; border: 0; color: var(--texto-fraco); font: inherit; font-size: 12px; cursor: default;
+}
+.passos__item--feito .passos__botao { cursor: pointer; color: var(--texto-suave); }
+.passos__bolinha {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid var(--borda-forte); font-size: 13px; font-family: var(--fonte-mono);
+}
+.passos__item--atual .passos__bolinha { background: var(--primaria); border-color: var(--primaria); color: #fff; }
+.passos__item--atual .passos__botao { color: var(--texto); font-weight: 600; }
+.passos__item--feito .passos__bolinha { background: var(--sucesso-suave); border-color: var(--sucesso); color: var(--sucesso); }
+
+.etapa { display: flex; flex-direction: column; gap: var(--e3); }
+.etapa__titulo { margin: 0; font-size: 15px; }
+.etapa__dica { margin: 0; color: var(--texto-fraco); font-size: 13px; }
+
+.opcoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--e2); }
+.opcao {
+  display: flex; flex-direction: column; gap: 2px; padding: var(--e3); text-align: left;
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio);
+  color: inherit; font: inherit; cursor: pointer;
+}
+.opcao span { color: var(--texto-suave); font-size: 13px; }
+.opcao:hover { border-color: var(--borda-forte); background: var(--superficie-2); }
+.opcao--marcada { border-color: var(--primaria); background: var(--primaria-suave); }
+
+.horas { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: var(--e2); }
+.hora {
+  padding: var(--e2); background: var(--superficie); border: 1px solid var(--borda); border-radius: 8px;
+  color: var(--texto); font: inherit; font-family: var(--fonte-mono); cursor: pointer;
+}
+.hora:hover { border-color: var(--borda-forte); }
+.hora--marcada { background: var(--primaria); border-color: var(--primaria); color: #fff; }
+
+.resumo { display: flex; flex-direction: column; margin: 0; border: 1px solid var(--borda); border-radius: var(--raio); }
+.resumo > div { display: flex; justify-content: space-between; gap: var(--e3); padding: var(--e3); }
+.resumo > div + div { border-top: 1px solid var(--borda); }
+.resumo dt { color: var(--texto-suave); }
+.resumo dd { margin: 0; text-align: right; }
+.resumo small { display: block; color: var(--texto-fraco); }

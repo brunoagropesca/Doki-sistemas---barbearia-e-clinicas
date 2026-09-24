@@ -1,0 +1,71 @@
+/* ================================================================
+ * BACKUPS E DADOS — pagina do perfil DEV
+ * ================================================================ */
+
+.dados-dev { gap: var(--e5); }
+
+.dados-dev__secao { display: flex; flex-direction: column; gap: var(--e3); }
+.dados-dev__secao h2 { margin: 0; font-size: 17px; }
+.dados-dev__secao p { margin: 0; }
+
+.dados-dev__cabeca {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--e4);
+  flex-wrap: wrap;
+}
+.dados-dev__criar { display: flex; align-items: center; gap: var(--e3); flex-wrap: wrap; }
+
+.dados-dev__lista { display: flex; flex-direction: column; gap: 6px; }
+
+.backup {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  flex-wrap: wrap;
+  padding: var(--e3) var(--e4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+.backup--agendado { border-color: var(--alerta); background: var(--alerta-suave); }
+.backup strong { margin-right: var(--e2); }
+.backup__detalhes { font-size: 12.5px; margin-top: 2px; }
+.backup__acoes { display: flex; gap: 6px; }
+
+.backup__motivo {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-fraco);
+}
+.backup__motivo--manual { color: var(--primaria); }
+.backup__motivo--antes_de_apagar,
+.backup__motivo--antes_de_restaurar { color: var(--alerta); }
+
+/* Zona de perigo: separada, vermelha, no fim da pagina. */
+.dados-dev__perigo {
+  margin-top: var(--e4);
+  padding: var(--e5);
+  border: 1px solid var(--perigo);
+  border-radius: var(--raio-g);
+  background: var(--perigo-suave);
+}
+.dados-dev__perigo h2 { color: var(--perigo); }
+
+.dados-dev__grupos {
+  display: grid;
+  gap: var(--e2);
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+.dados-dev__grupo--marcado { border-color: var(--perigo); background: rgba(234, 33, 67, 0.08); }
+
+.dados-dev__confirmar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--e3);
+  flex-wrap: wrap;
+}
+.dados-dev__confirmar .campo { min-width: 240px; }

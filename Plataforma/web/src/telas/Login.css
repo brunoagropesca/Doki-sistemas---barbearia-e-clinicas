@@ -1,0 +1,108 @@
+﻿/* ─── TELA DE LOGIN GLASS ───────────────────────────────── */
+.login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--e5) var(--e4);
+  padding-top: max(var(--e5), env(safe-area-inset-top, 0px));
+  padding-bottom: max(var(--e5), env(safe-area-inset-bottom, 0px));
+  position: relative;
+}
+
+/* Orbs decorativos atrás do card */
+.login::before,
+.login::after {
+  content: '';
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+.login::before {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(24,86,255,0.25) 0%, transparent 70%);
+  top: -100px;
+  left: -100px;
+  animation: orbFloat 8s ease-in-out infinite;
+}
+.login::after {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(120,40,255,0.2) 0%, transparent 70%);
+  bottom: -80px;
+  right: -80px;
+  animation: orbFloat 10s ease-in-out infinite reverse;
+}
+@keyframes orbFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.05); }
+  66% { transform: translate(-20px, 30px) scale(0.97); }
+}
+
+.login__cartao {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: saturate(200%) blur(32px);
+  -webkit-backdrop-filter: saturate(200%) blur(32px);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--raio-xl);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255,255,255,0.05),
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    0 0 60px rgba(24,86,255,0.12);
+  padding: var(--e6) var(--e6);
+  animation: cardIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+@keyframes cardIn {
+  from { transform: translateY(24px) scale(0.97); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.login__marca {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  margin-bottom: var(--e2);
+}
+.login__marca h1 {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.login__logo {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primaria), #7c3aed);
+  border-radius: 10px;
+  font-size: 20px;
+  box-shadow: 0 0 20px rgba(24,86,255,0.5), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.login__sub {
+  color: var(--texto-suave);
+  margin-bottom: var(--e5);
+  font-size: 13px;
+}
+
+/* Divisor sutil */
+.login__cartao::before {
+  content: '';
+  display: block;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+  margin-bottom: var(--e5);
+}
+
+@media (max-width: 440px) {
+  .login__cartao { padding: var(--e5); border-radius: var(--raio-g); }
+}

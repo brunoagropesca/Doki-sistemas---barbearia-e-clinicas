@@ -1,0 +1,51 @@
+# Dependencias — reconstruidas com `npm install`, nunca versionadas.
+node_modules/
+
+# Segredos. O .env tem chave de API e senha de banco; se ele entrar no Git,
+# entra no historico PARA SEMPRE, mesmo que voce apague depois.
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.test
+
+# Banco de dados e dados de execucao.
+# O banco e ESTADO, nao codigo. Versionar ele gera conflito a cada commit e
+# sobrescreve o dado de quem estiver trabalhando junto.
+data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+
+# Credenciais do WhatsApp — sao equivalentes a estar logado na conta.
+# ATENCAO: nao use uma regra generica como "**/whatsapp/": ela tambem esconderia
+# a pasta de CODIGO api/src/channels/whatsapp/ (o adaptador) do Git. As credenciais
+# ficam em api/data/whatsapp (WHATSAPP_AUTH_DIR), que ja esta coberta por "data/".
+**/baileys_auth/
+api/data/whatsapp/
+
+# Uploads de clientes (audios, anexos).
+uploads/
+
+# Build do front.
+dist/
+build/
+.vite/
+
+# Logs.
+*.log
+logs/
+
+# Sistema operacional e editor.
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Temporarios.
+*.tmp
+.cache/
+coverage/

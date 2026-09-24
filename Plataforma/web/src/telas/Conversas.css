@@ -1,0 +1,1182 @@
+/* ─── MESA DE CONVERSAS GLASS ───────────────────────────── */
+.mesa {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: var(--e4);
+  /* Exatamente a area do conteudo: esta tela nao rola, cada coluna rola por dentro. */
+  height: 100%;
+}
+
+/* ─── LISTA ─────────────────────────────────────────────── */
+.mesa__lista {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  overflow: hidden;
+  box-shadow: var(--sombra);
+}
+
+.mesa__filtros {
+  display: flex;
+  gap: 2px;
+  padding: var(--e2);
+  border-bottom: 1px solid var(--borda);
+  overflow-x: auto;
+  background: rgba(0,0,0,0.1);
+}
+.mesa__filtro {
+  padding: 5px 11px;
+  border: none;
+  background: none;
+  border-radius: var(--raio);
+  font-family: var(--fonte);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--texto-suave);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  letter-spacing: 0.02em;
+}
+.mesa__filtro:hover { background: var(--superficie-2); color: var(--texto); }
+.mesa__filtro--ativo {
+  background: var(--primaria-suave);
+  color: #7eb0ff;
+  border: 1px solid rgba(24,86,255,0.3);
+}
+
+/* Filtro por canal/conexao: so aparece quando ha algo conectado */
+.mesa__canais {
+  display: flex;
+  gap: var(--e2);
+  padding: var(--e2);
+  border-bottom: 1px solid var(--borda);
+  overflow-x: auto;
+}
+.mesa__canal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--texto-suave);
+  font-family: var(--fonte);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mesa__canal:hover { background: var(--superficie-2); color: var(--texto); }
+.mesa__canal--ativo {
+  background: var(--sucesso-suave);
+  color: var(--sucesso);
+  border-color: rgba(7, 202, 107, 0.4);
+}
+.mesa__so-leitor {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.conversa__canal {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--superficie-2);
+  color: var(--texto-suave);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* `overflow-x: hidden`: a lista so rola para baixo. Um nome comprido ou o
+   texto so-para-leitor-de-tela faziam aparecer uma barra horizontal embaixo. */
+.mesa__itens { flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; }
+
+.conversa {
+  display: block;
+  width: 100%;
+  padding: var(--e3) var(--e4);
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--fonte);
+  color: var(--texto);
+  transition: background 0.15s;
+}
+.conversa:hover { background: rgba(255,255,255,0.04); }
+.conversa--ativa {
+  background: linear-gradient(135deg, rgba(24,86,255,0.15), rgba(24,86,255,0.06));
+  border-left: 2px solid var(--primaria);
+}
+
+.conversa__topo {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--e2);
+  margin-bottom: 2px;
+}
+.conversa__nome {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conversa__hora { font-size: 11px; color: var(--texto-fraco); flex-shrink: 0; }
+
+.conversa__previa {
+  font-size: 12px;
+  color: var(--texto-suave);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: var(--e2);
+}
+
+.conversa__rodape {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  font-size: 11px;
+}
+.conversa__nao-lidas {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--perigo);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(234,33,67,0.5);
+}
+
+/* ─── FIO DA CONVERSA ───────────────────────────────────── */
+.mesa__fio {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--sombra);
+}
+
+.fio {
+  position: relative; /* a previa de anexo cobre o fio inteiro */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.fio__topo {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e3) var(--e4);
+  border-bottom: 1px solid var(--borda);
+  background: rgba(255,255,255,0.02);
+}
+.fio__voltar {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--texto-suave);
+  cursor: pointer;
+  padding: 0 var(--e2) 0 0;
+}
+
+.fio__acoes {
+  display: flex;
+  gap: var(--e2);
+  padding: var(--e2) var(--e4);
+  border-bottom: 1px solid var(--borda);
+  background: rgba(0,0,0,0.08);
+  flex-wrap: wrap;
+}
+
+.fio__mensagens {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--e4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  background: rgba(0,0,0,0.15);
+}
+
+/* Scrollbar estilizada */
+.fio__mensagens::-webkit-scrollbar { width: 4px; }
+.fio__mensagens::-webkit-scrollbar-track { background: transparent; }
+.fio__mensagens::-webkit-scrollbar-thumb { background: var(--borda-forte); border-radius: 4px; }
+
+.msg { display: flex; }
+.msg--cliente { justify-content: flex-start; }
+.msg--nossa { justify-content: flex-end; }
+
+.msg__balao {
+  max-width: min(78%, 520px);
+  padding: var(--e2) var(--e3);
+  border-radius: var(--raio-g);
+  box-shadow: var(--sombra);
+}
+.msg--cliente .msg__balao {
+  background: rgba(255,255,255,0.07);
+  backdrop-filter: var(--blur-leve);
+  -webkit-backdrop-filter: var(--blur-leve);
+  border: 1px solid var(--borda);
+  border-bottom-left-radius: 4px;
+}
+.msg--nossa .msg__balao {
+  background: linear-gradient(135deg, var(--primaria), #3b72ff);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 4px 20px rgba(24,86,255,0.35);
+  border: 1px solid rgba(24,86,255,0.5);
+}
+
+.msg__autor { font-size: 11px; opacity: 0.85; margin-bottom: 2px; font-weight: 600; }
+.msg__texto { font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+.msg__hora { font-size: 10px; opacity: 0.6; margin-top: 3px; text-align: right; }
+
+/* Tique discreto de "Entregue": herda o tamanho e a opacidade da hora. */
+.msg__entregue { white-space: nowrap; }
+
+/* Anexos (foto, video, documento) dentro do balao. */
+.msg__anexo { display: flex; flex-direction: column; gap: var(--e2); }
+.msg__imagem,
+.msg__video {
+  display: block;
+  max-width: min(320px, 100%);
+  max-height: 340px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: rgba(0,0,0,0.3);
+}
+.msg__imagem { cursor: zoom-in; }
+.msg__documento {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  min-width: 220px;
+  padding: var(--e2) var(--e3);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.18);
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.12s;
+}
+.msg__documento:hover { background: rgba(0,0,0,0.28); }
+.msg__doc-icone {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: #7f66ff;
+}
+.msg__doc-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.msg__doc-nome { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msg__doc-detalhe { font-size: 11.5px; opacity: 0.75; }
+.msg__doc-baixar {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  opacity: 0.7;
+  font-size: 15px;
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Recado de voz (player proprio)
+ * ---------------------------------------------------------------------------
+ *
+ * O player e nosso e nao o `<audio controls>` do navegador, que desenha uma
+ * barra cinza clara — invisivel dentro do balao escuro e diferente em cada
+ * navegador.
+ *
+ * As cores saem de `currentColor`, e nao de um valor fixo: o mesmo componente
+ * aparece no balao do cliente (fundo translucido, texto claro) e, no futuro,
+ * num balao nosso (fundo azul, texto branco). Herdando a cor do texto, os dois
+ * ficam legiveis sem uma regra para cada caso.
+ */
+.audio { min-width: 190px; }
+
+.audio__player {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+}
+
+.audio__botao {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--borda-forte);
+  background: var(--primaria);
+  color: #fff;
+  font-size: 11px;
+  /* O simbolo de "play" tem um vazio a esquerda; 1px empurra para o centro otico. */
+  padding-left: 1px;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.audio__botao:hover { background: var(--primaria-escura); }
+.audio__botao:active { transform: scale(0.94); }
+
+/*
+ * A barra e um `<input type=range>` para ganhar de graca o que um `<div>` nao
+ * tem: arrastar com o mouse, andar com as setas do teclado e ser anunciada por
+ * leitor de tela. O visual e todo refeito abaixo.
+ */
+.audio__barra {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 999px;
+  cursor: pointer;
+  /* A parte ja tocada usa a cor do texto; o resto fica apagado atras. */
+  background: linear-gradient(
+    to right,
+    currentColor 0%,
+    currentColor var(--progresso, 0%),
+    rgba(255, 255, 255, 0.22) var(--progresso, 0%),
+    rgba(255, 255, 255, 0.22) 100%
+  );
+}
+.audio__barra:disabled { cursor: default; opacity: 0.5; }
+
+/* A bolinha precisa das duas regras: os navegadores nao compartilham o seletor. */
+.audio__barra::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: currentColor;
+  border: none;
+  cursor: pointer;
+}
+.audio__barra::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: currentColor;
+  border: none;
+  cursor: pointer;
+}
+
+.audio__tempo {
+  flex-shrink: 0;
+  font-size: 11px;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+  min-width: 30px;
+  text-align: right;
+}
+
+.audio__transcricao { margin-top: 6px; }
+
+/*
+ * "Ver transcricao" e um `<button>` com cara de link: a acao acontece nesta
+ * pagina (abre um trecho), nao navega para lugar nenhum. Um `<a>` aqui
+ * prometeria uma ida que nao existe e confundiria leitor de tela.
+ */
+.audio__link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  opacity: 0.7;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.audio__link:hover { opacity: 1; }
+
+.audio__texto {
+  margin: 6px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--borda);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  opacity: 0.9;
+}
+
+/*
+ * Falha de entrega, dentro do balao.
+ * Todo balao nosso e azul, e um texto vermelho/rosa sobre azul nao tem
+ * contraste. Por isso a falha ganha um fundo escuro proprio e texto branco:
+ * o alerta se le pelo icone e pelas palavras, nao so pela cor.
+ */
+.msg__falha {
+  margin-top: var(--e2);
+  padding: var(--e2);
+  border-radius: var(--raio);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 138, 155, 0.55);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.msg__falha-texto {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.msg__falha-icone { flex-shrink: 0; margin-top: 1px; color: #ffb3bd; }
+.msg__falha-acoes { margin-top: var(--e2); }
+.msg__falha-status { overflow-wrap: anywhere; }
+.msg__falha-status:not(:empty):not(:first-child) { margin-top: var(--e2); }
+
+/* O Botao padrao e grande demais para dentro de um balao. */
+.msg__falha .botao {
+  padding: 3px 10px;
+  font-size: 12px;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+.msg__falha .botao:hover:not(:disabled) { border-color: #fff; }
+/* O foco padrao e azul, igual ao balao: ficaria invisivel. */
+.msg__falha .botao:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* Mensagem de sistema — event card centralizado */
+.msg--sistema {
+  justify-content: center;
+  padding: var(--e3) var(--e5);
+  pointer-events: none;
+}
+
+/* Card de evento */
+.msg__sistema-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 360px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--raio-g);
+  padding: var(--e3) var(--e4);
+  backdrop-filter: saturate(140%) blur(10px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+}
+
+/* Ícone de engrenagem pequeno */
+.msg__sistema-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  font-size: 10px;
+  color: var(--texto-fraco);
+  flex-shrink: 0;
+}
+
+/* Texto do evento */
+.msg__sistema-texto {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--texto-suave);
+  font-style: italic;
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-align: left;
+  opacity: 0.85;
+}
+
+/* Aviso de mensagem nao entregue, colado no campo de resposta. */
+.fio__aviso {
+  flex-shrink: 0;
+  padding: var(--e3) var(--e4);
+  background: rgba(234,33,67,0.04);
+  border-top: 1px solid rgba(234,33,67,0.18);
+}
+.fio__aviso .aviso { margin-bottom: 0; }
+/* O motivo da falha vem do servidor e pode ter uma palavra muito longa (um
+   codigo de erro, por exemplo): sem isto ela estouraria a largura do painel. */
+.fio__aviso .aviso__texto { min-width: 0; overflow-wrap: anywhere; }
+/* Aviso e campo formam um bloco so: sem borda dupla. */
+.fio__aviso + .fio__envio {
+  border-top: 1px solid rgba(234,33,67,0.12);
+  background: rgba(234,33,67,0.02);
+}
+
+.fio__envio {
+  display: flex;
+  gap: var(--e2);
+  align-items: flex-end;
+  padding: var(--e3) var(--e4);
+  padding-bottom: max(var(--e3), env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--borda);
+  background: rgba(255,255,255,0.02);
+}
+.fio__campo {
+  flex: 1;
+  padding: var(--e2) var(--e3);
+  font-family: var(--fonte);
+  font-size: 14px;
+  color: var(--texto);
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: var(--blur-leve);
+  -webkit-backdrop-filter: var(--blur-leve);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+  resize: none;
+  transition: all 0.18s;
+}
+.fio__campo:focus {
+  outline: none;
+  border-color: var(--primaria);
+  box-shadow: 0 0 0 3px rgba(24,86,255,0.2);
+  background: rgba(24,86,255,0.06);
+}
+.fio__campo::placeholder { color: var(--texto-fraco); }
+
+/*
+ * ---------------------------------------------------------------------------
+ * Gravar e enviar audio
+ * ---------------------------------------------------------------------------
+ */
+
+/* Botao de microfone: mesmo tamanho do circulo de play do player (34px),
+   para os dois "botoes redondos de audio" da tela terem a mesma escala. */
+.fio__mic {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--borda-forte);
+  background: rgba(255,255,255,0.06);
+  color: var(--texto);
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+.fio__mic:hover:not(:disabled) { background: rgba(255,255,255,0.1); border-color: var(--primaria); }
+.fio__mic:active:not(:disabled) { transform: scale(0.94); }
+.fio__mic:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.fio__mic-erro {
+  color: var(--perigo);
+  font-size: 12px;
+  align-self: center;
+}
+
+/*
+ * A barra que substitui o campo de texto enquanto se grava. Mesma altura e
+ * bordas do campo (`.fio__campo`) para o formulario nao "pular" quando troca
+ * de um para o outro.
+ */
+.fio__gravando {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e2) var(--e3);
+  background: rgba(234,33,67,0.06);
+  border: 1px solid rgba(234,33,67,0.3);
+  border-radius: var(--raio);
+  min-height: 42px;
+}
+
+.fio__gravando-cancelar {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.08);
+  color: var(--texto-suave);
+  cursor: pointer;
+  font-size: 12px;
+}
+.fio__gravando-cancelar:hover { background: rgba(255,255,255,0.15); color: var(--texto); }
+
+/* O ponto que pulsa: e o que diz "isto esta acontecendo agora", sem depender so da cor de fundo. */
+.fio__gravando-ponto {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--perigo);
+  animation: fio-gravando-pulsar 1.1s ease-in-out infinite;
+}
+@keyframes fio-gravando-pulsar {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fio__gravando-ponto { animation: none; }
+}
+
+.fio__gravando-tempo {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--texto);
+  min-width: 32px;
+}
+
+.fio__gravando-dica {
+  flex: 1;
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+
+.fio__gravando-enviar {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: none;
+  background: var(--primaria);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  padding-left: 1px; /* centro otico do simbolo ➤ */
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+.fio__gravando-enviar:hover:not(:disabled) { background: var(--primaria-escura); }
+.fio__gravando-enviar:active:not(:disabled) { transform: scale(0.94); }
+.fio__gravando-enviar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.fio__encerrado {
+  padding: var(--e4);
+  text-align: center;
+  color: var(--texto-suave);
+  font-size: 13px;
+  border-top: 1px solid var(--borda);
+  background: rgba(0,0,0,0.1);
+}
+
+/* ================================================================
+ * PERFIL DO CLIENTE NO LIVECHAT
+ *
+ * Painel a ESQUERDA do fio, nao por cima dele: quem atende precisa ler o
+ * historico sem perder de vista o que o cliente acabou de escrever. Por
+ * isso e uma coluna da grade, e nao um modal.
+ * ================================================================ */
+
+.fio-area {
+  display: grid;
+  /* minmax(0, ...): sem isto a coluna estica ate o conteudo mais largo e o
+     fio passa da tela no celular (o botao de enviar ficava cortado). */
+  grid-template-columns: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+.fio-area--com-painel {
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.fio__lead {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.fio__lead:hover strong { color: var(--info); text-decoration: underline; }
+
+/**
+ * Entra deslizando da direita, de onde o painel vem.
+ *
+ * A animacao e curta (180ms) de proposito: o painel abre e fecha o tempo todo
+ * durante um atendimento, e meio segundo de espera a cada clique vira
+ * irritacao no fim do dia. Quem pediu menos animacao no sistema operacional
+ * nao ve nenhuma.
+ */
+@keyframes painel-entra {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.painel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--borda);
+  background: rgba(0, 0, 0, 0.18);
+  animation: painel-entra 180ms ease-out;
+}
+
+.painel__chip,
+.painel__secao {
+  animation: painel-entra 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .painel,
+  .painel__chip,
+  .painel__secao {
+    animation: none;
+  }
+}
+
+.painel__topo {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  padding: var(--e3);
+  border-bottom: 1px solid var(--borda);
+}
+
+.painel__fechar {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  color: var(--texto-fraco);
+  font-size: 18px;
+  line-height: 1;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+}
+.painel__fechar:hover { color: var(--texto); border-color: var(--borda-forte); }
+
+/* Os chips das secoes: DADOS CRM | HUMOR | RESUMO | ANOTACOES. */
+.painel__abas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: var(--e2) var(--e3);
+  border-bottom: 1px solid var(--borda);
+}
+
+.painel__chip {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.painel__chip:hover { color: var(--texto); border-color: var(--borda-forte); }
+.painel__chip--ativo {
+  background: var(--primaria-suave);
+  border-color: var(--primaria);
+  color: var(--texto);
+}
+
+.painel__corpo {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--e3);
+  min-height: 0;
+}
+
+.painel__secao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  font-size: 13px;
+}
+
+.painel__linha {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--e2);
+  align-items: baseline;
+}
+
+.painel__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.painel__bloco {
+  border-top: 1px solid var(--borda);
+  padding-top: var(--e2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+}
+
+.painel__humor {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e3);
+  border: 1px solid var(--borda-forte);
+  border-left-width: 3px;
+  border-radius: var(--raio);
+  background: var(--superficie);
+}
+.painel__humor-icone { font-size: 28px; line-height: 1; }
+
+.painel__resumo {
+  border-left: 2px solid var(--borda);
+  padding-left: var(--e2);
+  margin-top: var(--e2);
+}
+
+.painel__nota {
+  background: var(--superficie);
+  border-radius: var(--raio);
+  padding: var(--e2);
+}
+
+@media (max-width: 1100px) {
+  /* Espaco curto: o painel toma o lugar do fio em vez de espremer os dois. */
+  .fio-area--com-painel { grid-template-columns: minmax(0, 1fr); }
+  .fio-area--com-painel .fio { display: none; }
+  .painel { border-left: 0; }
+}
+
+/* ─── HUMOR DO CLIENTE ──────────────────────────────────── */
+/* Cor e rosto juntos, nunca so a cor: quem nao distingue verde de
+   vermelho continua lendo o estado pelo simbolo e pelo texto. */
+.humor {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+.humor--compacto { font-size: 15px; line-height: 1; }
+.humor--satisfeito { color: var(--sucesso); }
+.humor--neutro { color: var(--info); }
+.humor--duvida { color: var(--alerta); }
+.humor--frustrado { color: var(--perigo); }
+
+/* ================================================================
+ * PERFIL DO ATENDENTE (topo da mesa) e LISTAS PESSOAIS
+ * ================================================================ */
+
+.avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primaria), #7c3aed);
+  color: #fff;
+  font-weight: 600;
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* O pontinho de presenca usa cor E posicao fixa; o texto "online/ausente"
+   ao lado do nome diz o mesmo para quem nao distingue as cores. */
+.avatar__presenca {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--fundo);
+  background: var(--texto-fraco);
+}
+.avatar__presenca--online { background: var(--sucesso); }
+.avatar__presenca--ausente { background: var(--alerta); }
+.avatar__presenca--offline { background: var(--texto-fraco); }
+
+.perfil {
+  position: relative;
+  border-bottom: 1px solid var(--borda);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.perfil__botao {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  width: 100%;
+  padding: var(--e3);
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.perfil__botao:hover { background: rgba(255, 255, 255, 0.04); }
+
+.perfil__nome {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.perfil__nome strong,
+.perfil__nome span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.perfil__seta { color: var(--texto-fraco); font-size: 12px; }
+
+.perfil__contador {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--primaria);
+  color: #fff;
+  font-size: 12px;
+  font-family: var(--fonte-mono);
+  text-align: center;
+}
+
+.perfil__menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% - 2px);
+  left: var(--e2);
+  right: var(--e2);
+  padding: var(--e1);
+  /* Opaco de proposito: o menu fica POR CIMA da lista, e qualquer transparencia
+     deixaria o texto dos cartoes aparecer por baixo das opcoes. */
+  background: #0b1024;
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra-g);
+  animation: perfil-abre 120ms ease-out;
+}
+@keyframes perfil-abre {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .perfil__menu { animation: none; }
+}
+
+.perfil__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--e2) var(--e3);
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: var(--texto-suave);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.perfil__item:hover { background: var(--superficie-2); color: var(--texto); }
+.perfil__item--ativo { background: var(--primaria-suave); color: var(--texto); }
+
+.perfil__grupo {
+  padding: var(--e2) var(--e3) var(--e1);
+  color: var(--texto-fraco);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-top: 1px solid var(--borda);
+  margin-top: var(--e1);
+}
+
+.perfil__presencas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--e1);
+  padding: 0 var(--e2) var(--e2);
+}
+.perfil__presenca {
+  padding: var(--e1) var(--e2);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.perfil__presenca:hover { border-color: var(--borda-forte); }
+.perfil__presenca--ativa { color: var(--texto); border-color: currentColor; }
+.perfil__presenca--online.perfil__presenca--ativa { color: var(--sucesso); background: var(--sucesso-suave); }
+.perfil__presenca--ausente.perfil__presenca--ativa { color: var(--alerta); background: var(--alerta-suave); }
+.perfil__presenca--offline.perfil__presenca--ativa { color: var(--texto-suave); background: var(--superficie-2); }
+
+.perfil__pequeno {
+  padding: var(--e1) var(--e2);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.perfil__pequeno:hover { color: var(--texto); border-color: var(--borda-forte); }
+
+/* ─── LISTAS PESSOAIS (ocupam o lugar da conversa) ─────────── */
+
+.vista {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.vista__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--e3);
+  padding: var(--e3) var(--e4);
+  border-bottom: 1px solid var(--borda);
+}
+.vista__topo h2 { margin: 0; }
+
+.vista__corpo {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--e3) var(--e4);
+  min-height: 0;
+}
+
+.vista__lista { display: flex; flex-direction: column; gap: var(--e2); }
+
+.vista__linha {
+  display: flex;
+  gap: var(--e3);
+  align-items: flex-start;
+  width: 100%;
+  padding: var(--e3);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.vista__linha:hover { border-color: var(--borda-forte); background: var(--superficie-2); }
+
+.vista__hora {
+  flex: 0 0 48px;
+  color: var(--texto-suave);
+}
+
+.vista__resumo {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+
+.vista__dia { margin-bottom: var(--e4); }
+.vista__dia-titulo {
+  margin: 0 0 var(--e2);
+  color: var(--texto-suave);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: capitalize;
+}
+
+.vista__cartao {
+  display: flex;
+  gap: var(--e3);
+  padding: var(--e3);
+  margin-bottom: var(--e2);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-left: 3px solid var(--primaria);
+  border-radius: var(--raio);
+}
+
+/* ─── CELULAR ───────────────────────────────────────────── */
+@media (max-width: 820px) {
+  .mesa {
+    grid-template-columns: 1fr;
+    height: 100%;
+  }
+  .mesa__lista--escondida { display: none; }
+  .mesa__fio--escondido { display: none; }
+  .fio__voltar { display: block; }
+  .msg__balao { max-width: 85%; }
+}
+
+/* Voltar para a lista pessoal: visivel tambem no desktop. */
+.fio__voltar--lista { display: block; }
+
+/* Quantos esperam na fila, colado no rotulo da aba. */
+.mesa__contagem {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--alerta);
+  color: #1a1206;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--fonte-mono);
+}
+
+/* Foto do cliente na lista e no topo do fio: reconhecer quem e antes de ler
+   o nome e o que torna a mesa navegavel quando ha dezenas de conversas. */
+.conversa { display: flex; gap: var(--e3); align-items: flex-start; }
+.conversa__conteudo { flex: 1; min-width: 0; }
+.fio__lead { display: flex; align-items: center; gap: var(--e3); }
+.fio__lead-texto { display: flex; flex-direction: column; min-width: 0; }
+.fio__lead-texto strong,
+.fio__lead-texto .texto-fraco { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

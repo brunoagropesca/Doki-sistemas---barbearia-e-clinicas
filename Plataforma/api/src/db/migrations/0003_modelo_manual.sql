@@ -1,0 +1,1 @@
+ALTER TABLE `ai_providers` ADD `modelo_manual` integer DEFAULT false NOT NULL;
