@@ -4,6 +4,7 @@ Guia para levar a plataforma (hoje afinada para barbearia) a **clínicas**, com 
 
 - **Base analisada:** `main` em `f1034e8` ("Assinatura do atendente"), 920 testes passando.
 - **Princípio:** **um sistema só**, que muda de comportamento pelo **segmento** da empresa. Nada de copiar o projeto para uma versão "clínica": cada correção feita num lado teria de ser refeita no outro, para sempre.
+- Ver também `DIFICULDADE-DE-ADAPTACAO.md`, nesta pasta: o relatório original, em linguagem direta, sobre o tamanho do esforço — este documento aqui é o roteiro de execução a partir dele.
 
 ---
 
