@@ -130,6 +130,10 @@ export async function rotasConversas(app) {
       }
     }
 
+    // Audio: o texto falado chega DEPOIS (2 a 4 s de IA que o atendente nao
+    // precisa esperar). Sem await de proposito; a funcao nunca lanca.
+    if (dados.audio) void service.transcreverRespostaDeAudio(req.tenantId, req.params.id, r.id);
+
     res.status(201);
     return { ...r, entrega };
   });

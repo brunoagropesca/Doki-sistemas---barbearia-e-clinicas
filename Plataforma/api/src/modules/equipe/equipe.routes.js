@@ -59,7 +59,9 @@ const configuracaoSchema = z
     distribuicaoAutomatica: z.boolean().optional(),
     criterioDistribuicao: z.enum(Object.keys(CRITERIOS_DISTRIBUICAO)).optional(),
     distribuirSomenteOnline: z.boolean().optional(),
-    distribuirParaGerencia: z.boolean().optional()
+    distribuirParaGerencia: z.boolean().optional(),
+    assinaturaAtendente: z.boolean().optional(),
+    assinaturaSofia: z.boolean().optional()
   })
   .refine((d) => Object.keys(d).length > 0, 'Envie pelo menos um campo.');
 

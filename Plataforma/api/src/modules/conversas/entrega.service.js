@@ -7,6 +7,7 @@ import { registrarEvento } from '../../channels/eventos.js';
 import { caminhoDe } from '../equipe/arquivos.js';
 import * as repo from './conversas.repo.js';
 import { podeAgir } from './conversas.service.js';
+import { assinar, obterConfiguracao } from '../equipe/equipe.config.js';
 
 const log = comContexto({ modulo: 'entrega' });
 
@@ -42,21 +43,28 @@ async function lerArquivoSalvo(midiaUrl) {
   return readFile(destino);
 }
 
-/** O que o adaptador do canal recebe para cada tipo de mensagem. */
-async function corpoDoEnvio(m) {
+/**
+ * O que o adaptador do canal recebe para cada tipo de mensagem.
+ *
+ * `assinatura` (nome do atendente, quando a empresa liga em Equipe >
+ * Atendentes > Privacidade) vai no topo do texto ou da legenda. Audio e
+ * anexo sem legenda nao tem onde escrever: saem sem.
+ */
+async function corpoDoEnvio(m, assinatura) {
   if (m.tipo === 'audio') return { audio: await lerArquivoSalvo(m.midiaUrl) };
   if (m.tipo === 'imagem' || m.tipo === 'video' || m.tipo === 'documento') {
+    const legenda = m.metadados?.legenda;
     return {
       midia: {
         tipo: m.tipo,
         bytes: await lerArquivoSalvo(m.midiaUrl),
         mimetype: m.metadados?.mimetype,
         nomeArquivo: m.metadados?.nomeArquivo,
-        legenda: m.metadados?.legenda ?? undefined
+        legenda: legenda ? assinar(assinatura, legenda) : undefined
       }
     };
   }
-  return { texto: m.conteudo };
+  return { texto: assinar(assinatura, m.conteudo) };
 }
 
 /**
@@ -128,7 +136,7 @@ export async function entregarMensagem(tenantId, conversationId, mensagemId, { r
   const linha = await repo.buscarMensagemParaEntrega(tenantId, conversationId, mensagemId);
   if (!linha) throw new NaoEncontrado('Mensagem');
 
-  const { mensagem: m, conversa, leadTelefone, instanciaChave, instanciaRemovida } = linha;
+  const { mensagem: m, conversa, leadTelefone, instanciaChave, instanciaRemovida, autorNome } = linha;
 
   if (m.direcao !== 'saida' || m.autorTipo !== 'humano') {
     throw new RegraDeNegocio('Só respostas de atendente podem ser enviadas por aqui.');
@@ -177,11 +185,12 @@ export async function entregarMensagem(tenantId, conversationId, mensagemId, { r
       if (!adaptador?.enviar) throw new Error(`O canal "${conversa.canal}" não está conectado.`);
       if (!leadTelefone) throw new Error('O cliente não tem telefone cadastrado.');
 
+      const { assinaturaAtendente } = await obterConfiguracao(tenantId);
       const r = await adaptador.enviar({
         tenantId,
         instanciaChave: chave,
         destino: leadTelefone,
-        ...(await corpoDoEnvio(m))
+        ...(await corpoDoEnvio(m, assinaturaAtendente ? autorNome : null))
       });
       idExterno = r?.idExterno ?? null;
     } catch (err) {

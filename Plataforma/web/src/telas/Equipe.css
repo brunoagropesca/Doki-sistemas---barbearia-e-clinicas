@@ -658,3 +658,20 @@
 @media (max-width: 520px) {
   .ficha-campos { grid-template-columns: 1fr; }
 }
+
+/* ─── Assinatura: previa do balao que o cliente recebe no WhatsApp ─── */
+.assinatura-previa { display: flex; flex-direction: column; gap: 6px; }
+.assinatura-previa__rotulo { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--texto-fraco); }
+.assinatura-previa__balao {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 340px;
+  padding: 8px 12px;
+  border-radius: 10px 10px 10px 2px;
+  background: #1f2c34;
+  color: #e9edef;
+  font-size: 13.5px;
+  line-height: 1.4;
+}

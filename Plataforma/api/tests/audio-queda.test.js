@@ -87,6 +87,151 @@ describe('conversao do audio gravado no navegador', () => {
   });
 });
 
+describe('o audio nao espera a transcricao', () => {
+  /**
+   * Medido no uso real: a transcricao (Gemini) levava 2,2 a 4,5 s e o audio so
+   * saia para o cliente depois dela. Aqui o provedor falso demora 1,5 s: o
+   * envio tem de responder antes disso, e o texto chegar depois.
+   */
+  it('o envio responde sem esperar; o texto falado aparece depois no balao', async () => {
+    const { db } = await import('../src/db/client.js');
+    const { aiProviders, messages } = await import('../src/db/schema/index.js');
+    const { cifrar } = await import('../src/core/crypto.js');
+    const { eq } = await import('drizzle-orm');
+
+    await db.insert(aiProviders).values({
+      id: 'aip_audio_lento',
+      tenantId,
+      provedor: 'groq',
+      apiKeyCifrada: cifrar('chave-de-teste-audio-1234567890'),
+      habilitado: true,
+      modelos: [{ nome: 'whisper', ativo: true }]
+    });
+    const fetchOriginal = globalThis.fetch;
+    globalThis.fetch = async (url, opcoes) => {
+      if (!String(url).includes('/audio/transcriptions')) return fetchOriginal(url, opcoes);
+      await new Promise((r) => setTimeout(r, 1500));
+      return new Response('Oi, seu horário de sexta está confirmado', { status: 200 });
+    };
+
+    try {
+      const id = await novaConversa('Cliente Audio Rapido');
+      const inicio = Date.now();
+      const r = await app.inject({
+        method: 'POST',
+        url: `/api/conversas/${id}/mensagens`,
+        headers: cab,
+        payload: { audio: `data:audio/webm;codecs=opus;base64,${webmDeMentira().toString('base64')}`, duracaoSegundos: 1 }
+      });
+      const tempo = Date.now() - inicio;
+      assert.equal(r.statusCode, 201, r.body);
+      assert.ok(tempo < 1500, `respondeu em ${tempo} ms, sem esperar os 1500 ms da transcricao`);
+
+      const ler = async () => (await db.select().from(messages).where(eq(messages.id, r.json().id)))[0];
+      assert.equal((await ler()).conteudo, '🎤 Áudio', 'na hora: o rotulo');
+
+      let m;
+      for (let i = 0; i < 40 && !(m = await ler()).transcricao; i++) await new Promise((res) => setTimeout(res, 100));
+      assert.equal(m.transcricao, 'Oi, seu horário de sexta está confirmado');
+      assert.equal(m.conteudo, 'Oi, seu horário de sexta está confirmado', 'a previa e a busca passam a ter o texto');
+    } finally {
+      globalThis.fetch = fetchOriginal;
+      await db.delete(aiProviders).where(eq(aiProviders.id, 'aip_audio_lento'));
+    }
+  });
+});
+
+describe('"Transcrevendo..." dos dois lados da conversa', () => {
+  const lerMensagem = async (id) => {
+    const { db } = await import('../src/db/client.js');
+    const { messages } = await import('../src/db/schema/index.js');
+    const { eq } = await import('drizzle-orm');
+    return (await db.select().from(messages).where(eq(messages.id, id)))[0];
+  };
+
+  it('audio do CLIENTE: aparece gravado como pendente ANTES de transcrever; depois vira texto', async () => {
+    const { receberMensagem } = await import('../src/channels/gateway.js');
+    const { db } = await import('../src/db/client.js');
+    const { messages } = await import('../src/db/schema/index.js');
+    const { and, eq } = await import('drizzle-orm');
+    telefone += 1;
+    const numero = String(telefone);
+
+    let noMomentoDaTranscricao;
+    const r = await receberMensagem({
+      tenantId,
+      remetente: numero,
+      texto: '🎤 Áudio',
+      idExterno: `aud-pend-${numero}`,
+      midia: {
+        tipo: 'audio',
+        url: '/api/arquivos/audio-teste-pendente.ogg',
+        transcricao: null,
+        async transcrever() {
+          // O balao ja existe quando a IA comeca a ouvir.
+          [noMomentoDaTranscricao] = await db
+            .select()
+            .from(messages)
+            .where(and(eq(messages.tenantId, tenantId), eq(messages.externalId, `aud-pend-${numero}`)));
+          return { texto: 'Queria marcar um corte amanhã' };
+        }
+      }
+    });
+
+    assert.ok(noMomentoDaTranscricao, 'a mensagem ja estava gravada');
+    assert.equal(noMomentoDaTranscricao.metadados.statusTranscricao, 'pendente');
+    assert.equal(noMomentoDaTranscricao.transcricao, null);
+
+    const depois = await lerMensagem(noMomentoDaTranscricao.id);
+    assert.equal(depois.transcricao, 'Queria marcar um corte amanhã');
+    assert.equal(depois.conteudo, 'Queria marcar um corte amanhã');
+    assert.equal(depois.metadados.statusTranscricao, undefined, 'estado some quando o texto chega');
+    assert.ok(r.conversationId);
+  });
+
+  it('audio do cliente sem fala: o balao diz "sem fala" e uma pessoa assume (regra de sempre)', async () => {
+    const { receberMensagem } = await import('../src/channels/gateway.js');
+    telefone += 1;
+    const numero = String(telefone);
+    const r = await receberMensagem({
+      tenantId,
+      remetente: numero,
+      texto: '🎤 Áudio',
+      idExterno: `aud-mudo-${numero}`,
+      midia: {
+        tipo: 'audio',
+        url: '/api/arquivos/audio-teste-mudo.ogg',
+        transcricao: null,
+        async transcrever(detalhe) {
+          detalhe.semFala = true;
+          return null;
+        }
+      }
+    });
+    assert.equal(r.motivo, 'audio_sem_transcricao');
+    const { db } = await import('../src/db/client.js');
+    const { messages } = await import('../src/db/schema/index.js');
+    const { eq } = await import('drizzle-orm');
+    const [m] = await db.select().from(messages).where(eq(messages.externalId, `aud-mudo-${numero}`));
+    assert.equal(m.metadados.statusTranscricao, 'sem_fala');
+  });
+
+  it('audio do ATENDENTE: nasce pendente; sem provedor, fecha como "falhou" (nao fica transcrevendo)', async () => {
+    const id = await novaConversa('Cliente Audio Estado');
+    const r = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${id}/mensagens`,
+      headers: cab,
+      payload: { audio: `data:audio/webm;codecs=opus;base64,${webmDeMentira().toString('base64')}` }
+    });
+    assert.equal(r.statusCode, 201, r.body);
+    const { transcreverRespostaDeAudio } = await import('../src/modules/conversas/conversas.service.js');
+    await transcreverRespostaDeAudio(tenantId, id, r.json().id);
+    const m = await lerMensagem(r.json().id);
+    assert.equal(m.metadados.statusTranscricao, 'falhou');
+  });
+});
+
 describe('registro da queda em arquivo', () => {
   let pasta;
   before(() => {

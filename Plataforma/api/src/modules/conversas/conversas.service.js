@@ -8,7 +8,8 @@ import {
 import { comContexto } from '../../core/logger.js';
 import { formatarTelefone } from '../../core/phone.js';
 import { paraOggOpus } from '../../core/audio.js';
-import { salvarAnexo, salvarAudio } from '../equipe/arquivos.js';
+import { readFile } from 'node:fs/promises';
+import { caminhoDe, salvarAnexo, salvarAudio } from '../equipe/arquivos.js';
 import { transcreverAudio } from '../../ai/transcricao.js';
 import { NIVEL_CARGO } from '../../db/schema/auth.js';
 import { ETAPAS_ATENDIMENTO } from '../../db/schema/conversations.js';
@@ -616,12 +617,12 @@ export async function responder(tenantId, id, { conteudo, audio, duracaoSegundos
 }
 
 /**
- * Prepara a resposta em AUDIO do atendente: converte, guarda o arquivo e
- * transcreve — a mesma sequencia de quem recebe (`whatsapp/handlers.js`), para
- * o balao e o historico se comportarem igual dos dois lados da conversa.
+ * Prepara a resposta em AUDIO do atendente: converte e guarda o arquivo.
  *
- * Feito ANTES de gravar a mensagem (nao depois, por cima): assim a linha ja
- * nasce completa, sem uma segunda escrita para preencher o que faltou.
+ * A transcricao NAO acontece aqui: ela levava de 2 a 4,5 s (medido) e o audio
+ * so saia para o cliente depois dela — o atendente esperava por um texto que
+ * so serve para a previa da lista e a busca (ele sabe o que gravou). Agora o
+ * audio sai primeiro e `transcreverRespostaDeAudio` preenche o texto depois.
  */
 async function prepararRespostaDeAudio({ tenantId, audio, duracaoSegundos }) {
   // Nao usa regex de "um ; so" (como `salvarImagem`, que basta para imagem):
@@ -648,24 +649,77 @@ async function prepararRespostaDeAudio({ tenantId, audio, duracaoSegundos }) {
 
   const { url } = await salvarAudio(ogg, 'audio/ogg');
 
-  // Best-effort: se ninguem transcrever, o audio ainda sai — o atendente sabe
-  // o que gravou. So o link "Ver transcricao" e a busca por texto ficam sem.
-  const transcricao = await transcreverAudio({
-    tenantId,
-    bytes: ogg,
-    mimetype: 'audio/ogg',
-    nomeArquivo: url.split('/').pop()
-  });
-
   return {
     tipo: 'audio',
-    // Igual ao lado de quem recebe: o CONTEUDO e a transcricao, para a previa
-    // da lista e a busca funcionarem sem tratamento especial para audio.
-    conteudo: transcricao?.texto ?? '🎤 Áudio',
+    // O rotulo ate a transcricao chegar; ai o CONTEUDO vira o texto falado,
+    // igual ao lado de quem recebe (previa da lista e busca sem caso especial).
+    conteudo: ROTULO_AUDIO,
     midiaUrl: url,
-    transcricao: transcricao?.texto ?? null,
-    metadados: duracaoSegundos ? { duracaoSegundos } : {}
+    transcricao: null,
+    // O balao mostra "Transcrevendo..." ate `transcreverRespostaDeAudio` terminar.
+    metadados: { ...(duracaoSegundos ? { duracaoSegundos } : {}), statusTranscricao: 'pendente' }
   };
+}
+
+const ROTULO_AUDIO = '🎤 Áudio';
+
+/**
+ * Transcreve, DEPOIS do envio, o audio que o atendente mandou, e atualiza o
+ * balao (a tela recebe o aviso de mudanca e recarrega). Nunca lanca: sem
+ * provedor ou com falha, o balao diz "Transcricao indisponivel" — o audio ja saiu.
+ */
+export async function transcreverRespostaDeAudio(tenantId, conversationId, mensagemId) {
+  let texto = null;
+  const detalhe = {};
+  try {
+    const m = await repo.buscarMensagem(tenantId, conversationId, mensagemId);
+    if (!m || m.tipo !== 'audio' || m.transcricao || !m.midiaUrl) return null;
+    const destino = caminhoDe(m.midiaUrl.replace('/api/arquivos/', ''));
+    if (destino) {
+      const transcricao = await transcreverAudio({
+        tenantId,
+        conversationId,
+        bytes: await readFile(destino),
+        mimetype: 'audio/ogg',
+        nomeArquivo: destino.split(/[\\/]/).pop(),
+        detalhe
+      });
+      texto = transcricao?.texto ?? null;
+    }
+  } catch (err) {
+    log.warn({ err, tenantId, mensagemId }, 'Transcricao do audio do atendente falhou');
+  }
+  try {
+    await repo.concluirTranscricao(tenantId, conversationId, mensagemId, {
+      texto,
+      status: detalhe.semFala ? 'sem_fala' : 'falhou'
+    });
+  } catch (err) {
+    log.warn({ err, tenantId, mensagemId }, 'Nao foi possivel gravar o resultado da transcricao');
+  }
+  return texto;
+}
+
+/**
+ * Transcreve um audio RECEBIDO que ja esta gravado na conversa (o balao
+ * mostrava "Transcrevendo...") e fecha o estado dele. Quem chama (o gateway)
+ * usa o texto devolvido como a mensagem que a Sofia le.
+ *
+ * @param {() => Promise<{texto?: string}|null>} transcrever  a chamada ja pronta (vem do canal)
+ * @returns {Promise<string|null>}
+ */
+export async function transcreverRecebida(tenantId, conversationId, mensagemId, transcrever) {
+  const detalhe = {};
+  let texto = null;
+  try {
+    texto = (await transcrever(detalhe))?.texto ?? null;
+  } catch (err) {
+    log.warn({ err, tenantId, mensagemId }, 'Transcricao do audio recebido falhou');
+  }
+  await repo
+    .concluirTranscricao(tenantId, conversationId, mensagemId, { texto, status: detalhe.semFala ? 'sem_fala' : 'falhou' })
+    .catch((err) => log.warn({ err, tenantId, mensagemId }, 'Nao foi possivel gravar o resultado da transcricao'));
+  return texto;
 }
 
 /** Rotulo que aparece na previa da lista quando o anexo vai sem legenda. */

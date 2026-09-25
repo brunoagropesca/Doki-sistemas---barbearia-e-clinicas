@@ -1184,6 +1184,57 @@ function Privacidade() {
         </div>
       </Cartao>
 
+      {/* A "assinatura": o nome de quem respondeu no topo da mensagem que o
+          cliente recebe. So muda o WhatsApp dele — no livechat o autor ja
+          aparece em cima de cada balao. */}
+      <Cartao titulo="Assinatura nas mensagens">
+        <div className="coluna">
+          <p className="texto-suave">
+            O nome de quem respondeu aparece em negrito no topo da mensagem que o cliente recebe no WhatsApp.
+          </p>
+
+          <label className="opcao">
+            <input
+              type="checkbox"
+              checked={Boolean(config.assinaturaAtendente)}
+              disabled={!podeEditar || salvar.isPending}
+              onChange={(e) => salvar.mutate({ assinaturaAtendente: e.target.checked })}
+            />
+            <span>
+              <strong>Assinar as mensagens dos atendentes</strong>
+              <div className="texto-fraco">
+                O cliente sabe com quem está falando. Vale para texto e legenda de foto; áudio sai sem.
+              </div>
+            </span>
+          </label>
+
+          <label className="opcao">
+            <input
+              type="checkbox"
+              checked={Boolean(config.assinaturaSofia)}
+              disabled={!podeEditar || salvar.isPending}
+              onChange={(e) => salvar.mutate({ assinaturaSofia: e.target.checked })}
+            />
+            <span>
+              <strong>Assinar as respostas da Sofia</strong>
+              <div className="texto-fraco">
+                Só no primeiro balão de cada resposta. As respostas prontas do menu saem sem assinatura.
+              </div>
+            </span>
+          </label>
+
+          {(config.assinaturaAtendente || config.assinaturaSofia) && (
+            <div className="assinatura-previa" aria-label="Como o cliente vê">
+              <span className="assinatura-previa__rotulo">Como o cliente vê</span>
+              <div className="assinatura-previa__balao">
+                <strong>{config.assinaturaAtendente ? 'Carlos' : 'Sofia'}:</strong>
+                <span>Oi! Seu horário de sexta às 15h está confirmado. 😉</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </Cartao>
+
       <Cartao titulo="O que a regra alcança">
         <ul className="lista-regra">
           <li>

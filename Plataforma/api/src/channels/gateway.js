@@ -12,6 +12,8 @@ import { notificarEncaminhamento } from '../modules/notificacoes/notificacoes.se
 import { licencaBloqueada } from '../licenca/licenca.js';
 import { Agrupador } from '../modules/atendimento/agrupador.js';
 import * as campanhas from '../modules/campanhas/campanhas.service.js';
+import { assinar, nomeDeAssinatura, obterConfiguracao as configDaEquipe } from '../modules/equipe/equipe.config.js';
+import { obterAgente } from '../modules/ia/ia.service.js';
 
 const log = comContexto({ modulo: 'gateway' });
 
@@ -160,7 +162,8 @@ export async function receberMensagem({
   midia,
   sincronizarPerfil = false
 }) {
-  const conteudo = String(texto ?? '').trim();
+  // `let`: num audio, vira o texto transcrito depois de a mensagem ser gravada.
+  let conteudo = String(texto ?? '').trim();
   if (!conteudo) return { ignorada: true, motivo: 'Mensagem vazia' };
 
   // --- 1. Identificar o cliente ---
@@ -240,12 +243,27 @@ export async function receberMensagem({
       // barra na hora, sem o navegador precisar baixar o audio para medir.
       ...(midia?.duracaoSegundos ? { duracaoSegundos: midia.duracaoSegundos } : {}),
       // Foto/video/documento: nome, tipo, tamanho e legenda — o livechat mostra o anexo.
-      ...(midia?.metadados ?? {})
+      ...(midia?.metadados ?? {}),
+      // Audio a transcrever: o balao mostra "Transcrevendo..." ate o texto chegar.
+      ...(midia?.transcrever ? { statusTranscricao: 'pendente' } : {})
     }
   });
 
   if (registro.duplicada) {
     return { duplicada: true, conversationId };
+  }
+
+  /**
+   * Audio do cliente: gravado ANTES de transcrever, para o livechat mostrar o
+   * balao na hora (com "Transcrevendo..."), e nao so depois dos 2 a 4 s da IA.
+   * O texto que sai daqui e o que segue adiante: previa, busca e o que a
+   * Sofia le. Sem texto, a regra de sempre (logo abaixo) chama uma pessoa.
+   */
+  if (midia?.transcrever) {
+    ver('cliente', 'áudio recebido: transcrevendo...');
+    const falado = await conversas.transcreverRecebida(tenantId, conversationId, registro.id, midia.transcrever);
+    midia.transcricao = falado;
+    if (falado) conteudo = falado;
   }
 
   log.info(
@@ -484,6 +502,20 @@ async function responderLote({ tenantId, canal, instanciaChave, telefone, lead, 
 
   const enviados = [];
 
+  // Assinatura da Sofia (Equipe > Atendentes > Privacidade): o nome dela no
+  // topo do PRIMEIRO balao de cada resposta — nos seguintes seria repeticao.
+  // So quando quem falou foi a IA: menu e avisos do sistema saem sem.
+  let assinaturaSofia = null;
+  if (resposta.respondidoPor === 'ia') {
+    try {
+      if ((await configDaEquipe(tenantId)).assinaturaSofia) {
+        assinaturaSofia = nomeDeAssinatura((await obterAgente(tenantId, 'atendente'))?.nome) || 'Sofia';
+      }
+    } catch (err) {
+      log.debug({ err }, 'Nao foi possivel ler a assinatura; resposta sai sem ela');
+    }
+  }
+
   for (const [i, balao] of resposta.baloes.entries()) {
     let erroEnvio = null;
     let idExternoSaida = null;
@@ -491,7 +523,9 @@ async function responderLote({ tenantId, canal, instanciaChave, telefone, lead, 
     const adaptador = obterAdaptador(canal);
     if (adaptador?.enviar) {
       try {
-        const r = await adaptador.enviar({ tenantId, instanciaChave, destino: telefone, texto: balao });
+        // O texto GRAVADO fica sem a assinatura: o livechat ja mostra o autor.
+        const texto = i === 0 && assinaturaSofia ? assinar(assinaturaSofia, balao) : balao;
+        const r = await adaptador.enviar({ tenantId, instanciaChave, destino: telefone, texto });
         idExternoSaida = r?.idExterno ?? null;
       } catch (err) {
         erroEnvio = err.message;

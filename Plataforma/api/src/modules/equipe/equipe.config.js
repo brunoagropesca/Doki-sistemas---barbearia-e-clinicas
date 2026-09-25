@@ -59,7 +59,11 @@ const PADRAO = {
   distribuicaoAutomatica: true,
   criterioDistribuicao: 'menos_carregado',
   distribuirSomenteOnline: true,
-  distribuirParaGerencia: false
+  distribuirParaGerencia: false,
+  // Assinatura: o nome de quem respondeu no topo da mensagem que chega ao
+  // cliente. Desligada por padrao — ligar muda o que o cliente ve.
+  assinaturaAtendente: false,
+  assinaturaSofia: false
 };
 
 /** Chave em `settings` de cada campo. */
@@ -68,7 +72,9 @@ const CHAVES = {
   distribuicaoAutomatica: 'distribuicao_automatica',
   criterioDistribuicao: 'distribuicao_criterio',
   distribuirSomenteOnline: 'distribuicao_somente_online',
-  distribuirParaGerencia: 'distribuicao_inclui_gerencia'
+  distribuirParaGerencia: 'distribuicao_inclui_gerencia',
+  assinaturaAtendente: 'assinatura_atendente',
+  assinaturaSofia: 'assinatura_sofia'
 };
 
 async function ler(tenantId, chave, padrao) {
@@ -152,6 +158,24 @@ export async function escopoDe(tenantId, usuario) {
     userId: usuario.id,
     professionalIds: vinculos.map((v) => v.id)
   };
+}
+
+/**
+ * A mensagem com a ASSINATURA de quem respondeu: o nome em negrito na primeira
+ * linha, como o WhatsApp mostra (`*Carlos:*`). Sem nome ou sem texto, volta
+ * como veio. So no que VAI para o cliente: a conversa gravada fica sem, porque
+ * o livechat ja mostra o autor no topo do balao.
+ */
+export function assinar(nome, texto) {
+  const quem = String(nome ?? '').trim();
+  const corpo = String(texto ?? '');
+  if (!quem || !corpo.trim()) return corpo;
+  return `*${quem}:*\n${corpo}`;
+}
+
+/** "Sofia - Atendente WhatsApp" -> "Sofia": o nome do perfil sem a descricao. */
+export function nomeDeAssinatura(nomeDoPerfil) {
+  return String(nomeDoPerfil ?? '').split(' - ')[0].trim();
 }
 
 /** Atalho de leitura: esta pessoa acompanha a equipe inteira? */

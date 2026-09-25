@@ -458,10 +458,13 @@ export async function buscarMensagemParaEntrega(tenantId, conversationId, mensag
       conversa: conversations,
       leadTelefone: leads.telefone,
       instanciaChave: channelInstances.chave,
-      instanciaRemovida: channelInstances.deletedAt
+      instanciaRemovida: channelInstances.deletedAt,
+      // Para a assinatura ("*Carlos:*") quando a empresa a liga.
+      autorNome: users.nome
     })
     .from(messages)
     .innerJoin(conversations, eq(conversations.id, messages.conversationId))
+    .leftJoin(users, eq(users.id, messages.autorUserId))
     .leftJoin(leads, eq(leads.id, conversations.leadId))
     .leftJoin(channelInstances, eq(channelInstances.id, conversations.channelInstanceId))
     .where(
@@ -544,6 +547,38 @@ export async function gravarEstadoMenu(tenantId, conversationId, estado) {
     .update(conversations)
     .set({ menuEstado: estado ?? null })
     .where(and(eq(conversations.tenantId, tenantId), eq(conversations.id, conversationId)));
+}
+
+export async function buscarMensagem(tenantId, conversationId, mensagemId) {
+  const [m] = await db
+    .select()
+    .from(messages)
+    .where(and(eq(messages.tenantId, tenantId), eq(messages.conversationId, conversationId), eq(messages.id, mensagemId)));
+  return m ?? null;
+}
+
+/**
+ * Fecha a transcricao de um audio que foi gravado ANTES de ser transcrito (o
+ * balao mostrava "Transcrevendo..."). Com texto: ele vira a transcricao e o
+ * conteudo (previa e busca). Sem texto: fica o motivo (`sem_fala`, `falhou`)
+ * para o balao dizer o que houve. Avisa as telas para o balao atualizar.
+ */
+export async function concluirTranscricao(tenantId, conversationId, mensagemId, { texto, status }) {
+  const [m] = await db
+    .select({ metadados: messages.metadados })
+    .from(messages)
+    .where(and(eq(messages.tenantId, tenantId), eq(messages.id, mensagemId)));
+  if (!m) return;
+
+  const { statusTranscricao: _anterior, ...resto } = m.metadados ?? {};
+  await db
+    .update(messages)
+    .set({
+      ...(texto ? { transcricao: texto, conteudo: texto } : {}),
+      metadados: texto ? resto : { ...resto, statusTranscricao: status }
+    })
+    .where(and(eq(messages.tenantId, tenantId), eq(messages.id, mensagemId)));
+  emitir(EVENTOS.CONVERSA, { tenantId, id: conversationId });
 }
 
 /**

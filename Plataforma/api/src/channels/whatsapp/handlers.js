@@ -224,13 +224,14 @@ export async function telefoneDoRemetente(sock, msg) {
 }
 
 /**
- * Baixa, guarda e transcreve um audio recebido.
+ * Baixa e guarda um audio recebido, e prepara a transcricao (quem a roda e o
+ * gateway, depois de gravar a mensagem).
  *
  * Devolve sempre o que conseguiu: se a transcricao falhar, o audio continua
  * gravado e toca no livechat — perder o recado do cliente porque a IA nao
  * respondeu seria o pior dos mundos. `null` so quando nem baixar deu certo.
  *
- * @returns {Promise<{tipo: 'audio', url: string, transcricao: string|null, duracaoSegundos: number|null}|null>}
+ * @returns {Promise<{tipo: 'audio', url: string, transcricao: null, transcrever: Function|null, duracaoSegundos: number|null}|null>}
  */
 async function prepararAudio({ tenantId, chave, msg, audio, telefone, baixarMidia, transcrever, salvar }) {
   let bytes;
@@ -263,24 +264,20 @@ async function prepararAudio({ tenantId, chave, msg, audio, telefone, baixarMidi
     return null;
   }
 
-  // `transcreverAudio` nunca lanca: devolve null quando nenhum provedor deu
-  // conta. O `?? null` cobre um dublê de teste que devolva outra coisa.
+  // A transcricao NAO roda aqui: vai para o gateway como uma chamada pronta.
+  // Ele grava o audio primeiro (o balao aparece com "Transcrevendo..."),
+  // transcreve e so entao a Sofia le o texto. `transcreverAudio` nunca lanca.
   // Transcricao desligada pelo DEV: sem texto, o gateway manda para a fila humana.
   // Licenca vencida tambem nao transcreve: seria gasto de IA sem ninguem responder.
-  const transcricao = !licencaBloqueada() && (await funcaoLigada(tenantId, 'transcricao_audio'))
-    ? await transcrever({
-        tenantId,
-        bytes,
-        mimetype,
-        nomeArquivo: url.split('/').pop(),
-        conversationId: null
-      })
-    : null;
+  const podeTranscrever = !licencaBloqueada() && (await funcaoLigada(tenantId, 'transcricao_audio'));
 
   return {
     tipo: 'audio',
     url,
-    transcricao: transcricao?.texto ?? null,
+    transcricao: null,
+    transcrever: podeTranscrever
+      ? (detalhe) => transcrever({ tenantId, bytes, mimetype, nomeArquivo: url.split('/').pop(), conversationId: null, detalhe })
+      : null,
     // O WhatsApp ja informa a duracao: usar a dele evita que a tela precise
     // baixar o arquivo inteiro so para desenhar a barra do player.
     duracaoSegundos: Number.isFinite(audio.seconds) ? audio.seconds : null
@@ -392,7 +389,8 @@ export async function processarMensagem({
   const texto = extrairTexto(msg);
 
   /**
-   * Audio: baixa, guarda e transcreve ANTES de entregar ao atendimento.
+   * Audio: baixa e guarda ANTES de entregar ao atendimento; a transcricao
+   * vai junto, pronta, e o gateway a roda depois de mostrar o balao.
    *
    * O recado de voz e a forma mais comum de escrever numa barbearia — "oi,
    * queria marcar pra sexta" em seis segundos. Sem isto, a mensagem chegava e

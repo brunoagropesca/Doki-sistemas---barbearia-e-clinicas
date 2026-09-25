@@ -139,7 +139,10 @@ async function viaGemini({ apiKey, bytes, mimetype }) {
             ]
           }
         ],
-        generationConfig: { temperature: 0, maxOutputTokens: 1000 }
+        // Sem "raciocinio": transcrever nao precisa pensar. Medido com audios
+        // reais: 1,6 s em vez de 2,2 a 2,7 s, mesmo texto. E o raciocinio gasta
+        // do mesmo teto de saida — com ele cheio, a resposta viria vazia.
+        generationConfig: { temperature: 0, maxOutputTokens: 1000, thinkingConfig: { thinkingBudget: 0 } }
       }),
       signal
     })
@@ -173,6 +176,9 @@ async function viaGemini({ apiKey, bytes, mimetype }) {
  * @param {string} [p.mimetype]
  * @param {string} [p.nomeArquivo]   so para o multipart do Groq
  * @param {string} [p.conversationId] para o registro de custo
+ * @param {object} [p.detalhe]        preenchido com `semFala: true` quando o
+ *   provedor ouviu e nao havia fala — para a tela dizer "sem fala" em vez de
+ *   "transcricao indisponivel" (o retorno continua null nos dois casos)
  * @returns {Promise<{texto: string, provedor: string, modelo: string}|null>}
  */
 export async function transcreverAudio({
@@ -180,7 +186,8 @@ export async function transcreverAudio({
   bytes,
   mimetype = 'audio/ogg',
   nomeArquivo = 'audio.ogg',
-  conversationId = null
+  conversationId = null,
+  detalhe = {}
 }) {
   if (!bytes?.length) return null;
 
@@ -212,6 +219,7 @@ export async function transcreverAudio({
         await registrar({ tenantId, conversationId, provedor: candidato.nome, modelo, sucesso: true, latenciaMs: Date.now() - inicio, tentativas });
         log.info({ tenantId, provedor: candidato.nome }, 'Audio sem fala audivel');
         ver('aviso', 'áudio sem fala audível', `${candidato.nome}/${modelo}`);
+        detalhe.semFala = true;
         return null;
       }
 

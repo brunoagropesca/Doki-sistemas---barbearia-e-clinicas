@@ -452,6 +452,26 @@
 }
 .audio__link:hover { opacity: 1; }
 
+/* "Transcrevendo...", "Sem fala detectada": no lugar do link, sem ser clicavel. */
+.audio__estado { font-size: 11px; font-weight: 600; opacity: 0.6; font-style: italic; }
+.audio__estado--pendente { opacity: 0.75; }
+.audio__reticencias::after {
+  content: '';
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+  animation: audio-reticencias 1.2s steps(4, end) infinite;
+}
+@keyframes audio-reticencias {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .audio__reticencias::after { content: '...'; animation: none; }
+}
+
 .audio__texto {
   margin: 6px 0 0;
   padding-top: 6px;

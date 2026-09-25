@@ -609,6 +609,8 @@ function Mensagem({ mensagem: m, conversationId, aoMudar }) {
             url={m.midiaUrl}
             transcricao={m.transcricao}
             duracaoSegundos={m.metadados?.duracaoSegundos}
+            statusTranscricao={m.metadados?.statusTranscricao}
+            criadaEm={m.createdAt}
           />
         ) : ehAnexo ? (
           <BalaoAnexo mensagem={m} />

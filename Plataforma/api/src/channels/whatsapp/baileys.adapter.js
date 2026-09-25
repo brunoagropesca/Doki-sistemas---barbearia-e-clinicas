@@ -25,6 +25,35 @@ const log = comContexto({ modulo: 'whatsapp' });
 const silencioso = pino({ level: 'silent' });
 
 /**
+ * O log do SOCKET: silencioso, menos os avisos de UPLOAD de midia.
+ *
+ * Um audio levou 29 s para sair (o normal e menos de 1 s) e nao havia como
+ * saber onde: o Baileys avisa "falhou o upload para o servidor X, tentando o
+ * proximo", mas o log dele estava mudo. So esse aviso passa para o nosso.
+ */
+const logDoSocket = pino(
+  { level: 'warn' },
+  {
+    write(linha) {
+      if (!/upload/i.test(linha)) return;
+      try {
+        const { msg } = JSON.parse(linha);
+        log.warn({ baileys: msg }, 'WhatsApp: problema no upload de midia');
+      } catch {
+        /* linha que nao e JSON: ignora */
+      }
+    }
+  }
+);
+
+/**
+ * Prazo de CADA servidor de midia do WhatsApp no upload. Sem ele, um servidor
+ * que nao responde segura o envio ate a conexao desistir (dezenas de
+ * segundos) antes de o Baileys tentar o proximo da lista.
+ */
+const PRAZO_UPLOAD_POR_SERVIDOR_MS = 10_000;
+
+/**
  * Adaptador do WhatsApp via Baileys.
  *
  * O Baileys conecta como se fosse o WhatsApp Web: a pessoa le um QR Code com
@@ -162,8 +191,8 @@ async function criarSocketReal({ tenantId, instanciaChave }) {
     auth: state,
     ...(version ? { version } : {}),
     // O Baileys e barulhento: em nivel normal ele despeja o protocolo inteiro
-    // no terminal. Silenciamos e registramos so o que importa.
-    logger: silencioso,
+    // no terminal. Silenciamos e registramos so o que importa (upload de midia).
+    logger: logDoSocket,
     // Nao marcamos presenca "online" permanente: isso faz o WhatsApp do dono
     // parar de notificar no celular dele.
     markOnlineOnConnect: false,
@@ -557,14 +586,26 @@ export async function enviar({ tenantId, instanciaChave = 'W1', destino, texto, 
   // Sem prazo, uma conexao "meio morta" deixaria o atendente esperando para
   // sempre. Se estourar, a mensagem PODE ter saido: o texto diz para conferir
   // no celular antes de reenviar (senao o cliente recebe duas vezes).
+  const temMidia = Boolean(audio || midia);
+  const inicio = Date.now();
   let r;
   try {
-    r = await comPrazo(conexao.sock.sendMessage(jid, conteudo), 30_000);
+    r = await comPrazo(
+      conexao.sock.sendMessage(jid, conteudo, temMidia ? { mediaUploadTimeoutMs: PRAZO_UPLOAD_POR_SERVIDOR_MS } : undefined),
+      30_000
+    );
   } catch (err) {
     if (/a tempo/.test(err.message)) {
       throw new Error('O WhatsApp não confirmou o envio. Confira no celular se a mensagem saiu antes de reenviar.');
     }
     throw err;
+  }
+  // Midia sobe para o servidor do WhatsApp antes de sair: e onde a demora
+  // aparece. Envio lento fica registrado para dar para ver quando e quanto.
+  if (temMidia) {
+    const ms = Date.now() - inicio;
+    const nivel = ms > 5_000 ? 'warn' : 'debug';
+    log[nivel]({ ms, tipo: audio ? 'audio' : midia?.tipo }, `Midia enviada ao WhatsApp em ${(ms / 1000).toFixed(1)} s`);
   }
   return { idExterno: r?.key?.id ?? null };
 }

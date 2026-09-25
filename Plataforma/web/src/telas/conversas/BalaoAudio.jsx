@@ -12,8 +12,26 @@ import { useEffect, useRef, useState } from 'react';
  * pelo que foi dito, e um paragrafo de texto aberto em cada audio faria o fio
  * virar um muro — mas ela precisa estar a um clique, porque e ela que o
  * atendente usa para entender o pedido sem precisar ouvir.
+ *
+ * Enquanto o texto nao chega (o audio aparece ANTES de ser transcrito, dos
+ * dois lados da conversa), o lugar do link diz "Transcrevendo...". Sem texto
+ * no fim, diz por que: nao havia fala, ou a transcricao nao saiu.
  */
-export function BalaoAudio({ url, transcricao, duracaoSegundos }) {
+
+/** "Transcrevendo" parado ha mais que isto e sinal de que o servidor caiu no meio. */
+const PENDENTE_MAX_MS = 2 * 60_000;
+
+function rotuloDoEstado(status, criadaEm) {
+  if (status === 'pendente') {
+    const velha = criadaEm && Date.now() - new Date(criadaEm).getTime() > PENDENTE_MAX_MS;
+    return velha ? 'Transcrição indisponível' : null;
+  }
+  if (status === 'sem_fala') return 'Sem fala detectada';
+  if (status === 'falhou') return 'Transcrição indisponível';
+  return null;
+}
+
+export function BalaoAudio({ url, transcricao, duracaoSegundos, statusTranscricao, criadaEm }) {
   const audioRef = useRef(null);
   const [tocando, setTocando] = useState(false);
   const [posicao, setPosicao] = useState(0);
@@ -120,6 +138,20 @@ export function BalaoAudio({ url, transcricao, duracaoSegundos }) {
       {/* `preload="metadata"` busca so o cabecalho: a duracao aparece sem
           baixar o audio inteiro de cada conversa que o atendente abre. */}
       <audio ref={audioRef} src={url} preload="metadata" />
+
+      {!transcricao && statusTranscricao === 'pendente' && !rotuloDoEstado(statusTranscricao, criadaEm) && (
+        <div className="audio__transcricao">
+          <span className="audio__estado audio__estado--pendente" role="status">
+            Transcrevendo<span className="audio__reticencias" aria-hidden="true" />
+          </span>
+        </div>
+      )}
+
+      {!transcricao && rotuloDoEstado(statusTranscricao, criadaEm) && (
+        <div className="audio__transcricao">
+          <span className="audio__estado">{rotuloDoEstado(statusTranscricao, criadaEm)}</span>
+        </div>
+      )}
 
       {transcricao && (
         <div className="audio__transcricao">
