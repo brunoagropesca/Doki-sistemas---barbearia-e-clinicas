@@ -22,6 +22,8 @@ import { sincronizarHistorico } from './modules/historico/historico.service.js';
 import { iniciarBackupAutomatico } from './modules/dados/backups.js';
 import { enviarMensagem } from './channels/gateway.js';
 import { retomarInterrompidas as retomarCampanhasInterrompidas } from './modules/campanhas/campanhas.service.js';
+import { marcarEntregasInterrompidas } from './modules/conversas/entrega.service.js';
+import { gravarFalhaFatal, quedaRecente } from './core/falhas.js';
 
 /**
  * Ponto de entrada.
@@ -46,6 +48,15 @@ async function principal() {
   if (removidas > 0) logger.info({ removidas }, 'Sessoes expiradas removidas');
   await removerDevsAbandonados();
 
+  // Respostas de atendente que estavam SAINDO quando o servidor caiu: sem
+  // isto ficavam sem "entregue" e sem "falhou" — pareciam enviadas para sempre,
+  // sem botao Reenviar. Agora aparecem como nao entregues.
+  const interrompidas = await marcarEntregasInterrompidas().catch((err) => {
+    logger.warn({ err }, 'Falha ao marcar entregas interrompidas');
+    return 0;
+  });
+  if (interrompidas > 0) ver('aviso', `${interrompidas} resposta(s) de atendente ficaram sem confirmação de envio`, 'marcadas como não entregues: confira e reenvie');
+
   // Atendimentos encerrados antes do historico existir (ou num boot que caiu
   // no meio) entram agora. Nao segura a subida: e so coleta para analise.
   sincronizarHistorico().catch((err) => logger.warn({ err }, 'Falha ao preencher o historico de atendimentos'));
@@ -58,8 +69,9 @@ async function principal() {
 
   await app.listen({ port: env.PORT, host: env.HOST });
 
-  // O relogio da Atena: fechamento do dia e demais rotinas automaticas.
-  const pararRotinas = iniciarRotinas();
+  // O relogio da Atena: fechamento do dia, lembrete de vespera e demais rotinas.
+  // O envio entra por injecao, como nas campanhas: as rotinas nao conhecem o canal.
+  const pararRotinas = iniciarRotinas({ enviar: enviarMensagem });
   // Um backup por dia (guarda os 14 ultimos), sem ninguem precisar lembrar.
   const pararBackups = iniciarBackupAutomatico();
 
@@ -103,6 +115,12 @@ async function principal() {
 
   // Painel: a faixa de abertura e como esta a cascata de IA de cada empresa.
   faixaDeAbertura({ url: `http://${env.HOST}:${env.PORT}`, ambiente: env.NODE_ENV });
+
+  // Subiu logo depois de uma queda: diz o que foi e onde esta o detalhe.
+  const queda = quedaRecente();
+  if (queda) {
+    ver('aviso', `o servidor caiu às ${queda.quando.toLocaleTimeString('pt-BR', { hour12: false })} e foi religado`, `${queda.resumo} · detalhes em ${queda.arquivo}`);
+  }
   db.select({ id: tenants.id, nome: tenants.nome })
     .from(tenants)
     .then(async (empresas) => {
@@ -116,7 +134,7 @@ async function principal() {
   // --- Desligamento ordenado ---
 
   let desligando = false;
-  const desligar = async (sinal) => {
+  const desligar = async (sinal, codigoDeSaida = 0) => {
     if (desligando) return; // Ctrl+C apertado duas vezes nao atropela o processo.
     desligando = true;
 
@@ -141,7 +159,7 @@ async function principal() {
       fecharBanco();
       logger.info('Desligado com seguranca.');
       ver('sistema', 'servidor desligado');
-      process.exit(0);
+      process.exit(codigoDeSaida);
     } catch (err) {
       logger.error({ err }, 'Falha no desligamento');
       process.exit(1);
@@ -161,14 +179,19 @@ async function principal() {
    * Aqui registramos e encerramos de forma ordenada; quem gerencia o processo
    * sobe de novo, limpo.
    */
+  // A causa vai para data/logs/falhas.log ANTES de tudo: no terminal ela se
+  // perdia ao fechar a janela (uma queda ao enviar audio ficou sem explicacao).
+  // Sai com codigo de ERRO (1): o painel entende que caiu e religa.
   process.on('uncaughtException', (err) => {
-    logger.fatal({ err }, 'Excecao nao capturada — encerrando');
-    desligar('uncaughtException');
+    const arquivo = gravarFalhaFatal('uncaughtException', err);
+    logger.fatal({ err, arquivo }, 'Excecao nao capturada — encerrando');
+    desligar('uncaughtException', 1);
   });
 
   process.on('unhandledRejection', (motivo) => {
-    logger.fatal({ err: motivo }, 'Promise rejeitada sem tratamento — encerrando');
-    desligar('unhandledRejection');
+    const arquivo = gravarFalhaFatal('unhandledRejection', motivo);
+    logger.fatal({ err: motivo, arquivo }, 'Promise rejeitada sem tratamento — encerrando');
+    desligar('unhandledRejection', 1);
   });
 }
 

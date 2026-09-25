@@ -73,8 +73,30 @@ async function validarProfissionais(tenantId, lista) {
   }
 }
 
+/**
+ * Teto de servicos ATIVOS por empresa.
+ *
+ * Nao e limite de banco: e o tamanho em que a Sofia ainda recebe o catalogo
+ * inteiro no prompt (resumoDoCatalogo). Passado disso ela deixa de "ver" a
+ * tabela e passa a depender de consultas — e foi com o catalogo fora do prompt
+ * que ela inventou servico e preco. Inativos nao contam: a empresa pode guardar
+ * quantos quiser e alternar.
+ */
+export const LIMITE_SERVICOS_ATIVOS = 25;
+
+async function garantirVagaDeServicoAtivo(tenantId) {
+  const ativos = await repo.contarServicosAtivos(tenantId);
+  if (ativos >= LIMITE_SERVICOS_ATIVOS) {
+    throw new RegraDeNegocio(
+      `O catalogo aceita no maximo ${LIMITE_SERVICOS_ATIVOS} servicos ativos. Desative ou exclua um servico antes de ativar outro.`,
+      { limite: LIMITE_SERVICOS_ATIVOS, ativos }
+    );
+  }
+}
+
 export async function criarServico(tenantId, dados, { usuario } = {}) {
   const { profissionais = [], ...campos } = dados;
+  if (campos.ativo !== false) await garantirVagaDeServicoAtivo(tenantId);
   await validarProfissionais(tenantId, profissionais);
 
   const servico = await repo.criarServico(tenantId, campos);
@@ -102,6 +124,9 @@ export async function atualizarServico(tenantId, id, dados, { usuario } = {}) {
 
   const { profissionais, ...campos } = dados;
 
+  // So REATIVAR ocupa vaga; editar um servico ja ativo nao.
+  if (campos.ativo === true && !atual.ativo) await garantirVagaDeServicoAtivo(tenantId);
+
   if (profissionais !== undefined) {
     await validarProfissionais(tenantId, profissionais);
     await repo.definirProfissionaisDoServico(tenantId, id, profissionais);
@@ -121,6 +146,31 @@ export async function atualizarServico(tenantId, id, dados, { usuario } = {}) {
   });
 
   return obterServico(tenantId, id);
+}
+
+/**
+ * Renomeia uma categoria de servicos.
+ *
+ * Categoria nao e tabela propria: e o texto gravado em cada servico. Renomear
+ * um por um deixaria a categoria dividida no meio do caminho ("Barba" e
+ * "Barbas" ao mesmo tempo); aqui e um UPDATE so. Renomear para uma categoria
+ * que ja existe junta as duas — e o jeito de mesclar.
+ */
+export async function renomearCategoriaDeServicos(tenantId, { de, para }, { usuario } = {}) {
+  if (de === para) return { alterados: 0 };
+  const alterados = await repo.renomearCategoriaDeServicos(tenantId, de, para);
+  if (alterados === 0) throw new NaoEncontrado('Categoria');
+
+  await registrarAuditoria({
+    tenantId,
+    usuario,
+    acao: 'servico.categoria_renomear',
+    entidade: 'servico',
+    entidadeId: null,
+    dados: { antes: { categoria: de }, depois: { categoria: para, servicos: alterados } }
+  });
+
+  return { alterados };
 }
 
 /**
@@ -416,7 +466,11 @@ export async function listarVendas(tenantId, filtros) {
 export async function metricas(tenantId) {
   const m = await repo.metricas(tenantId);
   return {
-    servicos: { ...m.servicos, precoMedioFormatado: formatarBRL(m.servicos.precoMedio) },
+    servicos: {
+      ...m.servicos,
+      precoMedioFormatado: formatarBRL(m.servicos.precoMedio),
+      limiteAtivos: LIMITE_SERVICOS_ATIVOS
+    },
     produtos: {
       ...m.produtos,
       valorEstoqueFormatado: formatarBRL(m.produtos.valorEstoqueCentavos)

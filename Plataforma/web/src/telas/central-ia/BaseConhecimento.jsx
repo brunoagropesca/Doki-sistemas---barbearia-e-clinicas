@@ -348,12 +348,27 @@ function Formulario({ inicial }) {
           <span className="bc-previa__ponto" aria-hidden="true" /> O que a Sofia sabe
         </h3>
         <p className="texto-fraco bc-previa__dica">
-          Exatamente o texto que ela recebe em cada conversa. O que estiver vazio ela não sabe — e não inventa.
+          Exatamente o texto que ela recebe. O que estiver vazio ela não sabe — e não inventa.
         </p>
         {textoIa.isLoading ? (
           <Carregando />
-        ) : textoIa.data?.texto ? (
-          <pre className="bc-previa__texto">{textoIa.data.texto}</pre>
+        ) : textoIa.data?.texto || textoIa.data?.detalhes ? (
+          // Duas partes: o essencial vai em toda mensagem; regras, perguntas e
+          // extras ela le so quando o cliente pergunta (economiza o prompt).
+          <div className="bc-previa__partes">
+            {textoIa.data.texto && (
+              <>
+                <h4 className="bc-previa__parte">Em toda conversa</h4>
+                <pre className="bc-previa__texto">{textoIa.data.texto}</pre>
+              </>
+            )}
+            {textoIa.data.detalhes && (
+              <>
+                <h4 className="bc-previa__parte">Quando o cliente pergunta</h4>
+                <pre className="bc-previa__texto">{textoIa.data.detalhes}</pre>
+              </>
+            )}
+          </div>
         ) : (
           <p className="bc-previa__vazio">Nada cadastrado ainda. Preencha as seções ao lado e salve.</p>
         )}

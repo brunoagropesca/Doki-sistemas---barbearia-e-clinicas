@@ -42,6 +42,27 @@ export const MENSAGENS = [
     titulo: 'IA fora do ar: cliente vai para um atendente',
     padrao: 'Deixa eu chamar um de nossos atendentes pra te ajudar melhor. Um instante! 🙏',
     quando: 'Nenhum provedor de IA respondeu (cota, internet, chave inválida).'
+  },
+  {
+    chave: 'fila.midia_recebida',
+    titulo: 'Cliente mandou foto, vídeo ou documento sem texto',
+    padrao: 'Recebi! Vou passar para alguém da equipe conferir e já te respondem por aqui. 😊',
+    quando: 'Foto, vídeo ou documento (ex.: comprovante de PIX) sem legenda: a IA não vê o arquivo, então vai para um atendente.'
+  },
+  {
+    // {nome} = primeiro nome; {itens} = "Corte Social às 10:00 com Carlos; Barba às 10:30 com Carlos".
+    chave: 'lembrete.vespera',
+    titulo: 'Lembrete do horário (véspera)',
+    padrao: 'Oi, {nome}! Passando para lembrar do seu horário amanhã: {itens}. Se precisar remarcar, é só responder aqui. 😊',
+    quando: 'Enviado na véspera, no horário configurado, se o lembrete estiver ligado. {itens} vira "Corte Social às 14:00 com Carlos".'
+  },
+  {
+    // "Um instante" as 23h e uma promessa que ninguem cumpre. {abertura} e
+    // trocado no codigo (atendimento.service › avisoDeTransferencia).
+    chave: 'fila.fora_do_horario',
+    titulo: 'Cliente pediu uma pessoa com a casa fechada',
+    padrao: 'Anotei tudo! Nossa equipe está fora do horário agora e volta {abertura}. Assim que abrir, alguém te responde por aqui. 😊',
+    quando: 'Transferência para atendente fora do expediente. {abertura} vira, por exemplo, "amanhã às 09:00".'
   }
 ];
 

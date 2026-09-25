@@ -1,8 +1,8 @@
 import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { criarAppDeTeste, entrar } from './helpers/ambiente.js';
+import { abrirACasa, criarAppDeTeste, entrar } from './helpers/ambiente.js';
 import { Agrupador } from '../src/modules/atendimento/agrupador.js';
-import { fluxoPadrao, passoDoFluxo } from '../src/modules/atendimento/fluxo.js';
+import { COMANDOS_DO_MENU, fluxoPadrao, iaConduzindo, passoDoFluxo } from '../src/modules/atendimento/fluxo.js';
 
 let app;
 let tenantId;
@@ -44,6 +44,7 @@ async function comIaFalsa(roteiro, fn) {
 
 before(async () => {
   const criado = await criarAppDeTeste();
+  await abrirACasa();
   app = criado.app;
   ({ cabecalho: cabDono } = await entrar(app));
 
@@ -276,6 +277,121 @@ describe('modos de atendimento', () => {
 
     const conversa = await conversas.obter(tenantId, ctx.conversationId);
     assert.equal(conversa.status, 'na_fila', 'o cliente precisa ir pra fila humana');
+  });
+});
+
+/**
+ * BUG reproduzido: no hibrido, depois que a Sofia assumia, o menu roubava as
+ * respostas do cliente — "2" (o 2º horario que ela ofereceu) virava a opcao 2
+ * do menu, "15" dava "nao entendi" + menu, "bom dia" reabria as boas-vindas.
+ */
+describe('hibrido: com a Sofia conduzindo, o menu nao intercepta', () => {
+  let atendimento;
+  let conversasRepo;
+  let ctx;
+  let chamadasIa = 0;
+
+  // Dublê da IA: sempre "responde" oferecendo dois horarios, como a Sofia faria.
+  const provedores = [
+    {
+      impl: {
+        nome: 'falso',
+        async gerar({ modelo }) {
+          chamadasIa++;
+          return { texto: 'Tenho 14:00 ou 15:00. Qual fica melhor?', chamadasDeFerramenta: [], tokens: { entrada: 5, saida: 5 }, modelo };
+        }
+      },
+      apiKey: 'x',
+      modelos: ['modelo-falso']
+    }
+  ];
+  const falar = (texto) => atendimento.responder({ tenantId, ...ctx, texto, provedores });
+  const estado = () => conversasRepo.lerEstadoMenu(tenantId, ctx.conversationId);
+
+  before(async () => {
+    atendimento = await import('../src/modules/atendimento/atendimento.service.js');
+    conversasRepo = await import('../src/modules/conversas/conversas.repo.js');
+    await atendimento.salvarConfiguracao(tenantId, { modo: 'hibrido' });
+
+    // Cliente e conversa proprios deste teste (telefone so dele).
+    const leads = await import('../src/modules/leads/leads.service.js');
+    const conversas = await import('../src/modules/conversas/conversas.service.js');
+    const lead = await leads.criar(tenantId, { nome: 'Hibrido Teste', telefone: '5511955507701' });
+    const conversationId = await conversas.encontrarOuAbrir(tenantId, { leadId: lead.id });
+    ctx = { conversationId, leadId: lead.id, leadNome: lead.nome };
+  });
+
+  it('cliente novo: "oi" mostra o menu e "1" e opcao do menu', async () => {
+    assert.equal((await falar('oi')).respondidoPor, 'menu');
+    const um = await falar('1');
+    assert.equal(um.respondidoPor, 'menu', 'sem a Sofia conduzindo, numero continua sendo do menu');
+    assert.match(um.baloes.join('\n'), /Corte/);
+  });
+
+  it('a opcao do menu que passa para a Sofia ja deixa a conversa com ela', async () => {
+    // No menu padrao, "2 = Agendar um horario" e um passo "Sofia".
+    const dois = await falar('2');
+    assert.equal(dois.respondidoPor, 'menu');
+    assert.equal(dois.detalhes.entregouParaIa, true);
+    assert.equal((await estado())?.conduz, 'ia', 'antes o estado ficava vazio aqui');
+  });
+
+  it('com a Sofia conduzindo, "2", "15" e "bom dia" vao para ela', async () => {
+    const antes = chamadasIa;
+    assert.equal((await falar('queria marcar um corte amanha')).respondidoPor, 'ia');
+    for (const texto of ['2', '15', 'Bom dia!']) {
+      const r = await falar(texto);
+      assert.equal(r.respondidoPor, 'ia', `"${texto}" e resposta a Sofia, nao opcao do menu`);
+    }
+    assert.equal(chamadasIa - antes, 4, 'as quatro mensagens chegaram na IA');
+    assert.equal((await estado())?.conduz, 'ia');
+  });
+
+  it('"menu" traz o menu de volta e o "1" seguinte e opcao do menu', async () => {
+    const menu = await falar('menu');
+    assert.equal(menu.respondidoPor, 'menu');
+    assert.notEqual((await estado())?.conduz, 'ia', 'pediu o menu: o menu volta a mandar');
+    assert.equal((await falar('1')).respondidoPor, 'menu');
+  });
+
+  it('depois de 61 min parado, "bom dia" volta a mostrar o menu', async () => {
+    await conversasRepo.gravarEstadoMenu(tenantId, ctx.conversationId, { conduz: 'ia', em: Date.now() - 61 * 60_000 });
+    assert.equal((await falar('bom dia')).respondidoPor, 'menu');
+  });
+
+  it('iaConduzindo: so vale com estado recente e sem comando de menu', () => {
+    const fluxo = fluxoPadrao();
+    const recente = { conduz: 'ia', em: Date.now() };
+    assert.equal(iaConduzindo(fluxo, recente, '2'), true);
+    assert.equal(iaConduzindo(fluxo, recente, 'bom dia'), true, 'saudacao nao e comando de menu');
+    for (const comando of COMANDOS_DO_MENU) assert.equal(iaConduzindo(fluxo, recente, comando), false, comando);
+    assert.equal(iaConduzindo(fluxo, recente, 'Início!'), false, 'normaliza acento e pontuacao');
+    assert.equal(iaConduzindo(fluxo, { no: 'inicio', pilha: [], em: Date.now() }, '2'), false, 'estado de menu');
+    assert.equal(iaConduzindo(fluxo, null, '2'), false, 'sem estado, o menu decide');
+  });
+
+  it('o modo so-menu continua igual: mesmo marcado, a Sofia nunca e chamada', async () => {
+    await atendimento.salvarConfiguracao(tenantId, { modo: 'menu' });
+    try {
+      await conversasRepo.gravarEstadoMenu(tenantId, ctx.conversationId, { conduz: 'ia', em: Date.now() });
+      const antes = chamadasIa;
+      assert.equal((await falar('2')).respondidoPor, 'menu');
+      assert.equal(chamadasIa, antes);
+    } finally {
+      await atendimento.salvarConfiguracao(tenantId, { modo: 'hibrido' });
+    }
+  });
+
+  it('o simulador aceita o estado "a Sofia conduz" (sem `no`) e o "menu" o desfaz', async () => {
+    const r = await app.inject({
+      method: 'POST',
+      url: '/api/ia/simular',
+      headers: cabDono,
+      payload: { mensagem: 'menu', modo: 'hibrido', menuEstado: { conduz: 'ia', em: Date.now() } }
+    });
+    assert.equal(r.statusCode, 200, r.body);
+    assert.equal(r.json().respondidoPor, 'menu');
+    assert.ok(r.json().menuEstado?.no, 'devolve o estado de menu para a tela');
   });
 });
 

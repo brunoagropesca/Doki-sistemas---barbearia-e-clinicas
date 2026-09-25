@@ -129,7 +129,13 @@ after(async () => {
 // ============================================================================
 
 describe('Sofia delega a Atena', () => {
-  it('a Sofia le direto, mas tudo que ESCREVE passa pela Atena', async () => {
+  /**
+   * Regra nova (prompt 10): a Sofia le direto e MARCA direto — mas so por
+   * reservar_horario, que so aceita o que foi ofertado. Remarcar e cancelar
+   * (mexer no que ja existe) continuam pela Atena. Nenhuma ferramenta de
+   * escrita da Atena fica exposta a ela.
+   */
+  it('a Sofia le direto, marca so por reservar_horario e o resto passa pela Atena', async () => {
     const falso = provedorFalso([{ texto: 'Oi! Como posso ajudar?' }]);
 
     await responder({
@@ -142,10 +148,13 @@ describe('Sofia delega a Atena', () => {
       'consultar_atena',
       'consultar_horarios',
       'consultar_varios_servicos',
+      'reservar_horario',
       'transferir_para_humano'
     ]);
     const escritas = ['criar_agendamento', 'agendar_varios_servicos', 'remarcar_agendamento', 'cancelar_agendamento', 'excluir_agendamento'];
-    assert.ok(!falso.chamadas[0].ferramentas.some((f) => escritas.includes(f)), 'a Sofia nunca escreve sozinha');
+    assert.ok(!falso.chamadas[0].ferramentas.some((f) => escritas.includes(f)), 'nenhuma escrita da Atena exposta a Sofia');
+    assert.match(falso.chamadas[0].systemPrompt, /MARCAR: reservar_horario/);
+    assert.match(falso.chamadas[0].systemPrompt, /REMARCAR ou CANCELAR: consultar_atena/);
   });
 
   /**
@@ -278,6 +287,173 @@ describe('Sofia delega a Atena', () => {
 });
 
 // ============================================================================
+
+/**
+ * A Sofia RESERVA direto, com a trava de "oferta".
+ *
+ * Antes: marcar 1 servico = 4 chamadas da Sofia + 2 da Atena (um modelo que
+ * nem via a conversa). Agora: a Sofia executa a mesma ferramenta da Atena, mas
+ * so para um horario que as consultas DESTA conversa mostraram. Conversa de
+ * verdade (no banco): as ofertas ficam nela, entao o 2º turno — outra chamada
+ * de `responder`, como apos um reinicio — ainda as encontra.
+ */
+describe('a Sofia reserva direto o que foi ofertado', () => {
+  let conversationId;
+  let lead;
+
+  const turno = async (texto, roteiro, extra = {}) => {
+    const falso = provedorFalso(roteiro);
+    const r = await responder({
+      tenantId, conversationId, leadId: lead.id, leadNome: lead.nome,
+      texto, modoOverride: 'ia', provedores: falso.provedores, ...extra
+    });
+    return { r, chamadas: falso.chamadas };
+  };
+  const agendamentosDoLead = async () =>
+    (await ctx.db.select().from(ctx.s.appointments)).filter((a) => a.leadId === lead.id && !a.deletedAt);
+  const consultarCarlos = (texto = 'tem horario segunda com o carlos?') =>
+    turno(texto, [
+      { ferramentas: [{ nome: 'consultar_horarios', argumentos: { servicoId: 'Corte Social', profissionalId: 'Carlos', data: SEGUNDA } }] },
+      { texto: 'Tenho alguns horários na segunda. Qual prefere?' }
+    ]);
+  const reservar = (argumentos) =>
+    turno('pode ser esse', [{ ferramentas: [{ nome: 'reservar_horario', argumentos }] }, { texto: 'Pronto!' }]);
+
+  before(async () => {
+    const leads = await import('../src/modules/leads/leads.service.js');
+    const conversas = await import('../src/modules/conversas/conversas.service.js');
+    lead = await leads.criar(tenantId, { nome: 'Reserva Direta', telefone: '5511955540001' });
+    conversationId = await conversas.encontrarOuAbrir(tenantId, { leadId: lead.id });
+  });
+
+  // As reservas daqui ocupam horarios de segunda com o Carlos que os testes
+  // seguintes da Atena esperam livres: saem ao fim do bloco.
+  after(async () => {
+    const { eq } = await import('drizzle-orm');
+    await ctx.db.delete(ctx.s.appointments).where(eq(ctx.s.appointments.leadId, lead.id));
+  });
+
+  it('consulta + reserva do horario ofertado: 1 agendamento e NENHUMA chamada da Atena', async () => {
+    const consulta = await consultarCarlos();
+    const [hora] = consulta.r.detalhes.consultas[0].resultado.horariosLivres;
+
+    const reserva = await reservar({ servicos: ['Corte Social'], profissional: 'Carlos', data: SEGUNDA, hora });
+    const feito = reserva.r.detalhes.consultas.find((c) => c.nome === 'reservar_horario');
+    assert.equal(feito.resultado.sucesso, true, JSON.stringify(feito.resultado));
+
+    const doLead = await agendamentosDoLead();
+    assert.equal(doLead.length, 1);
+    assert.equal(doLead[0].professionalId, ctx.carlos.id);
+    assert.equal(doLead[0].conversationId, conversationId, 'a OS fica presa a esta conversa, como quando a Atena marcava');
+
+    // As contas do prompt: 2 chamadas da Sofia por turno, zero da Atena.
+    assert.equal(consulta.chamadas.length + reserva.chamadas.length, 4);
+    assert.equal(consulta.r.detalhes.atena.length + reserva.r.detalhes.atena.length, 0);
+  });
+
+  it('hora que nao foi ofertada: recusa, e nada e gravado', async () => {
+    const antes = (await agendamentosDoLead()).length;
+    await consultarCarlos();
+    const r = await reservar({ servicos: ['Corte Social'], profissional: 'Carlos', data: SEGUNDA, hora: '06:10' });
+    const tentativa = r.r.detalhes.consultas.find((c) => c.nome === 'reservar_horario');
+    assert.match(tentativa.resultado.erro, /não veio de uma consulta desta conversa/);
+    assert.equal((await agendamentosDoLead()).length, antes);
+  });
+
+  it('oferta vencida (mais de 2 h): recusa', async () => {
+    const consulta = await consultarCarlos();
+    const horas = consulta.r.detalhes.consultas[0].resultado.horariosLivres;
+    const livre = horas.at(-1);
+    const { eq } = await import('drizzle-orm');
+    const [conv] = await ctx.db.select().from(ctx.s.conversations).where(eq(ctx.s.conversations.id, conversationId));
+    const velhas = conv.ofertasHorario.map((o) => ({ ...o, em: Date.now() - 2 * 3_600_000 - 60_000 }));
+    await ctx.db.update(ctx.s.conversations).set({ ofertasHorario: velhas }).where(eq(ctx.s.conversations.id, conversationId));
+
+    const r = await reservar({ servicos: ['Corte Social'], profissional: 'Carlos', data: SEGUNDA, hora: livre });
+    assert.match(r.r.detalhes.consultas.find((c) => c.nome === 'reservar_horario').resultado.erro, /não veio de uma consulta/);
+  });
+
+  it('varios servicos: reserva a sequencia ofertada, todos juntos', async () => {
+    const antes = (await agendamentosDoLead()).length;
+    const DOIS = ['Corte Social', 'Barba Terapia'];
+    const consulta = await turno('corte e barba na segunda?', [
+      { ferramentas: [{ nome: 'consultar_varios_servicos', argumentos: { servicos: DOIS, data: SEGUNDA } }] },
+      { texto: 'Tenho opções. Qual prefere?' }
+    ]);
+    const resultado = consulta.r.detalhes.consultas[0].resultado;
+    const inicio = (resultado.opcoes[0] ?? resultado.proximaDataComVaga?.opcoes?.[0]).inicio;
+    const data = resultado.opcoes.length ? SEGUNDA : resultado.proximaDataComVaga.data;
+
+    const r = await reservar({ servicos: DOIS, data, hora: inicio });
+    const feito = r.r.detalhes.consultas.find((c) => c.nome === 'reservar_horario');
+    assert.equal(feito.resultado.sucesso, true, JSON.stringify(feito.resultado));
+    assert.equal((await agendamentosDoLead()).length, antes + 2);
+  });
+
+  it('permissao "criar" desligada: erro amigavel, nada gravado', async () => {
+    const { obterAgente, salvarAgente } = await import('../src/modules/ia/ia.service.js');
+    const permissoes = (await obterAgente(tenantId, 'atena')).ferramentas;
+    await salvarAgente(tenantId, 'atena', { ferramentas: permissoes.filter((g) => g !== 'criar') });
+    try {
+      const antes = (await agendamentosDoLead()).length;
+      const consulta = await consultarCarlos();
+      const hora = consulta.r.detalhes.consultas[0].resultado.horariosLivres.at(-2);
+      const r = await reservar({ servicos: ['Corte Social'], profissional: 'Carlos', data: SEGUNDA, hora });
+      assert.match(r.r.detalhes.consultas.find((c) => c.nome === 'reservar_horario').resultado.erro, /desligado nas permissões/);
+      assert.equal((await agendamentosDoLead()).length, antes);
+    } finally {
+      await salvarAgente(tenantId, 'atena', { ferramentas: permissoes });
+    }
+  });
+
+  /**
+   * O roteiro do prompt 10, medido: marcar 1 servico pelo caminho ANTIGO
+   * (Sofia -> consultar_atena -> modelo da Atena -> criar_agendamento) contra
+   * o NOVO (Sofia -> reservar_horario). Mesmo resultado; o antigo custa as 2
+   * chamadas da Atena a mais.
+   */
+  it('contagem de chamadas de IA para marcar 1 servico: antes 4 Sofia + 2 Atena, agora 4 Sofia + 0 Atena', async () => {
+    const quem = (chamadas) => ({
+      sofia: chamadas.filter((c) => c.ferramentas.includes('reservar_horario')).length,
+      atena: chamadas.filter((c) => !c.ferramentas.includes('reservar_horario')).length
+    });
+
+    // ANTES: consulta direta + pedido a Atena.
+    const c1 = await consultarCarlos();
+    const [horaAntigo, horaNovo] = c1.r.detalhes.consultas[0].resultado.horariosLivres.slice(-2);
+    const antigo = await turno('pode ser', [
+      { ferramentas: [{ nome: 'consultar_atena', argumentos: { pedido: `Marcar Corte Social com o Carlos em ${SEGUNDA} às ${horaAntigo}.` } }] },
+      { ferramentas: [{ nome: 'criar_agendamento', argumentos: { servicoId: 'Corte Social', profissionalId: 'Carlos', data: SEGUNDA, hora: horaAntigo } }] },
+      { texto: 'FEITO: Corte Social marcado.' },
+      { texto: 'Pronto, marcado!' }
+    ]);
+    const antes = { sofia: quem(c1.chamadas).sofia + quem(antigo.chamadas).sofia, atena: quem(antigo.chamadas).atena };
+
+    // DEPOIS: consulta direta + reserva direta.
+    const c2 = await consultarCarlos();
+    const novo = await reservar({ servicos: ['Corte Social'], profissional: 'Carlos', data: SEGUNDA, hora: horaNovo });
+    const depois = { sofia: quem(c2.chamadas).sofia + quem(novo.chamadas).sofia, atena: quem(novo.chamadas).atena };
+
+    assert.deepEqual(antes, { sofia: 4, atena: 2 });
+    assert.deepEqual(depois, { sofia: 4, atena: 0 });
+    // Os dois marcaram de verdade.
+    const horas = (await agendamentosDoLead()).map((a) => a.inicioEm.getTime());
+    assert.equal(new Set(horas).size, horas.length);
+    assert.ok(novo.r.detalhes.consultas.find((c) => c.nome === 'reservar_horario').resultado.sucesso);
+  });
+
+  it('simulador em modo seguro (sem escrita): reservar nao grava', async () => {
+    const antes = (await agendamentosDoLead()).length;
+    const consulta = await consultarCarlos();
+    const hora = consulta.r.detalhes.consultas[0].resultado.horariosLivres.at(-3);
+    const r = await turno('esse', [
+      { ferramentas: [{ nome: 'reservar_horario', argumentos: { servicos: ['Corte Social'], profissional: 'Carlos', data: SEGUNDA, hora } }] },
+      { texto: 'Esse horário está livre!' }
+    ], { permitirEscrita: false, simulacao: true });
+    assert.match(r.r.detalhes.consultas.find((c) => c.nome === 'reservar_horario').resultado.erro, /simulação/i);
+    assert.equal((await agendamentosDoLead()).length, antes);
+  });
+});
 
 describe('a Atena escreve no banco de verdade', () => {
   it('cria um agendamento e ele existe na agenda', async () => {
@@ -544,6 +720,68 @@ describe('permissoes configuradas na tela', () => {
     assert.match(falso.chamadas[0].systemPrompt, /DESATIVADA/);
 
     await salvarAtena({ ativo: true });
+  });
+
+  /**
+   * Preco e publico: com a Atena desligada (e ate sem a permissao "catalogo"),
+   * a Sofia continua recebendo o catalogo. Antes "quanto custa o corte?" virava
+   * transferencia para humano.
+   */
+  it('Atena desativada: o catalogo continua no prompt e a regra manda usa-lo para preco', async () => {
+    const { obterAgente, salvarAgente } = await import('../src/modules/ia/ia.service.js');
+    const permissoes = (await obterAgente(tenantId, 'atena')).ferramentas;
+    await salvarAgente(tenantId, 'atena', { ativo: false, ferramentas: permissoes.filter((g) => g !== 'catalogo') });
+    try {
+      const falso = provedorFalso([{ texto: 'O corte social sai por R$ 45,00.' }]);
+      await responder({
+        tenantId, conversationId: null, leadId: ctx.lead1.id, leadNome: 'Marcos',
+        texto: 'quanto custa o corte?', simulacao: true, modoOverride: 'ia', provedores: falso.provedores
+      });
+      const prompt = falso.chamadas[0].systemPrompt;
+      assert.match(prompt, /CATALOGO \(dados verificados/);
+      assert.match(prompt, /DESATIVADA\. Preços: use o CATALOGO abaixo/);
+      assert.match(prompt, /Horários e\s+agendamentos você NÃO consegue ver nem marcar/);
+    } finally {
+      await salvarAgente(tenantId, 'atena', { ativo: true, ferramentas: permissoes });
+    }
+  });
+
+  describe('texto de fabrica antigo da Sofia', () => {
+    const promptDa = async (texto) => {
+      const falso = provedorFalso([{ texto: 'Oi!' }]);
+      await responder({
+        tenantId, conversationId: null, leadId: ctx.lead1.id, leadNome: 'Marcos',
+        texto, simulacao: true, modoOverride: 'ia', provedores: falso.provedores
+      });
+      return falso.chamadas[0].systemPrompt;
+    };
+
+    it('gravado no banco e nunca editado: a Sofia recebe o texto atual', async () => {
+      const { salvarAgente } = await import('../src/modules/ia/ia.service.js');
+      const { AGENTES_PADRAO, PROMPTS_ANTIGOS } = await import('../src/ai/agentes-padrao.js');
+      await salvarAgente(tenantId, 'atendente', { systemPrompt: PROMPTS_ANTIGOS.atendente[0] });
+      try {
+        const prompt = await promptDa('oi');
+        assert.ok(prompt.includes(AGENTES_PADRAO.atendente.systemPrompt), 'vale o texto atual');
+        assert.doesNotMatch(prompt, /você consulta a Atena/, 'a instrucao contraditoria saiu');
+      } finally {
+        await salvarAgente(tenantId, 'atendente', { systemPrompt: AGENTES_PADRAO.atendente.systemPrompt });
+      }
+    });
+
+    it('editado pela empresa: o texto dela e preservado', async () => {
+      const { salvarAgente } = await import('../src/modules/ia/ia.service.js');
+      const { AGENTES_PADRAO, PROMPTS_ANTIGOS } = await import('../src/ai/agentes-padrao.js');
+      // Parte do texto antigo + um acrescimo da empresa: NAO e identico, fica como esta.
+      const editado = `${PROMPTS_ANTIGOS.atendente[0]} Sempre chame o cliente de "querido".`;
+      await salvarAgente(tenantId, 'atendente', { systemPrompt: editado });
+      try {
+        const prompt = await promptDa('oi');
+        assert.ok(prompt.includes(editado), 'o que a empresa escreveu nunca e tocado');
+      } finally {
+        await salvarAgente(tenantId, 'atendente', { systemPrompt: AGENTES_PADRAO.atendente.systemPrompt });
+      }
+    });
   });
 
   it('Sofia desativada: nao chama o modelo, vai para uma pessoa', async () => {

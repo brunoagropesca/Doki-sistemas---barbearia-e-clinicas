@@ -105,6 +105,37 @@ export function recarregarAgrupador(tenantId) {
 }
 
 /**
+ * Um turno de resposta por vez em cada conversa.
+ *
+ * O agrupador junta o que chega ANTES de a IA comecar. Mas a IA leva de 3 a 20
+ * segundos; se o cliente escrevia nesse meio tempo, o proximo lote ficava
+ * pronto e rodava EM PARALELO, sem ver a resposta que ainda estava sendo
+ * escrita — o cliente recebia duas respostas que nao conversavam entre si (e,
+ * numa marcacao, duas acoes na agenda). Aqui o turno seguinte espera o
+ * anterior terminar e so entao le o historico, ja com a resposta dele.
+ *
+ * Em memoria: vale para este processo (a API roda num processo so). A trava e
+ * POR CONVERSA — clientes diferentes continuam sendo atendidos em paralelo.
+ */
+const turnos = new Map();
+
+/** De quanto em quanto tempo o "digitando..." e reenviado enquanto a IA pensa. */
+const RENOVAR_DIGITANDO_MS = 8000;
+
+function naVezDaConversa(chave, tarefa) {
+  const anterior = turnos.get(chave) ?? Promise.resolve();
+  // Um turno que falhou nao pode travar os seguintes: o proximo roda mesmo assim.
+  const atual = anterior.catch(() => {}).then(tarefa);
+  const guardado = atual.catch(() => {});
+  turnos.set(chave, guardado);
+  // Sem turno na fila, a chave sai do mapa (nao cresce para sempre).
+  guardado.then(() => {
+    if (turnos.get(chave) === guardado) turnos.delete(chave);
+  });
+  return atual;
+}
+
+/**
  * Processa uma mensagem recebida de qualquer canal.
  *
  * @param {object} p
@@ -207,7 +238,9 @@ export async function receberMensagem({
       instanciaChave,
       // A duracao vem do proprio canal. Guardar aqui deixa o player desenhar a
       // barra na hora, sem o navegador precisar baixar o audio para medir.
-      ...(midia?.duracaoSegundos ? { duracaoSegundos: midia.duracaoSegundos } : {})
+      ...(midia?.duracaoSegundos ? { duracaoSegundos: midia.duracaoSegundos } : {}),
+      // Foto/video/documento: nome, tipo, tamanho e legenda — o livechat mostra o anexo.
+      ...(midia?.metadados ?? {})
     }
   });
 
@@ -238,9 +271,20 @@ export async function receberMensagem({
 
   const conversa = await conversas.obter(tenantId, conversationId);
 
+  // Na fila, mas a Sofia volta a ajudar (casa fechada ou fila parada): ela
+  // responde sabendo que o cliente espera uma pessoa. Ver sofiaAjudaNaFila.
+  let aguardandoHumano = false;
+
   // Humano assumiu: a IA fica em silencio. Nada e mais constrangedor do que
   // uma resposta automatica caindo no meio de uma conversa com uma pessoa.
-  if (conversa.status === 'humana') {
+  // A excecao e o atendente que SUMIU (ha horas sem escrever): o cliente nao
+  // pode falar sozinho para sempre. A conversa continua dele (horarios,
+  // historico) — so a Sofia volta a responder.
+  if (conversa.status === 'humana' && (await atendimento.atendenteSumiu(tenantId, conversa))) {
+    await conversas.devolverParaIaAutomatico(tenantId, conversationId);
+    log.info({ tenantId, conversationId }, 'Atendente sem responder ha horas; a Sofia volta a atender');
+    ver('sistema', 'atendente sem responder há horas: a Sofia volta a atender esta conversa');
+  } else if (conversa.status === 'humana') {
     log.debug({ conversationId }, 'Conversa com atendente humano; automacao em silencio');
     ver('sistema', 'conversa com atendente humano: a IA fica em silencio');
     await guardarFotoDoPerfil();
@@ -249,8 +293,12 @@ export async function receberMensagem({
   }
 
   // Ja esta na fila esperando alguem: nao reenviar "ja estou chamando" a cada
-  // mensagem que o cliente mandar enquanto espera.
-  if (conversa.status === 'na_fila') {
+  // mensagem que o cliente mandar enquanto espera. So que, com a casa fechada
+  // ou a fila parada, ninguem vai aparecer logo: ai a Sofia ajuda no que puder.
+  if (conversa.status === 'na_fila' && (await atendimento.sofiaAjudaNaFila(tenantId, conversa))) {
+    aguardandoHumano = true;
+    ver('sistema', 'cliente na fila sem ninguém assumir: a Sofia volta a ajudar enquanto espera');
+  } else if (conversa.status === 'na_fila') {
     ver('sistema', 'cliente ja esta na fila: aguardando um atendente assumir');
     await guardarFotoDoPerfil();
     contarRespostaDeCampanha(conteudo);
@@ -278,6 +326,56 @@ export async function receberMensagem({
     await guardarFotoDoPerfil();
     contarRespostaDeCampanha(conteudo);
     return { conversationId, respondido: false, motivo: 'audio_sem_transcricao' };
+  }
+
+  // Figurinha: fica registrada na conversa, mas ninguem responde a ela — a
+  // Sofia devolvendo "🙂 Figurinha" soaria estranho.
+  if (midia?.soRegistrar) {
+    ver('sistema', 'figurinha recebida: registrada, sem resposta automática');
+    await guardarFotoDoPerfil();
+    return { conversationId, respondido: false, motivo: 'so_registrar' };
+  }
+
+  /**
+   * Foto, video ou documento SEM legenda (comprovante, foto de referencia).
+   *
+   * A IA nao ve o arquivo — responderia no escuro. Quem precisa olhar e uma
+   * pessoa: vai para a fila, com um aviso curto ao cliente de que chegou (fora
+   * do horario, dizendo quando a equipe volta). Com legenda, segue o fluxo
+   * normal: a Sofia responde o que o cliente escreveu.
+   */
+  if (midia?.semLegenda && ['imagem', 'video', 'documento', 'texto'].includes(midia.tipo)) {
+    const aviso = await atendimento.avisoDeMidiaRecebida(tenantId);
+    await conversas.enviarParaFila(tenantId, conversationId);
+    await conversas.distribuir(tenantId, conversationId).catch((err) => {
+      log.warn({ err, conversationId }, 'Nao foi possivel distribuir a conversa do arquivo sem texto');
+    });
+    await notificarEncaminhamento(tenantId, conversationId, {
+      motivo: 'O cliente enviou um arquivo sem texto: confira no livechat.'
+    });
+
+    let erroEnvio = null;
+    let idExternoSaida = null;
+    try {
+      const r = await obterAdaptador(canal)?.enviar?.({ tenantId, instanciaChave, destino: telefone, texto: aviso });
+      idExternoSaida = r?.idExterno ?? null;
+    } catch (err) {
+      erroEnvio = err.message;
+      log.error({ err, canal, conversationId }, 'Falha ao entregar o aviso de arquivo recebido');
+    }
+    // Gravado mesmo se o envio falhou: o atendente ve o que o cliente deveria ter recebido.
+    await conversas.registrarEnviada(tenantId, conversationId, {
+      conteudo: aviso,
+      autorTipo: 'ia',
+      externalId: idExternoSaida,
+      erroEnvio,
+      metadados: { motivo: 'midia_sem_texto' }
+    });
+
+    log.info({ tenantId, conversationId }, 'Arquivo sem texto; conversa enviada para a fila');
+    ver('aviso', 'arquivo sem texto: conversa enviada para a fila humana', 'alguém precisa olhar');
+    await guardarFotoDoPerfil();
+    return { conversationId, respondido: true, transferido: true, motivo: 'midia_sem_texto' };
   }
 
   /**
@@ -313,7 +411,8 @@ export async function receberMensagem({
 
   // --- 4b. Agrupar mensagens picotadas ---
   const agrupador = await agrupadorDe(tenantId);
-  const lote = await agrupador.enfileirar(`${tenantId}:${conversationId}`, conteudo);
+  // O id vai junto: quem responde precisa saber quais mensagens formam o turno.
+  const lote = await agrupador.enfileirar(`${tenantId}:${conversationId}`, conteudo, { id: registro.id });
 
   // Outra mensagem chegou depois desta: ela cuida do lote. Nao ha flag para
   // esquecer de checar — simplesmente nao ha o que fazer aqui.
@@ -321,12 +420,54 @@ export async function receberMensagem({
     return { conversationId, respondido: false, motivo: 'agrupada' };
   }
 
-  // --- 5. Responder ---
-  const historico = await atendimento.historicoParaIa(tenantId, conversationId);
+  // --- 5. Responder (um turno por vez nesta conversa) ---
+  return naVezDaConversa(`${tenantId}:${conversationId}`, () =>
+    responderLote({ tenantId, canal, instanciaChave, telefone, lead, conversationId, lote, guardarFotoDoPerfil, contarRespostaDeCampanha, aguardandoHumano })
+  );
+}
 
-  // O historico ja inclui a mensagem atual (gravamos no passo 3); tiramos a
-  // ultima para nao duplicar o texto dentro do prompt.
-  const historicoAnterior = historico.slice(0, -1);
+/**
+ * Responde um lote de mensagens do cliente. Roda SEMPRE dentro de
+ * `naVezDaConversa`: quando comeca, o turno anterior desta conversa ja terminou.
+ */
+async function responderLote({ tenantId, canal, instanciaChave, telefone, lead, conversationId, lote, guardarFotoDoPerfil, contarRespostaDeCampanha, aguardandoHumano = false }) {
+  // Enquanto esperava a vez, o turno anterior pode ter passado a conversa para
+  // uma pessoa (fila ou atendente). Ai a IA nao fala mais nada: a decisao do
+  // passo 4 foi tomada antes, com a conversa ainda na mao da IA. A excecao e a
+  // fila em que a Sofia ja tinha sido chamada a ajudar (aguardandoHumano).
+  const agora = await conversas.obter(tenantId, conversationId);
+  const podeResponder = agora.status === 'bot' || (aguardandoHumano && agora.status === 'na_fila');
+  if (!podeResponder) {
+    ver('sistema', 'o turno anterior passou a conversa para uma pessoa: a IA nao responde este lote');
+    await guardarFotoDoPerfil();
+    contarRespostaDeCampanha(lote.texto);
+    return { conversationId, respondido: false, motivo: agora.status === 'humana' ? 'atendimento_humano' : 'aguardando_humano' };
+  }
+
+  // Historico SEM as mensagens do proprio lote (elas vao juntas no texto) e sem
+  // o que o cliente mandou depois (e do proximo turno).
+  const historicoAnterior = await atendimento.historicoAntesDoLote(
+    tenantId,
+    conversationId,
+    (lote.metas ?? []).map((m) => m.id)
+  );
+
+  /**
+   * "digitando..." enquanto a IA pensa. Com a espera do agrupador (8 s) mais a
+   * IA (3-20 s), o cliente olhava uma tela parada e mandava "??". O WhatsApp
+   * apaga o aviso sozinho depois de uns segundos, entao ele e renovado ate a
+   * resposta ficar pronta. `?.`: outros canais (e os adaptadores de teste) nao
+   * tem presenca — e ela e enfeite, nunca atrasa nem derruba a resposta.
+   */
+  const adaptadorDoCanal = obterAdaptador(canal);
+  // Protegido: um adaptador cuja presenca rejeite nao pode virar erro solto.
+  const presenca = (estado) =>
+    Promise.resolve(adaptadorDoCanal?.presenca?.({ tenantId, instanciaChave, destino: telefone, estado })).catch(() => {});
+  const digitar = () => presenca('composing');
+  digitar();
+  const renovarDigitando = setInterval(digitar, RENOVAR_DIGITANDO_MS);
+  // Nao segura o processo aberto (desligamento, fim dos testes).
+  renovarDigitando.unref?.();
 
   const resposta = await atendimento.responder({
     tenantId,
@@ -334,7 +475,11 @@ export async function receberMensagem({
     leadId: lead.id,
     leadNome: lead.nome,
     texto: lote.texto,
-    historico: historicoAnterior
+    historico: historicoAnterior,
+    aguardandoHumano
+  }).finally(() => {
+    clearInterval(renovarDigitando);
+    presenca('paused');
   });
 
   const enviados = [];

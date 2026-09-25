@@ -1,0 +1,1 @@
+ALTER TABLE `conversations` ADD `na_fila_desde` integer;

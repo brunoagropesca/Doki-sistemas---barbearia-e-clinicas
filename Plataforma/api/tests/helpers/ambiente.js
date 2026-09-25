@@ -91,3 +91,23 @@ export async function entrar(app, username = 'dono', senha = 'trocar@123') {
     cabecalho: { authorization: `Bearer ${corpo.token}` }
   };
 }
+
+/**
+ * Deixa a casa ABERTA o dia todo, todos os dias.
+ *
+ * O aviso de transferencia e a volta da Sofia na fila dependem do expediente
+ * (ver `atendimento/expediente.js`). Testes que NAO sao sobre horario nao
+ * podem mudar de resultado conforme a hora em que a suite roda (antes das 9h
+ * a barbearia de exemplo estaria fechada e as mensagens mudariam).
+ *
+ * Nao entra no seed nem no criarAppDeTeste: os testes de agenda dependem das
+ * jornadas reais.
+ */
+export async function abrirACasa() {
+  const { db } = await import('../../src/db/client.js');
+  const { professionals } = await import('../../src/db/schema/index.js');
+  const diaTodo = [{ inicio: '00:00', fim: '23:59' }];
+  await db.update(professionals).set({
+    jornada: { dias: Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((d) => [d, diaTodo])), intervaloMinutos: 30 }
+  });
+}

@@ -7,23 +7,38 @@ import { NOMES_DIAS } from '../../core/datas-naturais.js';
 import { comContexto } from '../../core/logger.js';
 import { conversar, dividirEmBaloes } from '../../ai/agente.js';
 import { gerar } from '../../ai/cascade.js';
-import { formatarParaWhatsapp, pareceIrritado, tirarFrasesDeBastidores, vazaBastidores } from '../../ai/saida.js';
+import {
+  formatarParaWhatsapp,
+  pareceIrritado,
+  pareceReclamacao,
+  pediuDesculpas,
+  precosNaoVerificados,
+  precosPermitidos,
+  tirarFrasesDeBastidores,
+  vazaBastidores
+} from '../../ai/saida.js';
 import { TONS } from '../../ai/agentes-padrao.js';
 import { ferramentasDaSofia } from '../../ai/tools/sofia.tools.js';
 import { lerHumor } from '../../ai/humor.js';
 import { avancarEtapa } from '../../automacao/funil.js';
-import { atenaPermite } from '../../ai/permissoes.js';
-import { resumoDoCatalogo } from '../../ai/tools/catalogo-cache.js';
+import { catalogoDaEmpresa, resumoDoCatalogo } from '../../ai/tools/catalogo-cache.js';
 import * as catalogo from '../catalogo/catalogo.service.js';
 import * as conversas from '../conversas/conversas.service.js';
 import { obterAgente } from '../ia/ia.service.js';
 import { textoDosServicos } from './menu.js';
-import { fluxoDaEmpresa, passoDoFluxo, reapresentar, validarFluxo } from './fluxo.js';
+import { fluxoDaEmpresa, iaConduzindo, passoDoFluxo, reapresentar, validarFluxo } from './fluxo.js';
 import { RegraDeNegocio } from '../../core/errors.js';
-import { lerEstadoMenu, gravarEstadoMenu } from '../conversas/conversas.repo.js';
+import {
+  lerEstadoMenu,
+  gravarEstadoMenu,
+  humorDaConversa,
+  ultimaMensagemHumanaEm as lerUltimaMensagemHumana
+} from '../conversas/conversas.repo.js';
+import { itensNaoLidos, itensRelevantes } from '../empresa/relevancia.js';
 import { colorir, negrito, resumir, ver } from '../../core/painel.js';
 import { funcaoLigada } from '../funcoes/funcoes.js';
 import { mensagemAoCliente } from '../textos/textos.js';
+import { expedienteDaEmpresa } from './expediente.js';
 import { baseParaIa } from '../empresa/empresa.service.js';
 
 const log = comContexto({ modulo: 'atendimento' });
@@ -55,19 +70,23 @@ async function config(tenantId, chave, padrao) {
 }
 
 async function contextoDaEmpresa(tenantId) {
-  const [tenant, menu, sofia, atena, catalogoResumo, baseConhecimento] = await Promise.all([
+  const [tenant, menu, sofia, atena, catalogoResumo, base, servicosDoCatalogo] = await Promise.all([
     db.query.tenants.findFirst({ where: eq(tenants.id, tenantId) }),
     db.query.menuFlows.findFirst({
       where: and(eq(menuFlows.tenantId, tenantId), eq(menuFlows.ativo, true))
     }),
     obterAgente(tenantId, 'atendente'),
     obterAgente(tenantId, 'atena'),
-    // O catalogo verificado vai no prompt da Sofia so quando a Atena pode
-    // consultar catalogo: a fonte e a mesma e a empresa controla o acesso.
-    atenaPermite(tenantId, 'catalogo').then((ok) => (ok ? resumoDoCatalogo(tenantId) : null)),
+    // Preco e informacao PUBLICA (esta no menu, na parede da loja): vai para a
+    // Sofia sempre. Antes dependia da permissao "catalogo" da Atena — com a
+    // Atena desligada, "quanto custa o corte?" virava transferencia para humano.
+    resumoDoCatalogo(tenantId),
     // Endereco, Pix, horario, regras da casa: o que a empresa cadastrou em
     // Inteligencia Artificial > Base de conhecimento.
-    baseParaIa(tenantId)
+    baseParaIa(tenantId),
+    // A lista (em cache): diz se o catalogo esta VAZIO e quais precos existem
+    // de verdade — a trava contra preco inventado (ver `semPrecoInventado`).
+    catalogoDaEmpresa(tenantId)
   ]);
 
   return {
@@ -77,12 +96,105 @@ async function contextoDaEmpresa(tenantId) {
     sofia,
     atena,
     catalogoResumo,
-    baseConhecimento
+    // O essencial vai no prompt; os detalhes (regras, FAQ, extras), so quando
+    // a Sofia consulta (consultar_informacoes).
+    baseConhecimento: base.texto,
+    baseDetalhes: base.detalhes,
+    baseItens: base.itens,
+    baseIndice: base.indice,
+    servicosDoCatalogo
   };
 }
 
+/** Todos os precos reais do catalogo: o do servico e o proprio de cada profissional. */
+function precosDoCatalogo(servicos) {
+  return servicos.flatMap((s) => [s.precoCentavos, ...(s.profissionais ?? []).map((p) => p.precoCentavos)]);
+}
+
+/**
+ * O aviso de que o cliente foi para a fila, respeitando o horario da casa.
+ *
+ * "Um instante! 🙏" as 23h e uma promessa que ninguem cumpre: com a casa
+ * FECHADA, os baloes viram o texto que diz QUANDO alguem responde (e a Sofia
+ * continua ajudando enquanto isso — ver o gateway). Aberta, nada muda.
+ */
+async function avisoDeTransferencia(tenantId, baloes) {
+  const { aberta, proximaAbertura } = await expedienteDaEmpresa(tenantId);
+  if (aberta) return baloes;
+  const texto = await mensagemAoCliente(tenantId, 'fila.fora_do_horario');
+  return [texto.replace('{abertura}', proximaAbertura ?? 'no próximo horário de atendimento')];
+}
+
+/**
+ * O que dizer quando chega foto/video/documento SEM texto: vai para uma
+ * pessoa conferir. Respeita o horario da casa como qualquer transferencia.
+ */
+export async function avisoDeMidiaRecebida(tenantId) {
+  const [texto] = await avisoDeTransferencia(tenantId, [await mensagemAoCliente(tenantId, 'fila.midia_recebida')]);
+  return texto;
+}
+
+/** Minutos na fila sem ninguem assumir ate a Sofia voltar a ajudar (0 = nunca). */
+export const FILA_ESPERA_MINUTOS_PADRAO = 30;
+/** Horas sem o atendente escrever ate a conversa "Humano" voltar para a Sofia (0 = nunca). */
+export const HUMANO_ABANDONO_HORAS_PADRAO = 12;
+
+/**
+ * O cliente esta na fila e escreveu de novo: a Sofia volta a ajudar?
+ *
+ * Antes, tudo o que ele escrevia depois de "quero falar com uma pessoa" ficava
+ * sem resposta ate alguem assumir — inclusive a noite e por dias. Ela volta
+ * quando ninguem vai aparecer logo: casa FECHADA, ou fila parada ha mais que
+ * `fila_espera_minutos`. A conversa CONTINUA na fila: quando alguem assumir,
+ * assume normalmente.
+ *
+ * @param {{ naFilaDesde?: number|null, ultimaMensagemEm?: number|null }} conversa  como `conversas.obter` devolve
+ */
+export async function sofiaAjudaNaFila(tenantId, conversa, agora = Date.now()) {
+  const limite = Number(await config(tenantId, 'fila_espera_minutos', FILA_ESPERA_MINUTOS_PADRAO));
+  if (!limite) return false;
+  if (!(await expedienteDaEmpresa(tenantId, agora)).aberta) return true;
+  // Conversa que entrou na fila antes de existir `naFilaDesde`: a ultima
+  // mensagem e a melhor aproximacao que ha.
+  const desde = conversa.naFilaDesde ?? conversa.ultimaMensagemEm;
+  return Boolean(desde) && agora - desde >= limite * 60_000;
+}
+
+/**
+ * Conversa com atendente em que ele SUMIU (esqueceu de finalizar)?
+ *
+ * Sem isto o cliente falava sozinho para sempre: com status 'humana' a IA fica
+ * em silencio. Conta desde a ultima mensagem do atendente (ou, se ele nunca
+ * escreveu, desde que assumiu).
+ *
+ * @param {{ id: string, assumidaEm?: number|null }} conversa  como `conversas.obter` devolve
+ */
+export async function atendenteSumiu(tenantId, conversa, agora = Date.now()) {
+  const horas = Number(await config(tenantId, 'humano_abandono_horas', HUMANO_ABANDONO_HORAS_PADRAO));
+  if (!horas) return false;
+  const ultimaHumana = await lerUltimaMensagemHumana(tenantId, conversa.id);
+  const desde = ultimaHumana?.getTime() ?? conversa.assumidaEm;
+  return Boolean(desde) && agora - desde >= horas * 3_600_000;
+}
+
 /** Monta as instrucoes da Sofia a partir do perfil configurado + contexto vivo. */
-export function montarSystemPrompt({ agente, nomeEmpresa, fuso, leadNome, hoje, horaAtual, atenaAtiva, catalogoResumo, baseConhecimento, irritado = false }) {
+export function montarSystemPrompt({
+  agente,
+  nomeEmpresa,
+  fuso,
+  leadNome,
+  hoje,
+  horaAtual,
+  atenaAtiva,
+  catalogoResumo,
+  catalogoVazio = false,
+  baseConhecimento,
+  indiceDetalhes = '',
+  informacoesRelevantes = [],
+  irritado = false,
+  reclamacao = false,
+  aguardandoHumano = false
+}) {
   const base =
     agente?.systemPrompt?.trim() ||
     `Voce e a atendente virtual de ${nomeEmpresa}. Seja calorosa, direta e objetiva.`;
@@ -93,10 +205,9 @@ export function montarSystemPrompt({ agente, nomeEmpresa, fuso, leadNome, hoje, 
         '   suas consultas (consultar_horarios; consultar_varios_servicos para 2+ serviços na',
         '   mesma visita; consultar_agendamentos_do_cliente). São instantâneas: use à vontade.',
         '   O que suas consultas não trazem: peça à Atena.',
-        '2. MARCAR, REMARCAR ou CANCELAR: só pela consultar_atena, com o pedido completo',
-        '   (serviço(s), profissional, data e hora exatos que a consulta mostrou e o cliente',
-        '   escolheu). Uma chamada por resposta. Só confirme o que ela relatar como FEITO; se',
-        '   disser NÃO FEITO ou FALTA, explique ou pergunte. Nunca prometa "já te retorno".',
+        '2. MARCAR: reservar_horario, com o horário que sua consulta mostrou e o cliente',
+        '   escolheu. REMARCAR ou CANCELAR: consultar_atena, com o pedido completo. Só confirme',
+        '   o que voltou com sucesso; se não deu, explique ou pergunte. Nunca prometa "já te retorno".',
         '3. NUNCA invente preço, horário ou disponibilidade: só o CATALOGO e o que as consultas',
         '   ou a Atena devolveram. Horário para vários serviços juntos: só os que vieram em',
         '   "opcoes" (se vier "obs" ou "esperaEntreServicos", conte ao cliente).',
@@ -107,12 +218,21 @@ export function montarSystemPrompt({ agente, nomeEmpresa, fuso, leadNome, hoje, 
         '6. Mensagem sem pedido novo ("ok", "obrigado", emoji): responda curto, sem',
         '   consultar nada e sem cumprimentar de novo.'
       ]
-    : [
-        '1. A Atena (agente de dados e agenda) está DESATIVADA. Você não tem como consultar',
-        '   preços, horários ou agendamentos.',
-        '2. NUNCA invente preço, horário ou disponibilidade. Para qualquer dúvida desse tipo,',
-        '   use transferir_para_humano.'
-      ];
+    : catalogoResumo
+      ? [
+          // Com a Atena desligada o PRECO continua respondivel (o catalogo vai
+          // sempre); o que exige uma pessoa e a agenda.
+          '1. A Atena (agenda) está DESATIVADA. Preços: use o CATALOGO abaixo. Horários e',
+          '   agendamentos você NÃO consegue ver nem marcar: para isso, use transferir_para_humano.',
+          '2. NUNCA invente preço, horário ou disponibilidade. Dúvida que o CATALOGO não responde:',
+          '   use transferir_para_humano.'
+        ]
+      : [
+          '1. A Atena (agente de dados e agenda) está DESATIVADA. Você não tem como consultar',
+          '   preços, horários ou agendamentos.',
+          '2. NUNCA invente preço, horário ou disponibilidade. Para qualquer dúvida desse tipo,',
+          '   use transferir_para_humano.'
+        ];
 
   return [
     base,
@@ -123,28 +243,62 @@ export function montarSystemPrompt({ agente, nomeEmpresa, fuso, leadNome, hoje, 
     '   cadastro, ferramentas nem erros internos.',
     '8. Se o cliente pedir para falar com uma pessoa, use transferir_para_humano',
     '   imediatamente, sem insistir.',
-    '9. RECLAMAÇÃO sobre algo que já aconteceu (serviço, atendimento, cobrança): acolha',
-    '   antes de transferir, para o atendente já chegar sabendo de tudo:',
-    '   a) Peça desculpas pelo transtorno, sem culpar ninguém e sem discutir.',
-    '   b) Pergunte o que houve, UMA pergunta por mensagem: o quê, quando, com qual',
-    '      serviço ou profissional, e o que ele gostaria que fosse feito.',
-    '   c) Não prometa reembolso, desconto, brinde nem solução: quem decide é a equipe.',
-    '   d) Entendeu (1 a 3 trocas)? Avise que vai passar para um atendente e use',
-    '      transferir_para_humano com cliente_frustrado=true e um motivo que resuma tudo.',
-    '   e) Pediu uma pessoa, não quer explicar ou ficou mais irritado: transfira na hora.',
-    '10. IRRITAÇÃO com ESTA conversa (você não resolveu, repetiu, demorou): não investigue',
-    '   nem se justifique. Resolva nesta resposta ou transfira com cliente_frustrado=true.',
-    '   Se o mesmo pedido já deu errado uma vez, transfira.',
+    // O roteiro de reclamacao/irritacao so entra quando ha sinal disso nas
+    // ultimas mensagens (~250 tokens a menos em quase toda mensagem). Sem o
+    // sinal, fica a versao de uma linha: a Sofia ainda sabe o que fazer.
+    ...(reclamacao || irritado
+      ? [
+          '9. RECLAMAÇÃO sobre algo que já aconteceu (serviço, atendimento, cobrança): acolha',
+          '   antes de transferir, para o atendente já chegar sabendo de tudo:',
+          '   a) Peça desculpas pelo transtorno, sem culpar ninguém e sem discutir.',
+          '   b) Pergunte o que houve, UMA pergunta por mensagem: o quê, quando, com qual',
+          '      serviço ou profissional, e o que ele gostaria que fosse feito.',
+          '   c) Não prometa reembolso, desconto, brinde nem solução: quem decide é a equipe.',
+          '   d) Entendeu (1 a 3 trocas)? Avise que vai passar para um atendente e use',
+          '      transferir_para_humano com cliente_frustrado=true e um motivo que resuma tudo.',
+          '   e) Pediu uma pessoa, não quer explicar ou ficou mais irritado: transfira na hora.',
+          '10. IRRITAÇÃO com ESTA conversa (você não resolveu, repetiu, demorou): não investigue',
+          '   nem se justifique. Resolva nesta resposta ou transfira com cliente_frustrado=true.',
+          '   Se o mesmo pedido já deu errado uma vez, transfira.'
+        ]
+      : [
+          '9. Reclamação ou irritação: acolha, não prometa nada e use transferir_para_humano',
+          '   com cliente_frustrado=true.'
+        ]),
     '',
-    ...(catalogoResumo ? ['CATALOGO (dados verificados do sistema):', catalogoResumo, ''] : []),
+    // Sem catalogo no prompt, a regra "use o CATALOGO abaixo" apontava para o
+    // vazio — e o modelo preenchia com uma tabela "tipica de barbearia". O
+    // vazio precisa ser DITO. (E a trava de preco pega o que escapar.)
+    ...(catalogoResumo
+      ? ['CATALOGO (dados verificados do sistema):', catalogoResumo, '']
+      : catalogoVazio
+        ? [
+            'CATALOGO: NENHUM serviço cadastrado ainda. NÃO cite serviço, preço nem duração —',
+            'nenhum, nem de exemplo. Se perguntarem, diga que a equipe informa os serviços e',
+            'valores e ofereça chamar um atendente.',
+            ''
+          ]
+        : [
+            'CATALOGO: grande demais para listar aqui. Preço de um serviço: consultar_horarios',
+            '(o resultado traz o preço). NUNCA cite um valor que não veio de uma consulta.',
+            ''
+          ]),
     // Muda pouco (so quando a empresa edita): fica no bloco fixo, antes do
     // CONTEXTO, e o provedor segue reaproveitando o inicio do prompt.
-    ...(baseConhecimento
+    ...(baseConhecimento || indiceDetalhes
       ? [
           'BASE DE CONHECIMENTO (informações oficiais da empresa). Use para responder sobre',
-          'endereço, pagamento, horário de funcionamento e regras. O que não estiver aqui você',
-          'NÃO sabe: não invente; use transferir_para_humano se o cliente precisar.',
-          baseConhecimento,
+          'endereço, contato, pagamento e horário de funcionamento.',
+          // Regras da casa, FAQ e extras nao vao aqui (metade do prompt, raramente
+          // usados). Vai so o INDICE, para ela saber que a resposta existe; o
+          // texto ela le por consultar_informacoes (ou o codigo ja coloca abaixo,
+          // em INFORMAÇÕES LIGADAS A ESTA MENSAGEM, quando casa com o pedido).
+          ...(indiceDetalhes
+            ? [`Também cadastrado (use consultar_informacoes antes de responder sobre isso; nunca de memória): ${indiceDetalhes}.`]
+            : []),
+          'O que não estiver aqui nem nas consultas você NÃO sabe: não invente; use',
+          'transferir_para_humano se o cliente precisar.',
+          ...(baseConhecimento ? [baseConhecimento] : []),
           ''
         ]
       : []),
@@ -164,6 +318,21 @@ export function montarSystemPrompt({ agente, nomeEmpresa, fuso, leadNome, hoje, 
     `- Tom de voz: ${TONS[agente?.tom] ?? TONS.acolhedor}.`,
     ...(irritado
       ? ['- ATENÇÃO: o cliente parece irritado nesta mensagem. Siga a regra 10: resolva agora ou transfira.']
+      : []),
+    // Cliente na fila que a Sofia voltou a ajudar (casa fechada ou fila parada).
+    // Sem isto ela transferiria de novo a cada "e ai?", em circulo.
+    ...(aguardandoHumano
+      ? ['- O cliente já pediu um atendente e a equipe já foi avisada, mas ninguém assumiu ainda. Ajude no que',
+         '  puder agora; não prometa prazo e não transfira de novo só porque ele insistiu.']
+      : []),
+    // O que da base casa com ESTA mensagem (escolhido pelo codigo, relevancia.js):
+    // a resposta certa ja chega a ela, sem depender de lembrar de consultar.
+    ...(informacoesRelevantes.length
+      ? [
+          '',
+          'INFORMAÇÕES OFICIAIS LIGADAS A ESTA MENSAGEM (da base de conhecimento; use-as):',
+          ...informacoesRelevantes.map((i) => `- ${i.tema}: ${i.texto}`)
+        ]
       : [])
   ].join('\n');
 }
@@ -207,6 +376,95 @@ async function semBastidores({ tenantId, conversationId, texto, provedores }) {
   return tirarFrasesDeBastidores(texto);
 }
 
+/**
+ * A Sofia falou de um tema que ESTA na base (Wi-Fi, estacionamento, crianca,
+ * atraso...) sem ter lido o que a empresa cadastrou: nem veio no prompt, nem
+ * ela consultou. Pode ter acertado — ou inventado ("temos Wi-Fi sim" numa casa
+ * sem Wi-Fi). UMA revisao curta, so com o rascunho e o texto oficial daquele
+ * tema. Se a revisao falhar, sai o rascunho (e fica no log): sem resposta e
+ * pior, e o prompt ja pedia para consultar.
+ */
+async function semInformacaoNaoLida({ tenantId, conversationId, texto, naoLidos, provedores }) {
+  if (!naoLidos.length) return texto;
+
+  ver('aviso', `${colorir('sofia', 'Sofia')} falou de um tema da base sem ler: revisando com a informação oficial`);
+  log.warn({ tenantId, conversationId, itens: naoLidos.length }, 'Resposta tocou em tema da base nao lido; revisando');
+
+  try {
+    const r = await gerar({
+      tenantId,
+      origem: 'atendimento',
+      agentKey: 'atendente',
+      conversationId,
+      systemPrompt: [
+        'Você revisa mensagens de WhatsApp de uma atendente para o cliente. Abaixo estão as informações',
+        'OFICIAIS da empresa sobre o assunto da mensagem. Se a mensagem afirma algo diferente delas, ou',
+        'algo sobre esse assunto que não está nelas, corrija usando só o que está aqui. O resto (valores,',
+        'datas, horários, nomes, tom e os [BALAO]) fica exatamente igual. Não acrescente saudação.',
+        'Devolva só a mensagem.',
+        '',
+        'INFORMAÇÕES OFICIAIS:',
+        ...naoLidos.map((i) => `- ${i.tema}: ${i.texto}`)
+      ].join('\n'),
+      mensagens: [{ papel: 'user', conteudo: texto }],
+      temperatura: 0.2,
+      maxTokens: 600,
+      provedores,
+      exigirRespostaCompleta: true
+    });
+    const nova = String(r.texto ?? '').trim();
+    if (nova) return nova;
+  } catch (err) {
+    log.warn({ err, tenantId }, 'Revisao com a base falhou; segue o rascunho');
+  }
+  return texto;
+}
+
+/**
+ * A trava contra PRECO INVENTADO — em codigo, nao depende do modelo obedecer.
+ *
+ * Todo "R$ ..." da resposta precisa estar entre os valores verificados
+ * (catalogo, somas dele, o que as consultas devolveram, base de conhecimento).
+ * O que o cliente escreveu NAO conta. Se nao estiver: UMA reescrita curta tirando os
+ * valores nao verificados. Se o valor inventado persistir, devolve null — e
+ * quem chamou passa a conversa para uma pessoa: preco errado nao sai.
+ *
+ * @returns {Promise<string|null>}
+ */
+async function semPrecoInventado({ tenantId, conversationId, texto, permitidos, provedores }) {
+  const inventados = precosNaoVerificados(texto, permitidos);
+  if (!inventados.length) return texto;
+
+  const reais = (c) => `R$ ${(c / 100).toFixed(2).replace('.', ',')}`;
+  ver('aviso', `${colorir('sofia', 'Sofia')} citou preço que não existe no catálogo (${inventados.map(reais).join(', ')}): corrigindo`);
+  log.warn({ tenantId, conversationId, inventados }, 'Resposta com preco nao verificado; reescrevendo');
+
+  try {
+    const r = await gerar({
+      tenantId,
+      origem: 'atendimento',
+      agentKey: 'atendente',
+      conversationId,
+      systemPrompt:
+        'Você revisa mensagens de WhatsApp de uma atendente para o cliente. A mensagem cita valores em R$ que ' +
+        `NÃO existem no catálogo da empresa: ${inventados.map(reais).join(', ')}. Reescreva tirando esses ` +
+        'valores (e os serviços que só existiam junto deles). Não troque por outro valor: diga que a equipe ' +
+        'confirma os serviços e valores. Mantenha o resto, o tom e os [BALAO]. Não acrescente saudação. ' +
+        'Devolva só a mensagem.',
+      mensagens: [{ papel: 'user', conteudo: texto }],
+      temperatura: 0.2,
+      maxTokens: 600,
+      provedores,
+      exigirRespostaCompleta: true
+    });
+    const nova = String(r.texto ?? '').trim();
+    if (nova && !precosNaoVerificados(nova, permitidos).length) return nova;
+  } catch (err) {
+    log.warn({ err, tenantId }, 'Reescrita sem preco inventado falhou');
+  }
+  return null;
+}
+
 /** Baloes prontos para o WhatsApp: divididos e com a formatacao que ele entende. */
 function baloesParaWhatsapp(texto) {
   return dividirEmBaloes(texto).map(formatarParaWhatsapp).filter(Boolean);
@@ -237,10 +495,12 @@ export async function responder({
   permitirEscrita = true,
   modoOverride = null,
   menuEstado = null,
+  aguardandoHumano = false,
   provedores = null
 }) {
   const modo = modoOverride ?? (await config(tenantId, 'modo_atendimento', 'hibrido'));
-  const { fuso, nomeEmpresa, fluxo, sofia, atena, catalogoResumo, baseConhecimento } = await contextoDaEmpresa(tenantId);
+  const { fuso, nomeEmpresa, fluxo, sofia, atena, catalogoResumo, baseConhecimento, baseDetalhes, baseItens, baseIndice, servicosDoCatalogo } =
+    await contextoDaEmpresa(tenantId);
   // Interruptores do perfil DEV: valem por cima do que a empresa configurou.
   const [menuLigado, iaLigada, atenaLigada] = await Promise.all([
     funcaoLigada(tenantId, 'menu_automatico'),
@@ -258,29 +518,43 @@ export async function responder({
 
   ver('sistema', `modo de atendimento: ${negrito(modo)}`, simulacao ? 'simulador' : undefined);
 
-  // --- Caminho do menu (modos 'menu' e 'hibrido') ---
-  if (modo !== 'ia' && menuLigado) {
-    // Onde o cliente esta no menu. No simulador nao ha conversa: a tela guarda
-    // o estado e manda de volta a cada turno.
-    const estadoAntes = simulacao ? menuEstado : await lerEstadoMenu(tenantId, conversationId);
-    const guardar = async (estado) => {
-      detalhes.menuEstado = estado;
-      if (!simulacao && conversationId) await gravarEstadoMenu(tenantId, conversationId, estado);
-    };
+  // Grava onde o cliente esta (menu ou "a Sofia conduz"). Fica fora do bloco do
+  // menu porque o caminho da IA tambem grava. No simulador nao ha conversa: a
+  // tela guarda o estado (detalhes.menuEstado) e manda de volta a cada turno.
+  const guardar = async (estado) => {
+    detalhes.menuEstado = estado;
+    if (!simulacao && conversationId) await gravarEstadoMenu(tenantId, conversationId, estado);
+  };
+  /** Marca que a Sofia assumiu: as proximas respostas do cliente sao para ela. */
+  const sofiaConduz = () => guardar({ conduz: 'ia', em: Date.now() });
+  const hibridoComMenu = modo === 'hibrido' && menuLigado;
 
+  const menuConta = modo !== 'ia' && menuLigado;
+  const estadoAntes = !menuConta ? null : simulacao ? menuEstado : await lerEstadoMenu(tenantId, conversationId);
+
+  // No hibrido, com a Sofia conduzindo, "2", "15" e "bom dia" respondem a ELA:
+  // o menu so volta com "menu"/"0"/"voltar"… ou quando o estado expira.
+  const pularMenu = hibridoComMenu && iaConduzindo(fluxo, estadoAntes, texto);
+  if (pularMenu) ver('menu', 'a Sofia esta conduzindo: a mensagem vai direto para ela');
+
+  // --- Caminho do menu (modos 'menu' e 'hibrido') ---
+  if (menuConta && !pularMenu) {
     const r = await passoDoFluxo(fluxo, estadoAntes, texto, {
       listarServicos: () => textoDosServicos(() => catalogo.listarServicos(tenantId, {}))
     });
 
     if (r) {
       ver('menu', `cliente foi para ${negrito(r.caminho.join(' → '))}`, 'resposta pronta, sem gastar IA');
-      await guardar(r.estado);
+      // "Passar para a Sofia" nao deixa o estado vazio: vazio, o proximo "2" do
+      // cliente (resposta a Sofia) seria lido como opcao do menu principal.
+      if (r.entregarParaIa && hibridoComMenu) await sofiaConduz();
+      else await guardar(r.estado);
       const base = { ...detalhes, opcao: r.caminho.at(-1), caminho: r.caminho, custoIa: 0 };
 
       if (r.transferir) {
         await paraFila();
         return {
-          baloes: r.baloes,
+          baloes: await avisoDeTransferencia(tenantId, r.baloes),
           respondidoPor: 'menu',
           transferido: true,
           detalhes: { ...base, motivoTransferencia: 'Cliente escolheu falar com um atendente no menu.' }
@@ -311,7 +585,7 @@ export async function responder({
     ver('aviso', 'modo so-menu com o menu desligado: conversa vai para a fila humana');
     await paraFila();
     return {
-      baloes: [await mensagemAoCliente(tenantId, 'fila.ia_desligada')],
+      baloes: await avisoDeTransferencia(tenantId, [await mensagemAoCliente(tenantId, 'fila.ia_desligada')]),
       respondidoPor: 'fallback_humano',
       transferido: true,
       detalhes: { ...detalhes, motivo: 'menu_desligado', motivoTransferencia: 'O menu automatico esta desligado: o cliente veio direto para a fila.' }
@@ -325,7 +599,7 @@ export async function responder({
     ver('aviso', `${colorir('sofia', 'Sofia')} esta desativada: conversa vai para a fila humana`);
     await paraFila();
     return {
-      baloes: [await mensagemAoCliente(tenantId, 'fila.ia_desligada')],
+      baloes: await avisoDeTransferencia(tenantId, [await mensagemAoCliente(tenantId, 'fila.ia_desligada')]),
       respondidoPor: 'fallback_humano',
       transferido: true,
       detalhes: { ...detalhes, motivo: 'sofia_desativada', motivoTransferencia: 'A IA esta desligada: o cliente veio direto para a fila.' }
@@ -346,8 +620,29 @@ export async function responder({
     permitirEscrita,
     // As consultas diretas da Sofia obedecem as MESMAS permissoes da Atena.
     gruposAtena: atena.ferramentas ?? [],
-    provedores
+    provedores,
+    informacoes: baseDetalhes
   });
+
+  // O roteiro completo de reclamacao (regras 9 e 10) vai no prompt quando
+  // QUALQUER sinal aparece — sao baratos e cobrem os buracos um do outro:
+  //   - palavras de reclamacao ou irritacao agora ou nas 3 ultimas do cliente
+  //     (a reclamacao dura algumas trocas: "foi ontem, com o Carlos");
+  //   - a propria Sofia pediu desculpas ha pouco (ela ja percebeu o problema,
+  //     mesmo que o cliente nao tenha usado nenhuma palavra da lista);
+  //   - a leitura de humor desta conversa marcou "frustrado".
+  const recentesDoCliente = historico.filter((m) => m.papel === 'user').slice(-3).map((m) => m.conteudo);
+  const recentesDaSofia = historico.filter((m) => m.papel === 'assistant').slice(-2).map((m) => m.conteudo);
+  const irritado = pareceIrritado(texto);
+  const reclamacao =
+    [texto, ...recentesDoCliente].some((t) => pareceReclamacao(t) || pareceIrritado(t)) ||
+    recentesDaSofia.some(pediuDesculpas) ||
+    (conversationId ? (await humorDaConversa(tenantId, conversationId)) === 'frustrado' : false);
+
+  // O que da base casa com esta mensagem (e com a anterior do cliente, para
+  // "e pra crianca?") vai no prompt do turno — escolhido pelo codigo.
+  const informacoesRelevantes = itensRelevantes(baseItens, [texto, ...recentesDoCliente.slice(-1)]);
+  if (informacoesRelevantes.length) ver('sofia', `${informacoesRelevantes.length} informação(ões) da base ligada(s) a esta mensagem`);
 
   ver('sofia', 'lendo a conversa e decidindo a resposta', `Atena ${atenaAtiva ? 'ligada' : 'desligada'}${permitirEscrita ? '' : ' · somente leitura'}`);
 
@@ -358,7 +653,10 @@ export async function responder({
       agentKey: 'atendente',
       systemPrompt: montarSystemPrompt({
         catalogoResumo,
+        catalogoVazio: servicosDoCatalogo.length === 0,
         baseConhecimento,
+        indiceDetalhes: baseIndice,
+        informacoesRelevantes,
         agente: sofia,
         nomeEmpresa,
         fuso,
@@ -366,7 +664,9 @@ export async function responder({
         hoje: dataNoFuso(Date.now(), fuso),
         horaAtual: horaNoFuso(Date.now(), fuso),
         atenaAtiva,
-        irritado: pareceIrritado(texto)
+        irritado,
+        reclamacao,
+        aguardandoHumano
       }),
       mensagens: [...historico, { papel: 'user', conteudo: texto }],
       ferramentas,
@@ -391,13 +691,33 @@ export async function responder({
     // O que a Sofia consultou direto, sem o modelo da Atena.
     detalhes.consultas = contexto.consultas ?? [];
 
+    // Os unicos valores que a Sofia pode citar neste turno (ver semPrecoInventado).
+    // O que o CLIENTE escreveu nao entra: "o corte e R$ 10, ne?" nao pode virar
+    // um preco confirmado.
+    const permitidos = precosPermitidos(precosDoCatalogo(servicosDoCatalogo), [
+      JSON.stringify(contexto.consultas ?? []),
+      JSON.stringify(contexto.atena ?? []),
+      String(baseConhecimento ?? ''),
+      String(baseDetalhes ?? '')
+    ]);
+
     if (contexto.transferirParaHumano?.solicitado) {
       await paraFila();
-      const aviso = r.texto?.trim()
-        ? await semBastidores({ tenantId, conversationId, texto: r.texto, provedores })
-        : await mensagemAoCliente(tenantId, 'fila.transferencia');
+      const despedida = r.texto?.trim()
+        ? await semPrecoInventado({
+            tenantId,
+            conversationId,
+            texto: await semBastidores({ tenantId, conversationId, texto: r.texto, provedores }),
+            permitidos,
+            provedores
+          })
+        : null;
+      // Despedida com preco inventado: vai o aviso padrao (ja esta transferindo).
+      const aviso = despedida ?? (await mensagemAoCliente(tenantId, 'fila.transferencia'));
       return {
-        baloes: baloesParaWhatsapp(aviso),
+        // Mesmo quando a Sofia escreveu a propria despedida: fora do horario,
+        // ela tambem prometeria "ja te chamo alguem".
+        baloes: await avisoDeTransferencia(tenantId, baloesParaWhatsapp(aviso)),
         respondidoPor: 'ia',
         transferido: true,
         detalhes: {
@@ -418,14 +738,39 @@ export async function responder({
       ver('aviso', `${colorir('sofia', 'Sofia')} nao chegou a uma resposta: conversa vai para a fila humana`);
       await paraFila();
       return {
-        baloes: [await mensagemAoCliente(tenantId, 'fila.ia_falhou')],
+        baloes: await avisoDeTransferencia(tenantId, [await mensagemAoCliente(tenantId, 'fila.ia_falhou')]),
         respondidoPor: 'fallback_humano',
         transferido: true,
         detalhes: { ...detalhes, motivo: 'sem_resposta', motivoTransferencia: 'A IA não conseguiu concluir o pedido do cliente: veja a conversa.' }
       };
     }
 
-    const final = await semBastidores({ tenantId, conversationId, texto: r.texto, provedores });
+    const semBastidor = await semBastidores({ tenantId, conversationId, texto: r.texto, provedores });
+    // Leu a base inteira (consultou) ou so o que o codigo colocou no prompt?
+    const consultouBase = (contexto.consultas ?? []).some((c) => c.nome === 'consultar_informacoes');
+    const naoLidos = itensNaoLidos(semBastidor, baseItens, consultouBase ? baseItens : informacoesRelevantes);
+    if (naoLidos.length) detalhes.revisouComBase = naoLidos.length;
+    const conferido = await semInformacaoNaoLida({ tenantId, conversationId, texto: semBastidor, naoLidos, provedores });
+    const final = await semPrecoInventado({ tenantId, conversationId, texto: conferido, permitidos, provedores });
+    if (final === null) {
+      // Insistiu num preco que nao existe: essa resposta NAO sai. Uma pessoa
+      // responde, sabendo o motivo.
+      ver('aviso', `${colorir('sofia', 'Sofia')} insistiu em preço fora do catálogo: conversa vai para a fila humana`);
+      await paraFila();
+      return {
+        baloes: await avisoDeTransferencia(tenantId, [await mensagemAoCliente(tenantId, 'fila.transferencia')]),
+        respondidoPor: 'fallback_humano',
+        transferido: true,
+        detalhes: {
+          ...detalhes,
+          motivo: 'preco_nao_verificado',
+          motivoTransferencia: 'A IA citou um preço que não existe no catálogo; a resposta foi barrada. Confira os valores com o cliente.'
+        }
+      };
+    }
+    // A Sofia respondeu: a partir daqui a conversa e dela ate o cliente pedir o
+    // menu ou o estado expirar. So no hibrido — no modo 'ia' nao ha menu.
+    if (hibridoComMenu) await sofiaConduz();
     return { baloes: baloesParaWhatsapp(final), respondidoPor: 'ia', detalhes };
   } catch (err) {
     /**
@@ -445,7 +790,7 @@ export async function responder({
     await paraFila();
 
     return {
-      baloes: [await mensagemAoCliente(tenantId, 'fila.ia_falhou')],
+      baloes: await avisoDeTransferencia(tenantId, [await mensagemAoCliente(tenantId, 'fila.ia_falhou')]),
       respondidoPor: 'fallback_humano',
       transferido: true,
       detalhes: { ...detalhes, erro: err.message, motivoTransferencia: 'A IA nao respondeu (fora do ar): o cliente veio para a fila.' }
@@ -533,6 +878,42 @@ export async function historicoParaIa(tenantId, conversationId, limite) {
 }
 
 /**
+ * Historico ANTERIOR a um lote de mensagens do cliente (o que o gateway usa).
+ *
+ * `historicoParaIa` + "tirar a ultima" so funciona com uma mensagem por turno.
+ * Com mensagens picotadas ("boa tarde" / "queria marcar" / "pra sexta"), as
+ * duas primeiras ficavam soltas no historico E de novo dentro do lote — o
+ * modelo lia tudo duas vezes. E com a fila de turnos por conversa, mensagens
+ * do cliente que chegaram DEPOIS do lote sao do proximo turno: tambem ficam de
+ * fora. (`historicoParaIa` nao muda: a Central de IA depende do formato dele.)
+ *
+ * @param {string[]} idsDoLote  ids das mensagens que formam o texto do turno
+ */
+export async function historicoAntesDoLote(tenantId, conversationId, idsDoLote = []) {
+  const janela = Number(await config(tenantId, 'janela_contexto_mensagens', 8));
+  // Folga para o proprio lote e para o que chegou depois dele, que sao descartados.
+  const { mensagens } = await conversas.mensagens(tenantId, conversationId, { limite: janela + idsDoLote.length + 10 });
+
+  const doLote = new Set(idsDoLote);
+  const primeira = mensagens.findIndex((m) => doLote.has(m.id));
+  const semSistema = (m) => m.autorTipo !== 'sistema';
+
+  // Tudo antes da primeira mensagem do lote. (Se o lote nem aparece na janela
+  // — nao deveria acontecer —, fica tudo menos ele.)
+  const anteriores = (primeira >= 0 ? mensagens.slice(0, primeira) : mensagens.filter((m) => !doLote.has(m.id))).filter(semSistema);
+
+  // Respostas NOSSAS que sairam entre as mensagens do lote (o turno anterior
+  // terminando) continuam valendo: sem elas o modelo nao sabe o que ja disse.
+  const intercaladas =
+    primeira >= 0 ? mensagens.slice(primeira).filter((m) => !doLote.has(m.id) && m.direcao === 'saida' && semSistema(m)) : [];
+
+  return [...anteriores, ...intercaladas].slice(-janela).map((m) => ({
+    papel: m.direcao === 'entrada' ? 'user' : 'assistant',
+    conteudo: m.conteudo
+  }));
+}
+
+/**
  * Corta um historico ja montado (o do simulador) no tamanho da janela de contexto.
  * Mantem as mensagens MAIS RECENTES: e o fim da conversa que importa.
  */
@@ -559,6 +940,14 @@ export async function obterConfiguracao(tenantId) {
     janelaContextoMensagens: await config(tenantId, 'janela_contexto_mensagens', 8),
     // Horario em que a Atena fecha o dia sozinha (se a permissao estiver ligada).
     fechamentoHora: await config(tenantId, 'fechamento_hora', '22:00'),
+    // Quando a Sofia volta a ajudar quem esta na fila / numa conversa cujo
+    // atendente sumiu. 0 desliga (ver sofiaAjudaNaFila e atendenteSumiu).
+    filaEsperaMinutos: Number(await config(tenantId, 'fila_espera_minutos', FILA_ESPERA_MINUTOS_PADRAO)),
+    humanoAbandonoHoras: Number(await config(tenantId, 'humano_abandono_horas', HUMANO_ABANDONO_HORAS_PADRAO)),
+    // Lembrete de vespera (automacao/rotinas.js). Desligado por padrao: mandar
+    // mensagem ao cliente e decisao do dono.
+    lembreteAtivo: Boolean(await config(tenantId, 'lembrete_ativo', false)),
+    lembreteHora: await config(tenantId, 'lembrete_hora', '18:00'),
     menu: {
       id: menu?.id ?? null,
       nome: menu?.nome ?? 'Menu principal',
@@ -588,6 +977,10 @@ export async function salvarConfiguracao(tenantId, dados) {
     await gravar('janela_contexto_mensagens', dados.janelaContextoMensagens);
   }
   if (dados.fechamentoHora !== undefined) await gravar('fechamento_hora', dados.fechamentoHora);
+  if (dados.filaEsperaMinutos !== undefined) await gravar('fila_espera_minutos', dados.filaEsperaMinutos);
+  if (dados.humanoAbandonoHoras !== undefined) await gravar('humano_abandono_horas', dados.humanoAbandonoHoras);
+  if (dados.lembreteAtivo !== undefined) await gravar('lembrete_ativo', dados.lembreteAtivo);
+  if (dados.lembreteHora !== undefined) await gravar('lembrete_hora', dados.lembreteHora);
 
   return obterConfiguracao(tenantId);
 }

@@ -78,6 +78,7 @@ function apresentar(linha, fuso) {
     // Sessao de atendimento que originou a OS. `sessaoAtiva` = a conversa
     // ainda esta aberta, ou seja, o vinculo ainda nao foi encerrado.
     conversationId: a.conversationId ?? null,
+    lembreteEnviadoEm: a.lembreteEnviadoEm?.getTime() ?? null,
     sessaoAtiva: Boolean(a.conversationId && linha.conversaStatus && linha.conversaStatus !== 'finalizada'),
     resumoAtendimento: a.resumoAtendimento ?? null,
     resumoEm: a.resumoEm?.getTime() ?? null,
@@ -115,6 +116,14 @@ export async function listar(tenantId, filtros = {}, usuario) {
   });
 
   return linhas.map((l) => apresentar(l, fuso));
+}
+
+/**
+ * Marca que o lembrete de vespera destas OS ja saiu (ver `enviarLembretesSeForHora`).
+ * E so uma marca: nao mexe em status nem entra na auditoria.
+ */
+export async function marcarLembreteEnviado(tenantId, ids, quando = new Date()) {
+  for (const id of ids) await repo.atualizar(tenantId, id, { lembreteEnviadoEm: quando });
 }
 
 /**
@@ -915,8 +924,14 @@ export async function atualizarDetalhes(tenantId, id, dados, { usuario } = {}) {
  *    inflaria o faturamento do dia.
  *
  * OS cancelada, faltou ou ja concluida so recebe o registro do atendimento.
+ *
+ * `concluirPassados: false` — quem finaliza e uma ROTINA (fechar o dia), nao
+ * uma pessoa. Ela nao sabe se o cliente veio ou faltou: concluir sozinha poria
+ * a falta no faturamento e na comissao. O registro do atendimento (resumo,
+ * anotacoes, humor) continua sendo gravado; o status fica para alguem decidir
+ * (a lista `pendentes` do fechamento).
  */
-export async function encerrarPorConversa(tenantId, conversationId, dados = {}, { usuario } = {}) {
+export async function encerrarPorConversa(tenantId, conversationId, dados = {}, { usuario, concluirPassados = true } = {}) {
   const { resumo, anotacoes, humor } = dados;
   const linhas = await repo.vinculadasAConversa(tenantId, conversationId);
   const agora = new Date();
@@ -934,7 +949,7 @@ export async function encerrarPorConversa(tenantId, conversationId, dados = {}, 
     if (humor) mudancas.humorAtendimento = humor;
 
     const aberta = ['pendente', 'confirmado', 'em_andamento'].includes(a.status);
-    if (aberta && a.inicioEm.getTime() <= agora.getTime()) {
+    if (concluirPassados && aberta && a.inicioEm.getTime() <= agora.getTime()) {
       mudancas.status = 'concluido';
       mudancas.concluidoEm = agora;
       concluidas += 1;

@@ -62,8 +62,17 @@ const simularSchema = z.object({
     .default([]),
   modo: z.enum(['menu', 'hibrido', 'ia']).nullish(),
   permitirEscrita: z.boolean().default(false),
+  // Dois formatos: onde o cliente esta no menu ({ no, pilha, em }) ou "a Sofia
+  // conduz" ({ conduz: 'ia', em }), que nao tem menu nenhum — por isso `no` e
+  // `pilha` sao opcionais. Sem `conduz` aqui o Zod o descartaria e o simulador
+  // voltaria a mostrar o menu no 2º turno.
   menuEstado: z
-    .object({ no: z.string().max(60), pilha: z.array(z.string().max(60)).max(20), em: z.number() })
+    .object({
+      no: z.string().max(60).optional(),
+      pilha: z.array(z.string().max(60)).max(20).optional(),
+      em: z.number(),
+      conduz: z.literal('ia').optional()
+    })
     .nullish()
 });
 

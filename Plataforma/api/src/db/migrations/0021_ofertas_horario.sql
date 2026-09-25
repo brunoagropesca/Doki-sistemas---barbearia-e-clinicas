@@ -1,0 +1,1 @@
+ALTER TABLE `conversations` ADD `ofertas_horario` text;

@@ -52,6 +52,9 @@ export const appointments = sqliteTable(
     inicioEm: integer('inicio_em', { mode: 'timestamp_ms' }).notNull(),
     fimEm: integer('fim_em', { mode: 'timestamp_ms' }).notNull(),
 
+    /** Quando o lembrete de vespera saiu (nulo = ainda nao). Evita mandar duas vezes. */
+    lembreteEnviadoEm: instante('lembrete_enviado_em'),
+
     status: text('status', { enum: STATUS_AGENDAMENTO }).notNull().default('pendente'),
 
     /**

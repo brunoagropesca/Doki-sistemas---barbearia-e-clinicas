@@ -56,6 +56,7 @@ function apresentar(linha) {
     assignedUserId: c.assignedUserId,
     atendenteNome: linha.atendenteNome,
     assumidaEm: c.assumidaEm?.getTime() ?? null,
+    naFilaDesde: c.naFilaDesde?.getTime() ?? null,
 
     ultimaMensagemPreview: c.ultimaMensagemPreview,
     ultimaMensagemEm: c.ultimaMensagemEm?.getTime() ?? null,
@@ -164,6 +165,20 @@ export async function mensagens(tenantId, conversationId, { limite, antesDe } = 
  * resposta do atendente sair por um numero que nao e o que ele escolheu — ou
  * pior, o cliente ver a resposta de um numero que nunca procurou.
  */
+/**
+ * Por qual conexao falar com o cliente numa mensagem que PARTE de nos (ex.: o
+ * lembrete de vespera): a da conversa mais recente dele — o numero que ele ja
+ * conhece. Sem conversa, a W1.
+ *
+ * @returns {Promise<{ channelInstanceId: string|null, chave: string }>}
+ */
+export async function conexaoDoLead(tenantId, leadId) {
+  return (
+    (await repo.ultimaConexaoDoLead(tenantId, leadId)) ??
+    (await repo.conexaoPorChave(tenantId, 'W1')) ?? { channelInstanceId: null, chave: 'W1' }
+  );
+}
+
 export async function encontrarOuAbrir(tenantId, { leadId, canal = 'whatsapp', channelInstanceId = null }) {
   const aberta = await repo.buscarAbertaDoLead(tenantId, leadId, channelInstanceId);
   if (aberta) return aberta.id;
@@ -391,7 +406,22 @@ export async function devolverParaIa(tenantId, id, usuario) {
 
 /** Cliente (ou a IA) pediu atendimento humano: entra na fila. */
 export async function enviarParaFila(tenantId, id) {
-  await repo.atualizar(tenantId, id, { status: 'na_fila' });
+  const linha = await repo.buscarPorId(tenantId, id);
+  // O relogio da espera so comeca quando a conversa ENTRA na fila: reenviar
+  // quem ja esta esperando nao pode zerar o tempo (senao nunca passa de 30 min).
+  const entrando = linha?.conversa.status !== 'na_fila';
+  await repo.atualizar(tenantId, id, { status: 'na_fila', ...(entrando ? { naFilaDesde: new Date() } : {}) });
+  return obter(tenantId, id);
+}
+
+/**
+ * Devolucao feita pelo SISTEMA: o atendente nao escreve ha horas e o cliente
+ * estava falando sozinho. So o status muda (a Sofia volta a responder); o
+ * `assignedUserId` fica — o atendente continua dono do cliente e dos horarios.
+ * Diferente de `devolverParaIa`, que e a pessoa soltando a conversa.
+ */
+export async function devolverParaIaAutomatico(tenantId, id) {
+  await repo.atualizar(tenantId, id, { status: 'bot' });
   return obter(tenantId, id);
 }
 
@@ -666,6 +696,9 @@ async function prepararAnexo({ dataUrl, nome }, legenda) {
  *
  * @param {object} [opcoes]
  * @param {object[]} [opcoes.provedores] injetado nos testes
+ * @param {boolean} [opcoes.concluirPassados] false = nao conclui as OS que ja
+ *   passaram (a rotina de fechar o dia nao sabe se o cliente veio). Padrao:
+ *   true — o atendente que finaliza continua concluindo como sempre.
  */
 export async function finalizar(tenantId, id, { resumo } = {}, usuario, opcoes = {}) {
   const linha = await repo.buscarPorId(tenantId, id);
@@ -709,7 +742,7 @@ export async function finalizar(tenantId, id, { resumo } = {}, usuario, opcoes =
       anotacoes: linha.conversa.anotacoesHumanas,
       humor: linha.conversa.humor
     },
-    { usuario }
+    { usuario, concluirPassados: opcoes.concluirPassados ?? true }
   );
 
   log.info({ tenantId, conversationId: id, userId: usuario.id, os, resumoDaIa }, 'Conversa finalizada');

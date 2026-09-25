@@ -1,0 +1,1 @@
+ALTER TABLE `appointments` ADD `lembrete_enviado_em` integer;

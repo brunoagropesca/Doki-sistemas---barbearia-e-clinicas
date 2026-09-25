@@ -268,7 +268,9 @@ export async function fecharDia(tenantId, { data, encerrarOciosas = false, horas
   for (const a of encerradas) {
     if (a.sessaoAtiva && a.conversationId) {
       try {
-        await conversas.finalizar(tenantId, a.conversationId, {}, usuario);
+        // concluirPassados: false — a conversa pode ter OUTRAS OS abertas, e o
+        // fechamento nao decide se o cliente veio (ver `pendentes`).
+        await conversas.finalizar(tenantId, a.conversationId, {}, usuario, { concluirPassados: false });
         conversasFinalizadas += 1;
       } catch (err) {
         // Conversa com outro atendente, ja finalizada por ele, etc. Nao pode
@@ -296,7 +298,9 @@ export async function fecharDia(tenantId, { data, encerrarOciosas = false, horas
     for (const c of itens) {
       if (!c.ultimaMensagemEm || c.ultimaMensagemEm > corte) continue;
       try {
-        await conversas.finalizar(tenantId, c.id, {}, usuario);
+        // O cliente sumiu da conversa, nao necessariamente do horario: a OS
+        // marcada nela continua aberta para uma pessoa decidir (concluido x faltou).
+        await conversas.finalizar(tenantId, c.id, {}, usuario, { concluirPassados: false });
         ociosasFinalizadas += 1;
       } catch (err) {
         log.warn({ err, tenantId, conversationId: c.id }, 'Conversa ociosa nao finalizada');

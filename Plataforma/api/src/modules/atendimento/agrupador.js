@@ -40,27 +40,33 @@ export class Agrupador {
   /**
    * Enfileira uma mensagem.
    *
-   * @returns {Promise<{ processar: false } | { processar: true, texto: string, quantidade: number }>}
+   * @param {string} chave
+   * @param {string} texto
+   * @param {object|null} [meta]  o que identifica a mensagem (ex.: `{ id }`).
+   *   Volta junto com o lote em `metas`: quem responde precisa saber QUAIS
+   *   mensagens formam o turno, para nao repeti-las no historico.
+   * @returns {Promise<{ processar: false } | { processar: true, texto: string, quantidade: number, metas: object[] }>}
    *   `processar: false` significa "outra mensagem chegou depois desta; ela
    *   cuida do lote". Quem recebe isso nao faz nada — e nao ha flag pra
    *   esquecer de checar.
    */
-  enfileirar(chave, texto) {
+  enfileirar(chave, texto, meta = null) {
     // Janela zero desliga o agrupamento (util em teste e em quem prefere
     // resposta imediata).
     if (this.janelaMs <= 0) {
-      return Promise.resolve({ processar: true, texto, quantidade: 1 });
+      return Promise.resolve({ processar: true, texto, quantidade: 1, metas: meta ? [meta] : [] });
     }
 
     return new Promise((resolver) => {
       let buffer = this.buffers.get(chave);
 
       if (!buffer) {
-        buffer = { mensagens: [], aguardando: [], primeiraEm: Date.now(), timer: null };
+        buffer = { mensagens: [], metas: [], aguardando: [], primeiraEm: Date.now(), timer: null };
         this.buffers.set(chave, buffer);
       }
 
       buffer.mensagens.push(texto);
+      if (meta) buffer.metas.push(meta);
       buffer.aguardando.push(resolver);
 
       clearTimeout(buffer.timer);
@@ -90,7 +96,7 @@ export class Agrupador {
     // "nao faca nada" — impossivel responder em duplicidade por engano.
     buffer.aguardando.forEach((resolver, i) => {
       const ehOUltimo = i === buffer.aguardando.length - 1;
-      resolver(ehOUltimo ? { processar: true, texto, quantidade } : { processar: false });
+      resolver(ehOUltimo ? { processar: true, texto, quantidade, metas: buffer.metas } : { processar: false });
     });
   }
 

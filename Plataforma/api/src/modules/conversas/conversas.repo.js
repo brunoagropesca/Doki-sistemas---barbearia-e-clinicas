@@ -156,6 +156,22 @@ export async function ultimaDirecaoPorConversa(tenantId, ids) {
 }
 
 /**
+ * Quando um ATENDENTE escreveu pela ultima vez nesta conversa (ou null).
+ *
+ * Uma linha so, direto no banco: e consultada a cada mensagem que chega numa
+ * conversa com atendente, para saber se ele sumiu (ver o gateway).
+ */
+export async function ultimaMensagemHumanaEm(tenantId, conversationId) {
+  const [linha] = await db
+    .select({ em: messages.createdAt })
+    .from(messages)
+    .where(and(eq(messages.tenantId, tenantId), eq(messages.conversationId, conversationId), eq(messages.autorTipo, 'humano')))
+    .orderBy(desc(messages.createdAt))
+    .limit(1);
+  return linha?.em ?? null;
+}
+
+/**
  * Conversa aberta de um lead NUMA CONEXAO (W1, W2...), se houver.
  * `channelInstanceId` nulo procura as conversas sem conexao gravada.
  */
@@ -402,6 +418,38 @@ export function buscarUsuario(tenantId, userId) {
   });
 }
 
+/**
+ * A conexao (W1, W2...) da conversa MAIS RECENTE do cliente — por onde ele
+ * fala com a empresa. Null se ele nunca conversou (ou a conexao foi removida).
+ */
+export async function ultimaConexaoDoLead(tenantId, leadId) {
+  const [linha] = await db
+    .select({ channelInstanceId: channelInstances.id, chave: channelInstances.chave })
+    .from(conversations)
+    .innerJoin(channelInstances, eq(channelInstances.id, conversations.channelInstanceId))
+    .where(
+      and(
+        eq(conversations.tenantId, tenantId),
+        eq(conversations.leadId, leadId),
+        isNull(conversations.deletedAt),
+        isNull(channelInstances.deletedAt)
+      )
+    )
+    .orderBy(desc(conversations.ultimaMensagemEm))
+    .limit(1);
+  return linha ?? null;
+}
+
+/** A conexao de uma chave ('W1'...), se existir. */
+export async function conexaoPorChave(tenantId, chave) {
+  const [linha] = await db
+    .select({ channelInstanceId: channelInstances.id, chave: channelInstances.chave })
+    .from(channelInstances)
+    .where(and(eq(channelInstances.tenantId, tenantId), eq(channelInstances.chave, chave), isNull(channelInstances.deletedAt)))
+    .limit(1);
+  return linha ?? null;
+}
+
 /** Uma mensagem e o que precisa para tentar entrega-la ao canal de origem. */
 export async function buscarMensagemParaEntrega(tenantId, conversationId, mensagemId) {
   const [linha] = await db
@@ -466,11 +514,58 @@ export async function lerEstadoMenu(tenantId, conversationId) {
   return linha?.menuEstado ?? null;
 }
 
+/** Horarios que a Sofia ofereceu nesta conversa (ver `reservar_horario`). */
+/** O humor que a leitura periodica deu a esta conversa (ou null). */
+export async function humorDaConversa(tenantId, conversationId) {
+  const [linha] = await db
+    .select({ humor: conversations.humor })
+    .from(conversations)
+    .where(and(eq(conversations.tenantId, tenantId), eq(conversations.id, conversationId)));
+  return linha?.humor ?? null;
+}
+
+export async function lerOfertasHorario(tenantId, conversationId) {
+  const [linha] = await db
+    .select({ ofertas: conversations.ofertasHorario })
+    .from(conversations)
+    .where(and(eq(conversations.tenantId, tenantId), eq(conversations.id, conversationId)));
+  return Array.isArray(linha?.ofertas) ? linha.ofertas : [];
+}
+
+export async function gravarOfertasHorario(tenantId, conversationId, ofertas) {
+  await db
+    .update(conversations)
+    .set({ ofertasHorario: ofertas })
+    .where(and(eq(conversations.tenantId, tenantId), eq(conversations.id, conversationId)));
+}
+
 export async function gravarEstadoMenu(tenantId, conversationId, estado) {
   await db
     .update(conversations)
     .set({ menuEstado: estado ?? null })
     .where(and(eq(conversations.tenantId, tenantId), eq(conversations.id, conversationId)));
+}
+
+/**
+ * Respostas de atendente sem resultado de entrega (nem entregue, nem falhou),
+ * criadas entre `desde` e `ate`. Todas as empresas: roda no boot, antes de
+ * qualquer envio. Devolve quantas marcou.
+ */
+export async function marcarEntregasSemResultado({ desde, ate, erroEnvio }) {
+  const r = await db
+    .update(messages)
+    .set({ erroEnvio })
+    .where(
+      and(
+        eq(messages.direcao, 'saida'),
+        eq(messages.autorTipo, 'humano'),
+        isNull(messages.entregueEm),
+        isNull(messages.erroEnvio),
+        gte(messages.createdAt, desde),
+        lt(messages.createdAt, ate)
+      )
+    );
+  return r.rowsAffected ?? 0;
 }
 
 export async function gravarEntrega(tenantId, mensagemId, { entregueEm, erroEnvio, externalId }) {

@@ -59,6 +59,7 @@
  * @property {string} no        menu em que ele esta
  * @property {string[]} pilha   menus por onde passou (o "0 = voltar" desempilha)
  * @property {number} em        quando chegou ali (ms): depois de `expiraMinutos` vale o inicio
+ * @property {'ia'} [conduz]    no modo hibrido: a Sofia assumiu (ver `iaConduzindo`). Sem `no`/`pilha`.
  *
  * @typedef {object} Problema
  * @property {string|null} noId   null = problema do fluxo inteiro
@@ -387,6 +388,33 @@ export function textoDoMenu(fluxo, menu, { cabecalho, podeVoltar = false } = {})
 function expirado(fluxo, estado, agora) {
   const minutos = Number(fluxo.config?.expiraMinutos ?? EXPIRA_MINUTOS_PADRAO);
   return !estado?.em || agora - estado.em > minutos * 60_000;
+}
+
+/**
+ * O que o cliente pode digitar para pedir o menu de volta enquanto a Sofia
+ * conduz a conversa. Saudacao NAO entra: "bom dia" no meio de uma conversa e
+ * educacao, nao pedido de menu.
+ */
+export const COMANDOS_DO_MENU = Object.freeze(['menu', '0', 'voltar', 'inicio', 'comecar']);
+
+/**
+ * A Sofia esta conduzindo e esta mensagem e para ela?
+ *
+ * No modo hibrido, depois que a Sofia assume, o cliente responde AS PERGUNTAS
+ * DELA: "2" e o 2º horario que ela ofereceu, "15" e a hora, "bom dia" e
+ * cortesia. Sem esta guarda o menu interceptava tudo isso como opcao do menu
+ * principal. Vale ate o estado expirar (mesmo prazo do menu) ou o cliente
+ * pedir o menu com um dos COMANDOS_DO_MENU.
+ *
+ * @param {Fluxo} fluxo
+ * @param {{ conduz?: 'ia', em?: number }|null} estado
+ * @param {string} texto
+ * @param {number} [agora]
+ */
+export function iaConduzindo(fluxo, estado, texto, agora = Date.now()) {
+  if (estado?.conduz !== 'ia') return false;
+  if (expirado(fluxo ?? {}, estado, agora)) return false;
+  return !COMANDOS_DO_MENU.includes(normalizar(texto));
 }
 
 /**

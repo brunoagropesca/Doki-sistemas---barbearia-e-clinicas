@@ -16,7 +16,7 @@ import { comContexto } from '../../core/logger.js';
 import { registrarAuditoria } from '../auditoria/auditoria.service.js';
 import { PROVEDORES, gerar } from '../../ai/cascade.js';
 import { gemini } from '../../ai/providers/gemini.js';
-import { AGENTES_PADRAO, CHAVES_GRUPOS_ATENA, GRUPOS_ATENA, LIMITES_EXEMPLOS, TONS } from '../../ai/agentes-padrao.js';
+import { AGENTES_PADRAO, CHAVES_GRUPOS_ATENA, GRUPOS_ATENA, LIMITES_EXEMPLOS, PROMPTS_ANTIGOS, TONS } from '../../ai/agentes-padrao.js';
 import { classificarModelo, nomeAmigavel, ordenarParaExibicao, selecionarMelhores } from '../../ai/catalogo-modelos.js';
 
 const log = comContexto({ modulo: 'ia-config' });
@@ -706,6 +706,11 @@ export async function obterAgente(tenantId, chave) {
   // Uma linha criada so para ligar/desligar (ou por versao antiga) pode ter o
   // texto em branco. Instrucao vazia nao e "sem instrucao": e uma IA sem rumo.
   if (!agente.systemPrompt?.trim() && AGENTES_PADRAO[chave]) {
+    agente.systemPrompt = AGENTES_PADRAO[chave].systemPrompt;
+  }
+  // Texto de fabrica ANTIGO, nunca editado pela empresa: vale o atual (ver
+  // PROMPTS_ANTIGOS). So se for identico — o que a empresa escreveu fica.
+  if (PROMPTS_ANTIGOS[chave]?.includes(agente.systemPrompt?.trim())) {
     agente.systemPrompt = AGENTES_PADRAO[chave].systemPrompt;
   }
   return agente;

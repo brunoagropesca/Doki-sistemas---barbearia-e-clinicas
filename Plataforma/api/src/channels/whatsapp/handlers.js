@@ -4,7 +4,7 @@ import { registrarEvento } from '../eventos.js';
 import { transcreverAudio } from '../../ai/transcricao.js';
 import { funcaoLigada } from '../../modules/funcoes/funcoes.js';
 import { licencaBloqueada } from '../../licenca/licenca.js';
-import { salvarAudio } from '../../modules/equipe/arquivos.js';
+import { EXTENSOES_DOCUMENTO, salvarAnexo, salvarAudio } from '../../modules/equipe/arquivos.js';
 
 const log = comContexto({ modulo: 'whatsapp' });
 
@@ -149,9 +149,37 @@ export function criarTratadorDeChamadas({ sock, tenantId, chave, lerConfig, agor
 // MENSAGENS RECEBIDAS
 // ============================================================================
 
+/**
+ * Tira os "envelopes" do WhatsApp: mensagem temporaria (ephemeral), de
+ * visualizacao unica, documento com legenda e mensagem editada.
+ *
+ * O Baileys NAO faz isso ao receber (o `normalizeMessageContent` dele so e
+ * usado no envio). Sem isto, o texto de quem usa mensagens temporarias
+ * chegava "vazio" e era descartado: o cliente falava sozinho. A regra e a
+ * mesma do Baileys, escrita aqui para este arquivo continuar sem importa-lo
+ * (e testavel sem ele).
+ */
+export function desembrulhar(m) {
+  let atual = m;
+  // 5 niveis cobrem os casos reais (ex.: temporaria + visualizacao unica).
+  for (let i = 0; i < 5 && atual; i++) {
+    const dentro =
+      atual.ephemeralMessage ||
+      atual.viewOnceMessage ||
+      atual.viewOnceMessageV2 ||
+      atual.viewOnceMessageV2Extension ||
+      atual.documentWithCaptionMessage ||
+      atual.editedMessage;
+    if (!dentro?.message) break;
+    atual = dentro.message;
+  }
+  // Mensagem editada: o texto novo vem dentro do protocolMessage.
+  return atual?.protocolMessage?.editedMessage ?? atual;
+}
+
 /** Extrai o texto de uma mensagem, qualquer que seja o formato. */
 export function extrairTexto(msg) {
-  const m = msg?.message;
+  const m = desembrulhar(msg?.message);
   if (!m) return null;
 
   return (
@@ -159,6 +187,7 @@ export function extrairTexto(msg) {
     m.extendedTextMessage?.text ||
     m.imageMessage?.caption ||
     m.videoMessage?.caption ||
+    m.documentMessage?.caption ||
     m.buttonsResponseMessage?.selectedDisplayText ||
     m.listResponseMessage?.singleSelectReply?.selectedRowId ||
     m.templateButtonReplyMessage?.selectedDisplayText ||
@@ -259,6 +288,58 @@ async function prepararAudio({ tenantId, chave, msg, audio, telefone, baixarMidi
 }
 
 /**
+ * Figurinha, localizacao e cartao de contato: nao ha arquivo a guardar, mas
+ * ha significado — vira uma linha de texto na conversa (ou null).
+ */
+function textoDeOutroTipo(c) {
+  if (c.stickerMessage) return '🙂 Figurinha';
+  const local = c.locationMessage || c.liveLocationMessage;
+  if (local) return `📍 Localização: https://maps.google.com/?q=${local.degreesLatitude},${local.degreesLongitude}`;
+  if (c.contactMessage) return `👤 Contato: ${c.contactMessage.displayName || 'sem nome'}`;
+  return null;
+}
+
+/** Os mesmos rotulos que o livechat ja reconhece para anexos sem legenda. */
+const ROTULOS_ARQUIVO = { imagem: '📷 Foto', video: '🎥 Vídeo' };
+export const ROTULO_ARQUIVO_FALHOU = '📎 Arquivo (não foi possível baixar — peça para reenviar)';
+
+/**
+ * Baixa e guarda foto, video ou documento recebido.
+ *
+ * Usa as MESMAS regras dos anexos do livechat (`salvarAnexo`: tipos aceitos,
+ * 16 MB, extensao sempre das tabelas internas). Falhou (download, tipo nao
+ * aceito)? Devolve um rotulo mesmo assim: a mensagem entra na conversa e o
+ * atendente sabe que o cliente mandou algo — e pede para reenviar.
+ */
+async function prepararArquivo({ tenantId, chave, msg, arquivo, telefone, baixarMidia, salvarArquivo, legenda }) {
+  const mimetype = String(arquivo.mimetype || 'application/octet-stream').split(';')[0].trim();
+  // Documento e reconhecido pela extensao do nome. PDF sem nome (acontece)
+  // ganha a extensao do proprio tipo, senao o comprovante seria recusado.
+  const extensaoDoTipo = Object.keys(EXTENSOES_DOCUMENTO).find((ext) => EXTENSOES_DOCUMENTO[ext] === mimetype);
+  const nome = arquivo.fileName || (extensaoDoTipo ? `arquivo.${extensaoDoTipo}` : '');
+  try {
+    const bytes = await baixarMidia(msg);
+    const salvo = await salvarArquivo(`data:${mimetype};base64,${Buffer.from(bytes).toString('base64')}`, nome);
+    return {
+      tipo: salvo.tipo,
+      url: salvo.url,
+      semLegenda: !legenda,
+      rotulo: ROTULOS_ARQUIVO[salvo.tipo] ?? `📄 ${salvo.nomeArquivo}`,
+      metadados: { nomeArquivo: salvo.nomeArquivo, mimetype: salvo.mimetype, bytes: salvo.bytes, legenda: legenda ?? null }
+    };
+  } catch (err) {
+    log.warn({ err, tenantId, chave }, 'Nao foi possivel guardar o arquivo recebido');
+    registrarEvento(tenantId, {
+      chave,
+      nivel: 'erro',
+      tipo: 'mensagem',
+      mensagem: `Não consegui guardar o arquivo de ${rotuloDe(telefone)}.`
+    });
+    return { tipo: 'texto', semLegenda: !legenda, rotulo: ROTULO_ARQUIVO_FALHOU };
+  }
+}
+
+/**
  * Processa uma mensagem que chegou no WhatsApp.
  *
  * @param {object} p
@@ -271,6 +352,7 @@ async function prepararAudio({ tenantId, chave, msg, audio, telefone, baixarMidi
  * @param {(msg: object) => Promise<Buffer>} [p.baixarMidia]  injetado pelo adaptador (Baileys)
  * @param {Function} [p.transcrever]  trocado nos testes, para nao chamar a API de verdade
  * @param {Function} [p.salvar]       idem, para nao escrever arquivo no disco do teste
+ * @param {Function} [p.salvarArquivo] como `salvarAnexo` (foto, video, documento); trocavel nos testes
  */
 export async function processarMensagem({
   sock,
@@ -281,7 +363,8 @@ export async function processarMensagem({
   receber,
   baixarMidia = null,
   transcrever = transcreverAudio,
-  salvar = salvarAudio
+  salvar = salvarAudio,
+  salvarArquivo = salvarAnexo
 }) {
   // `fromMe` sao as mensagens que NOS enviamos, ecoadas de volta. Processa-las
   // faria o sistema responder a si mesmo, em laco infinito.
@@ -319,22 +402,39 @@ export async function processarMensagem({
    * guardado e toca no livechat, e la o gateway decide chamar uma pessoa.
    */
   let midia = null;
-  const audio = msg.message?.audioMessage;
+  // Sem os envelopes (temporaria, visualizacao unica...), o conteudo de verdade.
+  const conteudo = desembrulhar(msg.message) ?? {};
+  const audio = conteudo.audioMessage;
 
   if (!texto && audio && baixarMidia) {
     midia = await prepararAudio({ tenantId, chave, msg, audio, telefone, baixarMidia, transcrever, salvar });
   }
 
-  if (!texto && !midia) {
-    // Figurinha, imagem, documento: ainda nao tratamos, mas o console mostra
-    // que o cliente mandou algo para alguem olhar no celular.
-    const outraMidia = audio || msg.message?.imageMessage || msg.message?.documentMessage;
-    if (outraMidia) {
+  /**
+   * Foto, video e documento — com ou sem legenda (foto do corte de
+   * referencia, comprovante de PIX em PDF). Antes eram DESCARTADOS: nao
+   * entravam na conversa e ninguem via. Agora ficam guardados e aparecem no
+   * livechat; sem legenda, o gateway chama uma pessoa (a IA nao ve o arquivo).
+   */
+  const arquivo = conteudo.imageMessage || conteudo.videoMessage || conteudo.documentMessage;
+  if (arquivo && baixarMidia) {
+    midia = await prepararArquivo({ tenantId, chave, msg, arquivo, telefone, baixarMidia, salvarArquivo, legenda: texto });
+  }
+
+  // Figurinha, localizacao, contato: viram texto. A figurinha e so registrada
+  // (`soRegistrar`): a Sofia respondendo "🙂 Figurinha" nao faz sentido.
+  const outroTipo = !texto && !midia ? textoDeOutroTipo(conteudo) : null;
+  if (outroTipo && conteudo.stickerMessage) midia = { tipo: 'texto', soRegistrar: true };
+
+  if (!texto && !midia && !outroTipo) {
+    // Nada que se possa mostrar (reacao, aviso de protocolo...). O console
+    // ainda registra se era um audio que nao deu para baixar.
+    if (audio) {
       registrarEvento(tenantId, {
         chave,
         nivel: 'aviso',
         tipo: 'mensagem',
-        mensagem: `Mídia recebida de ${rotuloDe(telefone)} (imagem e documento ainda não são processados).`
+        mensagem: `Áudio de ${rotuloDe(telefone)} não pôde ser baixado.`
       });
     }
     return { ignorada: 'sem_texto' };
@@ -360,7 +460,7 @@ export async function processarMensagem({
     chave,
     nivel: 'info',
     tipo: 'mensagem',
-    mensagem: `${midia ? 'Áudio recebido' : 'Mensagem recebida'} de ${rotuloDe(telefone)}.`
+    mensagem: `${midia?.tipo === 'audio' ? 'Áudio recebido' : midia?.url ? 'Arquivo recebido' : 'Mensagem recebida'} de ${rotuloDe(telefone)}.`
   });
 
   const resultado = await receber({
@@ -385,7 +485,7 @@ export async function processarMensagem({
      * Sofia. Sem transcricao, entra um rotulo curto so para a mensagem existir
      * na conversa; quem cuida disso e o gateway, que chama uma pessoa.
      */
-    texto: texto ?? midia?.transcricao ?? '🎤 Áudio',
+    texto: texto ?? midia?.transcricao ?? midia?.rotulo ?? outroTipo ?? '🎤 Áudio',
     idExterno: msg.key.id
   });
 

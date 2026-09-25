@@ -16,6 +16,7 @@ import {
   estaConectada,
   ganchosDeTeste,
   instalarAdaptadorWhatsapp,
+  presenca,
   reconectarInstanciasSalvas
 } from '../src/channels/whatsapp/baileys.adapter.js';
 import { criarTratadorDeChamadas, extrairTexto, MENSAGEM_CHAMADA_PADRAO } from '../src/channels/whatsapp/handlers.js';
@@ -105,6 +106,12 @@ function criarSocketFalso({ pareado = true } = {}) {
     async readMessages(chaves) {
       sock.lidas.push(...chaves);
     },
+    presencas: [],
+    falharPresenca: false,
+    async sendPresenceUpdate(estado, jid) {
+      if (sock.falharPresenca) throw new Error('presenca recusada');
+      sock.presencas.push({ estado, jid });
+    },
     end() {
       sock.encerrado = true;
     },
@@ -156,6 +163,27 @@ async function conectarEAbrir(chave = 'W1', opcoes) {
   f.sock.emitir('connection.update', { connection: 'open' });
   await esperar(() => estaConectada(tenantId, chave), { descricao: 'conexao abrir' });
   return f;
+}
+
+/** Uma imagem PNG de verdade, 1x1 pixel: o `salvarAnexo` aceita e grava. */
+const PNG_1X1 = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64'
+);
+
+/** A conversa de UM telefone (pelo banco) e as mensagens dela (pela API, como a tela). */
+async function mensagensDoTelefone(telefone) {
+  const { eq, and } = await import('drizzle-orm');
+  const s = await import('../src/db/schema/index.js');
+  const [lead] = await db.select().from(s.leads).where(eq(s.leads.telefone, telefone));
+  if (!lead) return { conversa: null, mensagens: [] };
+  const [conversa] = await db
+    .select()
+    .from(s.conversations)
+    .where(and(eq(s.conversations.tenantId, tenantId), eq(s.conversations.leadId, lead.id)));
+  if (!conversa) return { conversa: null, mensagens: [] };
+  const m = await app.inject({ method: 'GET', url: `/api/conversas/${conversa.id}/mensagens`, headers: cabDono });
+  return { conversa, mensagens: m.json().mensagens };
 }
 
 function mensagemRecebida({ de = '5511988887777', texto = '1', id, extra = {} } = {}) {
@@ -780,24 +808,202 @@ describe('mensagens recebidas', () => {
     assert.equal(sock.lidas.length, 0);
   });
 
-  it('imagem sem legenda: ignora, mas o console mostra que chegou', async () => {
+  /**
+   * Antes este teste garantia o BUG: a foto era descartada ("sem_texto") e so
+   * o console sabia. Agora ela entra na conversa e uma pessoa confere.
+   */
+  it('imagem sem legenda: entra na conversa e vai para um atendente', async () => {
+    const telefone = '5511988880012';
+    ganchosDeTeste.baixarMidia = async () => PNG_1X1;
     const { sock } = await conectarEAbrir();
     sock.emitir('messages.upsert', {
       type: 'notify',
       messages: [
-        { key: { remoteJid: '5511988880012@s.whatsapp.net', fromMe: false, id: 'A1' }, message: { imageMessage: {} } }
+        { key: { remoteJid: `${telefone}@s.whatsapp.net`, fromMe: false, id: 'A1' }, message: { imageMessage: { mimetype: 'image/png' } } }
       ]
     });
-    await esperar(() => listarEventos(tenantId).some((e) => /Mídia recebida/.test(e.mensagem)));
-    assert.equal(sock.enviados.length, 0);
+    await esperarFimDaResposta(sock);
+
+    assert.equal(sock.enviados.length, 1, 'um aviso ao cliente de que chegou');
+    const { conversa, mensagens } = await mensagensDoTelefone(telefone);
+    assert.equal(conversa.status, 'na_fila');
+    assert.ok(mensagens.some((m) => m.tipo === 'imagem' && m.direcao === 'entrada'), 'a foto fica gravada na conversa');
   });
 
   it('extrairTexto entende os formatos comuns', () => {
     assert.equal(extrairTexto({ message: { conversation: 'a' } }), 'a');
     assert.equal(extrairTexto({ message: { extendedTextMessage: { text: 'b' } } }), 'b');
     assert.equal(extrairTexto({ message: { imageMessage: { caption: 'c' } } }), 'c');
+    assert.equal(extrairTexto({ message: { documentMessage: { caption: 'comprovante' } } }), 'comprovante');
     assert.equal(extrairTexto({ message: { audioMessage: {} } }), null);
     assert.equal(extrairTexto(null), null);
+  });
+
+  // O Baileys NAO desembrulha estes envelopes ao receber: sem isto, o cliente
+  // com mensagens temporarias falava sozinho.
+  it('extrairTexto abre mensagem temporaria, visualizacao unica, documento com legenda e editada', () => {
+    const temporaria = { ephemeralMessage: { message: { extendedTextMessage: { text: 'quero marcar' } } } };
+    assert.equal(extrairTexto({ message: temporaria }), 'quero marcar');
+    assert.equal(
+      extrairTexto({ message: { ephemeralMessage: { message: { viewOnceMessageV2: { message: { imageMessage: { caption: 'esse corte' } } } } } } }),
+      'esse corte',
+      'temporaria + visualizacao unica'
+    );
+    assert.equal(extrairTexto({ message: { viewOnceMessage: { message: { videoMessage: { caption: 'v' } } } } }), 'v');
+    assert.equal(
+      extrairTexto({ message: { documentWithCaptionMessage: { message: { documentMessage: { caption: 'pix pago' } } } } }),
+      'pix pago'
+    );
+    assert.equal(
+      extrairTexto({ message: { editedMessage: { message: { protocolMessage: { editedMessage: { conversation: 'as 15h, nao 14h' } } } } } }),
+      'as 15h, nao 14h'
+    );
+  });
+});
+
+/**
+ * Foto, PDF, figurinha, localizacao e contato recebidos.
+ *
+ * Antes TODOS eram descartados ("sem_texto"): o comprovante de PIX e a foto
+ * do corte de referencia nunca apareciam para a equipe. O `baixarMidia`
+ * entrega bytes de verdade (PNG 1x1, PDF minimo) e o `salvarAnexo` real grava
+ * na pasta dos testes (PASTA_ARQUIVOS do .env.test).
+ */
+describe('arquivos e outros tipos recebidos do cliente', () => {
+  const PDF = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
+
+  const recebida = (de, id, message) => ({
+    type: 'notify',
+    messages: [{ key: { remoteJid: `${de}@s.whatsapp.net`, fromMe: false, id }, pushName: 'Cliente Arquivo', message }]
+  });
+  const doCliente = (mensagens) => mensagens.filter((m) => m.direcao === 'entrada');
+
+  it('foto sem legenda: guardada, rotulo "📷 Foto", fila e um aviso', async () => {
+    const tel = '5511977002001';
+    ganchosDeTeste.baixarMidia = async () => PNG_1X1;
+    const { sock } = await conectarEAbrir();
+    sock.emitir('messages.upsert', recebida(tel, 'ARQ1', { imageMessage: { mimetype: 'image/png' } }));
+    await esperarFimDaResposta(sock);
+
+    const { conversa, mensagens } = await mensagensDoTelefone(tel);
+    const [foto] = doCliente(mensagens);
+    assert.equal(foto.tipo, 'imagem');
+    assert.equal(foto.conteudo, '📷 Foto');
+    assert.match(foto.midiaUrl, /^\/api\/arquivos\/anexo-.+\.png$/);
+    assert.equal(conversa.status, 'na_fila');
+    assert.equal(sock.enviados.length, 1);
+    assert.ok(mensagens.some((m) => m.direcao === 'saida' && m.conteudo === sock.enviados[0].text), 'o aviso tambem fica na conversa');
+  });
+
+  it('comprovante em PDF (mensagem temporaria): documento guardado com o nome, e vai para a fila', async () => {
+    const tel = '5511977002002';
+    ganchosDeTeste.baixarMidia = async () => PDF;
+    const { sock } = await conectarEAbrir();
+    const doc = { documentMessage: { mimetype: 'application/pdf', fileName: 'comprovante.pdf' } };
+    sock.emitir('messages.upsert', recebida(tel, 'ARQ2', { ephemeralMessage: { message: doc } }));
+    await esperarFimDaResposta(sock);
+
+    const { conversa, mensagens } = await mensagensDoTelefone(tel);
+    const [pdf] = doCliente(mensagens);
+    assert.equal(pdf.tipo, 'documento');
+    assert.equal(pdf.conteudo, '📄 comprovante.pdf');
+    assert.match(pdf.midiaUrl, /\.pdf$/);
+    assert.equal(pdf.metadados.nomeArquivo, 'comprovante.pdf');
+    assert.equal(conversa.status, 'na_fila');
+  });
+
+  it('PDF sem nome de arquivo nao e recusado: o tipo da a extensao', async () => {
+    const tel = '5511977002003';
+    ganchosDeTeste.baixarMidia = async () => PDF;
+    const { sock } = await conectarEAbrir();
+    sock.emitir('messages.upsert', recebida(tel, 'ARQ3', { documentMessage: { mimetype: 'application/pdf' } }));
+    await esperarFimDaResposta(sock);
+
+    const [pdf] = doCliente((await mensagensDoTelefone(tel)).mensagens);
+    assert.equal(pdf.tipo, 'documento');
+    assert.match(pdf.midiaUrl, /\.pdf$/);
+  });
+
+  it('foto COM legenda: guardada, e a legenda segue o fluxo normal (aqui, o menu)', async () => {
+    const tel = '5511977002004';
+    ganchosDeTeste.baixarMidia = async () => PNG_1X1;
+    const { sock } = await conectarEAbrir();
+    sock.emitir('messages.upsert', recebida(tel, 'ARQ4', { imageMessage: { mimetype: 'image/png', caption: '1' } }));
+    await esperarFimDaResposta(sock);
+
+    const { conversa, mensagens } = await mensagensDoTelefone(tel);
+    const [foto] = doCliente(mensagens);
+    assert.equal(foto.tipo, 'imagem');
+    assert.equal(foto.conteudo, '1');
+    assert.equal(foto.metadados.legenda, '1');
+    assert.match(sock.enviados[0].text, /serviços e valores/i, 'a legenda "1" foi respondida pelo menu');
+    assert.notEqual(conversa.status, 'na_fila');
+  });
+
+  it('download falhou: a mensagem entra com o aviso para pedir de novo, e vai para a fila', async () => {
+    const tel = '5511977002005';
+    ganchosDeTeste.baixarMidia = async () => {
+      throw new Error('midia expirada');
+    };
+    const { sock } = await conectarEAbrir();
+    sock.emitir('messages.upsert', recebida(tel, 'ARQ5', { imageMessage: { mimetype: 'image/png' } }));
+    await esperarFimDaResposta(sock);
+
+    const { conversa, mensagens } = await mensagensDoTelefone(tel);
+    const [msg] = doCliente(mensagens);
+    assert.equal(msg.tipo, 'texto');
+    assert.match(msg.conteudo, /não foi possível baixar/);
+    assert.equal(conversa.status, 'na_fila');
+  });
+
+  it('figurinha: registrada na conversa, sem resposta automatica', async () => {
+    const tel = '5511977002006';
+    const { sock } = await conectarEAbrir();
+    sock.emitir('messages.upsert', recebida(tel, 'ARQ6', { stickerMessage: { mimetype: 'image/webp' } }));
+    await esperar(async () => doCliente((await mensagensDoTelefone(tel)).mensagens).length === 1, { descricao: 'figurinha gravada' });
+    await new Promise((r) => setTimeout(r, 300));
+
+    const { conversa, mensagens } = await mensagensDoTelefone(tel);
+    assert.equal(doCliente(mensagens)[0].conteudo, '🙂 Figurinha');
+    assert.equal(sock.enviados.length, 0, 'ninguem responde a uma figurinha');
+    assert.equal(conversa.status, 'bot');
+  });
+
+  it('localizacao e contato viram texto na conversa', async () => {
+    const tel = '5511977002007';
+    const { sock } = await conectarEAbrir();
+    sock.emitir('messages.upsert', recebida(tel, 'ARQ7', { locationMessage: { degreesLatitude: -23.55, degreesLongitude: -46.63 } }));
+    sock.emitir('messages.upsert', recebida(tel, 'ARQ8', { contactMessage: { displayName: 'Maria Souza' } }));
+    await esperar(async () => doCliente((await mensagensDoTelefone(tel)).mensagens).length === 2, { descricao: 'as duas gravadas' });
+    await esperarFimDaResposta(sock).catch(() => {});
+
+    const conteudos = doCliente((await mensagensDoTelefone(tel)).mensagens).map((m) => m.conteudo);
+    assert.ok(conteudos.includes('📍 Localização: https://maps.google.com/?q=-23.55,-46.63'), conteudos.join(' | '));
+    assert.ok(conteudos.includes('👤 Contato: Maria Souza'));
+  });
+
+  it('presenca: "digitando" chega ao cliente certo; conexao fechada ou recusa nunca lancam', async () => {
+    // Sem conexao aberta: nao faz nada e nao lanca.
+    await presenca({ tenantId, instanciaChave: 'W1', destino: '5511977002009', estado: 'composing' });
+
+    const { sock } = await conectarEAbrir();
+    await presenca({ tenantId, instanciaChave: 'W1', destino: '11977002009', estado: 'composing' });
+    await presenca({ tenantId, instanciaChave: 'W1', destino: '5511977002009', estado: 'paused' });
+    assert.deepEqual(sock.presencas, [
+      { estado: 'composing', jid: '5511977002009@s.whatsapp.net' },
+      { estado: 'paused', jid: '5511977002009@s.whatsapp.net' }
+    ]);
+
+    sock.falharPresenca = true;
+    await presenca({ tenantId, instanciaChave: 'W1', destino: '5511977002009', estado: 'composing' });
+  });
+
+  it('mensagem temporaria de texto e respondida (antes o cliente falava sozinho)', async () => {
+    const tel = '5511977002008';
+    const { sock } = await conectarEAbrir();
+    sock.emitir('messages.upsert', recebida(tel, 'ARQ9', { ephemeralMessage: { message: { extendedTextMessage: { text: '1' } } } }));
+    await esperarFimDaResposta(sock);
+    assert.match(sock.enviados[0].text, /serviços e valores/i);
   });
 });
 

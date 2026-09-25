@@ -24,3 +24,16 @@ export function webmDeMentira({ segundos = 1 } = {}) {
 export function audioDataUrl(opcoes) {
   return `data:audio/webm;codecs=opus;base64,${webmDeMentira(opcoes).toString('base64')}`;
 }
+
+/**
+ * O que o Safari (iPhone e Mac) grava: `audio/mp4` com AAC dentro, em mp4
+ * fragmentado (o `MediaRecorder` escreve enquanto grava). O remux sozinho nao
+ * da conta deste — e o caso que era sempre recusado.
+ */
+export function mp4DoSafari({ segundos = 1 } = {}) {
+  return execFileSync(
+    ffmpegBin,
+    ['-f', 'lavfi', '-i', `sine=frequency=440:duration=${segundos}`, '-c:a', 'aac', '-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov', 'pipe:1'],
+    { maxBuffer: 10 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] }
+  );
+}

@@ -145,21 +145,66 @@ linha(SISTEMA, negrito('Ligando a plataforma...'), 'Ctrl+C desliga tudo');
 
 const ambiente = { ...process.env, FORCE_COLOR: '1' };
 
-const api = spawn(process.execPath, ['--env-file-if-exists=.env', '--watch', 'src/main.js'], {
-  cwd: PASTA_API,
-  env: ambiente,
-  stdio: ['ignore', 'pipe', 'pipe']
-});
+/**
+ * A API, religada sozinha quando cai.
+ *
+ * O `--watch` reinicia quando um arquivo do codigo muda, mas quando o PROCESSO
+ * morre (erro fatal: a API encerra de proposito, ver api/src/main.js) ele so
+ * escreve "Failed running ... Waiting for file changes" e fica esperando — o
+ * sistema parava ate alguem mexer num arquivo ou fechar e abrir de novo. Foi o
+ * que aconteceu ao enviar um audio. Aqui o painel le essa linha e sobe uma API
+ * nova. Com teto: caindo toda hora (ex.: configuracao invalida no .env), para
+ * de insistir e avisa, em vez de girar em ciclo.
+ */
+const MAX_RELIGACOES = 5;
+const JANELA_RELIGACOES_MS = 5 * 60_000;
+const religacoes = [];
+let api = null;
+let religando = false;
+
+function ligarApi() {
+  const filho = spawn(process.execPath, ['--env-file-if-exists=.env', '--watch', 'src/main.js'], {
+    cwd: PASTA_API,
+    env: ambiente,
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  api = filho;
+  vivos.add(filho);
+  // A API ja sai formatada (etiquetas proprias): passa direto.
+  const repassar = (l) => {
+    process.stdout.write(`${l}\n`);
+    if (/^(Completed|Failed) running /.test(semCor(l).trim())) aoCairApi(filho);
+  };
+  porLinha(filho.stdout, repassar);
+  porLinha(filho.stderr, repassar);
+  vigiar('API', filho);
+  return filho;
+}
+
+function aoCairApi(filho) {
+  if (desligando || religando || filho !== api) return;
+  const agora = Date.now();
+  while (religacoes.length && agora - religacoes[0] > JANELA_RELIGACOES_MS) religacoes.shift();
+  if (religacoes.length >= MAX_RELIGACOES) {
+    linha(ERRO, `A API caiu ${MAX_RELIGACOES} vezes em poucos minutos e nao sera religada de novo.`, 'veja o erro acima e api/data/logs/falhas.log; depois feche e abra o INICIAR.bat');
+    return;
+  }
+  religacoes.push(agora);
+  religando = true;
+  linha(ERRO, 'A API caiu. Religando em 2 segundos...', 'o motivo fica em api/data/logs/falhas.log');
+  setTimeout(() => {
+    matarArvore(filho);
+    vivos.delete(filho);
+    religando = false;
+    if (!desligando) ligarApi();
+  }, 2000);
+}
 
 const web = spawn(process.execPath, [VITE, '--clearScreen', 'false', ...(naRede ? ['--host', '0.0.0.0'] : [])], {
   cwd: PASTA_WEB,
   env: ambiente,
   stdio: ['ignore', 'pipe', 'pipe']
 });
-
-// A API ja sai formatada (etiquetas proprias): passa direto.
-porLinha(api.stdout, (l) => process.stdout.write(`${l}\n`));
-porLinha(api.stderr, (l) => process.stdout.write(`${l}\n`));
 
 /** Das telas, so o que importa. O resto do Vite e propaganda dele mesmo. */
 function linhaDasTelas(bruta) {
@@ -211,7 +256,7 @@ async function mostrarAcessoPelaRede() {
 // --- Desligamento ----------------------------------------------------------
 
 let desligando = false;
-const vivos = new Set([api, web]);
+const vivos = new Set([web]);
 
 function matarArvore(filho) {
   // taskkill /T leva junto os netos (o --watch cria um processo dentro do outro).
@@ -232,17 +277,23 @@ function desligar() {
   }, 12_000);
 }
 
-for (const [nome, filho] of [['API', api], ['telas', web]]) {
+function vigiar(nome, filho) {
   filho.on('error', (err) => linha(ERRO, `Nao consegui iniciar ${nome}: ${err.message}`));
   filho.on('exit', (codigo) => {
     vivos.delete(filho);
-    if (!desligando && codigo) linha(ERRO, `${nome} encerrou com erro (codigo ${codigo}).`, 'veja as mensagens acima');
+    // A API derrubada de proposito para religar nao e um erro a anunciar.
+    if (!desligando && codigo && !(nome === 'API' && filho !== api)) {
+      linha(ERRO, `${nome} encerrou com erro (codigo ${codigo}).`, 'veja as mensagens acima');
+    }
     if (desligando && vivos.size === 0) {
       linha(SISTEMA, 'Tudo desligado.');
       process.exit(0);
     }
   });
 }
+
+vigiar('telas', web);
+ligarApi();
 
 process.on('SIGINT', desligar);
 process.on('SIGBREAK', desligar);

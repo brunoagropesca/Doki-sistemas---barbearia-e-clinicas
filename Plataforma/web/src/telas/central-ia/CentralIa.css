@@ -762,6 +762,10 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* Duas partes (em toda conversa / quando perguntam), rolando juntas. */
+.bc-previa__partes { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--e2); }
+.bc-previa__partes .bc-previa__texto { flex: none; overflow: visible; }
+.bc-previa__parte { margin: var(--e1) 0 0; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--texto-fraco); }
 .bc-previa__vazio { padding: var(--e4); text-align: center; border: 1px dashed var(--borda-forte); border-radius: var(--raio); color: var(--texto-fraco); font-size: 13px; }
 .bc-previa__pendente { font-size: 12px; color: var(--alerta); }
 

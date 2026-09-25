@@ -311,6 +311,50 @@ describe('rotina: a Atena fecha o dia sozinha', () => {
   it('fecha UMA vez por dia, mesmo se o relogio disparar de novo', async () => {
     assert.equal(await fecharDiaSeForHora(tenantId, noite()), null, 'ja fechou hoje');
   });
+
+  /**
+   * BUG reproduzido: a rotina finalizava a conversa parada e, junto, CONCLUIA
+   * a OS cujo horario ja tinha passado — o cliente que faltou virava
+   * "concluido" e entrava no faturamento e na comissao. A rotina nao sabe se
+   * ele veio: a OS fica aberta para uma pessoa decidir.
+   */
+  it('encerrar a conversa ociosa NAO conclui a OS que ja passou (pode ter sido falta)', async () => {
+    const { eq, and } = await import('drizzle-orm');
+    const leads = await import('../src/modules/leads/leads.service.js');
+    const conv = await import('../src/modules/conversas/conversas.service.js');
+
+    // Cliente e conversa proprios deste teste.
+    const lead = await leads.criar(tenantId, { nome: 'Faltou Teste', telefone: '5511955509901' });
+    const id = await conv.encontrarOuAbrir(tenantId, { leadId: lead.id });
+    await conv.registrarRecebida(tenantId, id, { conteudo: 'Pode ser as 10h amanha' });
+    await ctx.db
+      .update(ctx.s.conversations)
+      .set({ status: 'bot', ultimaMensagemEm: new Date(Date.now() - 8 * 3_600_000) })
+      .where(eq(ctx.s.conversations.id, id));
+
+    // OS marcada pela Sofia, confirmada, com o horario ja passado.
+    const osId = `apt_falta_${Math.random().toString(36).slice(2)}`;
+    const [svc] = await ctx.db.select().from(ctx.s.services);
+    const [prof] = await ctx.db.select().from(ctx.s.professionals);
+    const inicio = instanteDeHoje(-2 * 3_600_000);
+    await ctx.db.insert(ctx.s.appointments).values({
+      id: osId, tenantId, leadId: lead.id, serviceId: svc.id, professionalId: prof.id, conversationId: id,
+      inicioEm: new Date(inicio), fimEm: new Date(inicio + 1_800_000), status: 'confirmado', criadoPor: 'ia', precoCentavos: 4500
+    });
+
+    // O dia ja foi fechado no teste anterior: apaga a marca para a rotina rodar de novo.
+    await ctx.db
+      .delete(ctx.s.settings)
+      .where(and(eq(ctx.s.settings.tenantId, tenantId), eq(ctx.s.settings.chave, 'fechamento_ultimo')));
+    const quaseMeiaNoite = new Date(`${dataNoFuso(Date.now(), FUSO)}T23:59:00-03:00`).getTime();
+    const r = await fecharDiaSeForHora(tenantId, quaseMeiaNoite);
+    assert.ok(r, 'devia ter fechado');
+
+    assert.equal((await conv.obter(tenantId, id)).status, 'finalizada', 'a conversa parada foi encerrada');
+    const os = (await app.inject({ method: 'GET', url: `/api/agenda/${osId}`, headers: cab })).json().agendamento;
+    assert.equal(os.status, 'confirmado', 'a rotina nao sabe se o cliente veio: nao conclui');
+    assert.equal(os.concluidoEm, null);
+  });
 });
 
 describe('comando direto a Atena', () => {

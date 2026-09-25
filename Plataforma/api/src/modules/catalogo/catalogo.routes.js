@@ -8,6 +8,7 @@ import {
   criarServicoSchema,
   listarProdutosSchema,
   listarServicosSchema,
+  renomearCategoriaSchema,
   venderProdutoSchema
 } from './catalogo.schemas.js';
 
@@ -29,6 +30,11 @@ export async function rotasCatalogo(app) {
   app.get('/api/servicos', { config: apenas.atendente }, async (req) => {
     const filtros = listarServicosSchema.parse(req.query);
     return { servicos: await service.listarServicos(req.tenantId, filtros) };
+  });
+
+  app.post('/api/servicos/categorias/renomear', { config: apenas.admin }, async (req) => {
+    const dados = renomearCategoriaSchema.parse(req.body);
+    return service.renomearCategoriaDeServicos(req.tenantId, dados, { usuario: req.usuario });
   });
 
   app.get('/api/servicos/:id', { config: apenas.atendente }, async (req) => {

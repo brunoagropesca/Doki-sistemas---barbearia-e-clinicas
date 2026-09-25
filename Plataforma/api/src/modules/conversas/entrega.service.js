@@ -85,6 +85,34 @@ async function gravarComInsistencia(tenantId, mensagemId, resultado, erro) {
   }
 }
 
+/** Quanto tempo para tras o boot procura entregas interrompidas. */
+const JANELA_INTERROMPIDAS_MS = 24 * 3_600_000;
+
+/**
+ * Respostas de atendente que estavam SAINDO quando o servidor caiu.
+ *
+ * A mensagem e gravada antes da entrega (o atendente nunca perde o que
+ * mandou); se o processo morre no meio do envio, ela fica sem "entregue" e sem
+ * "falhou" — a tela a mostra como enviada, sem selo e sem botao Reenviar. Foi o
+ * que aconteceu com o audio que derrubou o servidor. Chamado no boot, antes de
+ * qualquer envio: nada pode estar saindo nesse instante.
+ *
+ * So as ultimas 24 h: mensagens mais antigas que isso vem de antes de a
+ * entrega ser registrada, e ganhar um "Reenviar" agora seria so ruido.
+ *
+ * @returns {Promise<number>} quantas foram marcadas
+ */
+export async function marcarEntregasInterrompidas({ agora = new Date() } = {}) {
+  const n = await repo.marcarEntregasSemResultado({
+    desde: new Date(agora.getTime() - JANELA_INTERROMPIDAS_MS),
+    ate: agora,
+    // Pode ter saido antes da queda: o texto pede para conferir antes de reenviar.
+    erroEnvio: 'O servidor reiniciou durante o envio. Confira no celular se a mensagem chegou antes de reenviar.'
+  });
+  if (n > 0) log.warn({ mensagens: n }, 'Respostas de atendente sem resultado de entrega marcadas como nao entregues');
+  return n;
+}
+
 /**
  * Tenta entregar uma resposta de atendente ao canal de origem.
  *

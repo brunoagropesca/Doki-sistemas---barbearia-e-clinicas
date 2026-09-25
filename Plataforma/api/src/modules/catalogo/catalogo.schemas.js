@@ -28,6 +28,26 @@ const centavosSchema = z.union([
   })
 ]);
 
+/**
+ * O schema de criar, com todo campo opcional e SEM os valores padrao.
+ *
+ * `.partial()` do Zod 4 mantem os `.default()`: um PATCH so com o preco
+ * chegava como { precoCentavos, categoria: 'Geral', ativo: true, ... } —
+ * jogava o servico de volta em "Geral", reativava o que estava desligado e,
+ * no produto, mandava `estoque: 0` (toda edicao de produto era recusada).
+ * Na edicao, campo ausente tem de significar "nao mexe".
+ */
+function paraAtualizar(schema) {
+  return z.object(
+    Object.fromEntries(
+      Object.entries(schema.shape).map(([campo, tipo]) => [
+        campo,
+        (tipo instanceof z.ZodDefault ? tipo.unwrap() : tipo).optional()
+      ])
+    )
+  );
+}
+
 const vinculoProfissional = z.object({
   professionalId: z.string().min(1),
   /** Nulo/ausente = usa o valor padrao do servico. */
@@ -48,8 +68,7 @@ export const criarServicoSchema = z.object({
   profissionais: z.array(vinculoProfissional).max(50).optional()
 });
 
-export const atualizarServicoSchema = criarServicoSchema
-  .partial()
+export const atualizarServicoSchema = paraAtualizar(criarServicoSchema)
   .refine((d) => Object.keys(d).length > 0, 'Envie pelo menos um campo.');
 
 export const listarServicosSchema = z.object({
@@ -59,6 +78,11 @@ export const listarServicosSchema = z.object({
     .enum(['true', 'false'])
     .transform((v) => v === 'true')
     .optional()
+});
+
+export const renomearCategoriaSchema = z.object({
+  de: z.string().trim().min(1).max(60),
+  para: z.string().trim().min(1, 'Informe o novo nome da categoria.').max(60)
 });
 
 // --- Produtos ---
@@ -77,8 +101,7 @@ export const criarProdutoSchema = z.object({
   ativo: z.boolean().default(true)
 });
 
-export const atualizarProdutoSchema = criarProdutoSchema
-  .partial()
+export const atualizarProdutoSchema = paraAtualizar(criarProdutoSchema)
   .extend({ removerFoto: z.boolean().optional() })
   .refine((d) => Object.keys(d).length > 0, 'Envie pelo menos um campo.');
 

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/autenticacao.jsx';
 import { EscolherFoto } from './equipe/EscolherFoto.jsx';
+import { Servicos } from './catalogo/Servicos.jsx';
 import {
   AreaTexto,
   Aviso,
@@ -31,21 +32,37 @@ function emCentavos(texto) {
 
 export function Catalogo() {
   const { podeAcessar } = useAuth();
+  const podeEditar = podeAcessar('admin');
   const [aba, setAba] = useState('servicos');
+  // "Novo servico" fica no cabecalho, como na Equipe; cada clique e um numero novo.
+  const [pedidoNovo, setPedidoNovo] = useState(0);
 
   const metricas = useQuery({ queryKey: ['catalogo', 'metricas'], queryFn: () => api.get('/api/catalogo/metricas') });
   const m = metricas.data;
+  const limite = m?.servicos?.limiteAtivos ?? 25;
 
   return (
     <div className="coluna">
-      <header>
-        <h1>Catalogo</h1>
-        <p className="texto-suave">Servicos oferecidos e produtos vendidos no balcao.</p>
+      <header className="linha linha--entre">
+        <div>
+          <h1>Catálogo</h1>
+          <p className="texto-suave">Serviços oferecidos e produtos vendidos no balcão.</p>
+        </div>
+        {podeEditar && aba === 'servicos' && (
+          <Botao className="eq-novo" onClick={() => setPedidoNovo((n) => n + 1)}>
+            + Novo serviço
+          </Botao>
+        )}
       </header>
 
       <div className="grade">
-        <Metrica rotulo="Servicos ativos" valor={m?.servicos?.ativos ?? '—'} />
-        <Metrica rotulo="Preco medio" valor={m?.servicos?.precoMedioFormatado ?? '—'} />
+        <Metrica
+          rotulo="Serviços ativos"
+          valor={m ? `${m.servicos.ativos} / ${limite}` : '—'}
+          tom={m && m.servicos.ativos >= limite ? 'alerta' : undefined}
+          detalhe={m ? `${m.servicos.total - m.servicos.ativos} inativo(s)` : undefined}
+        />
+        <Metrica rotulo="Preço médio" valor={m?.servicos?.precoMedioFormatado ?? '—'} />
         <Metrica rotulo="Produtos ativos" valor={m?.produtos?.ativos ?? '—'} />
         <Metrica
           rotulo="Estoque baixo"
@@ -56,206 +73,33 @@ export function Catalogo() {
         <Metrica rotulo="Valor em estoque" valor={m?.produtos?.valorEstoqueFormatado ?? '—'} />
       </div>
 
-      <div className="linha">
-        <Botao variante={aba === 'servicos' ? 'primario' : 'fantasma'} onClick={() => setAba('servicos')}>
-          Servicos
-        </Botao>
-        <Botao variante={aba === 'produtos' ? 'primario' : 'fantasma'} onClick={() => setAba('produtos')}>
-          Produtos
-        </Botao>
-      </div>
-
-      {aba === 'servicos' ? <Servicos podeEditar={podeAcessar('admin')} /> : <Produtos podeEditar={podeAcessar('admin')} />}
-    </div>
-  );
-}
-
-function Servicos({ podeEditar }) {
-  const queryClient = useQueryClient();
-  const [modal, setModal] = useState(false);
-
-  const lista = useQuery({ queryKey: ['servicos'], queryFn: () => api.get('/api/servicos', { incluirInativos: 'true' }) });
-  const servicos = lista.data?.servicos ?? [];
-
-  return (
-    <>
-      <Cartao
-        semPadding
-        titulo={`${servicos.length} servico(s)`}
-        acao={podeEditar && <Botao onClick={() => setModal(true)}>Novo servico</Botao>}
-      >
-        {lista.isLoading ? (
-          <Carregando />
-        ) : servicos.length === 0 ? (
-          <Vazio titulo="Nenhum servico cadastrado" descricao="Cadastre os servicos para poder agendar e para a IA saber o que oferecer." />
-        ) : (
-          <Tabela cabecalho={['Servico', 'Duracao', 'Preco', 'Quem faz', '']}>
-            {servicos.map((s) => (
-              <tr key={s.id} style={{ opacity: s.ativo ? 1 : 0.55 }}>
-                <td>
-                  <strong>{s.nome}</strong>
-                  <div className="texto-fraco">{s.categoria}</div>
-                </td>
-                <td>
-                  {s.duracaoMinutos} min
-                  {s.intervaloAposMinutos > 0 && (
-                    <div className="texto-fraco" title="Folga apos o atendimento">
-                      +{s.intervaloAposMinutos} de folga
-                    </div>
-                  )}
-                </td>
-                <td className="mono">{s.precoFormatado}</td>
-                <td>
-                  <div className="linha" style={{ gap: 4 }}>
-                    {s.profissionais.length === 0 ? (
-                      // Servico sem profissional nao aparece pra agendar: a
-                      // pessoa precisa ver isso, nao descobrir no uso.
-                      <Etiqueta tom="perigo">ninguem</Etiqueta>
-                    ) : (
-                      s.profissionais.map((p) => (
-                        <Etiqueta key={p.id} tom="neutro">
-                          {p.nome.split(' ')[0]}
-                          {p.precoProprio && ` (${p.precoFormatado})`}
-                        </Etiqueta>
-                      ))
-                    )}
-                  </div>
-                </td>
-                <td>{!s.ativo && <Etiqueta tom="neutro">inativo</Etiqueta>}</td>
-              </tr>
-            ))}
-          </Tabela>
-        )}
-      </Cartao>
-
-      {modal && (
-        <ModalServico
-          aoFechar={() => setModal(false)}
-          aoSalvar={() => {
-            setModal(false);
-            queryClient.invalidateQueries({ queryKey: ['servicos'] });
-          }}
-        />
-      )}
-    </>
-  );
-}
-
-function ModalServico({ aoFechar, aoSalvar }) {
-  const [form, setForm] = useState({
-    nome: '',
-    categoria: 'Geral',
-    duracaoMinutos: 30,
-    intervaloAposMinutos: 0,
-    precoCentavos: '',
-    profissionais: []
-  });
-
-  // Reaproveita a lista de servicos para descobrir quem sao os profissionais.
-  const servicos = useQuery({ queryKey: ['servicos'], queryFn: () => api.get('/api/servicos') });
-  const todosProfissionais = [
-    ...new Map(
-      (servicos.data?.servicos ?? []).flatMap((s) => s.profissionais).map((p) => [p.id, p])
-    ).values()
-  ];
-
-  const criar = useMutation({
-    mutationFn: (dados) => api.post('/api/servicos', dados),
-    onSuccess: aoSalvar
-  });
-
-  const erros = criar.error?.camposComErro ?? {};
-
-  function alternarProfissional(id) {
-    const ja = form.profissionais.some((p) => p.professionalId === id);
-    setForm({
-      ...form,
-      profissionais: ja
-        ? form.profissionais.filter((p) => p.professionalId !== id)
-        : [...form.profissionais, { professionalId: id }]
-    });
-  }
-
-  return (
-    <Modal
-      titulo="Novo servico"
-      aberto
-      aoFechar={aoFechar}
-      rodape={
-        <>
-          <Botao variante="secundario" onClick={aoFechar}>
-            Cancelar
-          </Botao>
-          <Botao
-            carregando={criar.isPending}
-            onClick={() =>
-              criar.mutate({
-                ...form,
-                duracaoMinutos: Number(form.duracaoMinutos),
-                intervaloAposMinutos: Number(form.intervaloAposMinutos)
-              })
-            }
-          >
-            Salvar
-          </Botao>
-        </>
-      }
-    >
-      {criar.isError && criar.error.codigo !== 'VALIDACAO' && <Aviso tom="perigo">{criar.error.message}</Aviso>}
-
-      <Campo rotulo="Nome" obrigatorio erro={erros.nome}>
-        <Entrada value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} autoFocus />
-      </Campo>
-
-      <Campo rotulo="Categoria">
-        <Entrada value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })} />
-      </Campo>
-
-      <Campo rotulo="Duracao (minutos)" obrigatorio erro={erros.duracaoMinutos}>
-        <Entrada
-          type="number"
-          min="5"
-          value={form.duracaoMinutos}
-          onChange={(e) => setForm({ ...form, duracaoMinutos: e.target.value })}
-        />
-      </Campo>
-
-      <Campo
-        rotulo="Folga apos o atendimento (minutos)"
-        dica="Tempo de limpeza ou preparo. Ocupa a agenda mas nao e cobrado."
-      >
-        <Entrada
-          type="number"
-          min="0"
-          value={form.intervaloAposMinutos}
-          onChange={(e) => setForm({ ...form, intervaloAposMinutos: e.target.value })}
-        />
-      </Campo>
-
-      <Campo rotulo="Preco" obrigatorio erro={erros.precoCentavos} dica="Pode digitar 45,90 ou R$ 45,90.">
-        <Entrada
-          value={form.precoCentavos}
-          onChange={(e) => setForm({ ...form, precoCentavos: e.target.value })}
-          placeholder="45,00"
-        />
-      </Campo>
-
-      <Campo rotulo="Quem executa" dica="Sem ninguem marcado, o servico nao aparece na tela de agendar.">
-        <div className="linha" style={{ gap: 6 }}>
-          {todosProfissionais.map((p) => (
-            <Botao
-              key={p.id}
+      <div className="eq-navegacao">
+        <div className="eq-abas" role="tablist" aria-label="Parte do catálogo">
+          {[
+            { id: 'servicos', titulo: 'Serviços', total: m?.servicos?.total },
+            { id: 'produtos', titulo: 'Produtos', total: m?.produtos?.total }
+          ].map((a) => (
+            <button
+              key={a.id}
               type="button"
-              tamanho="sm"
-              variante={form.profissionais.some((x) => x.professionalId === p.id) ? 'primario' : 'secundario'}
-              onClick={() => alternarProfissional(p.id)}
+              role="tab"
+              aria-selected={aba === a.id}
+              className={`eq-aba${aba === a.id ? ' eq-aba--ativa' : ''}`}
+              onClick={() => setAba(a.id)}
             >
-              {p.nome}
-            </Botao>
+              {a.titulo}
+              {a.total != null && <small>{a.total}</small>}
+            </button>
           ))}
         </div>
-      </Campo>
-    </Modal>
+      </div>
+
+      {aba === 'servicos' ? (
+        <Servicos podeEditar={podeEditar} limite={limite} pedidoNovo={pedidoNovo} />
+      ) : (
+        <Produtos podeEditar={podeEditar} />
+      )}
+    </div>
   );
 }
 

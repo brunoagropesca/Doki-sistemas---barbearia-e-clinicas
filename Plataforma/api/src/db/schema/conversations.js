@@ -167,6 +167,21 @@ export const conversations = sqliteTable(
      */
     menuEstado: text('menu_estado', { mode: 'json' }),
 
+    /**
+     * Desde quando o cliente espera uma PESSOA (status 'na_fila'). Gravado so
+     * quando a conversa ENTRA na fila. E o que permite a Sofia voltar a ajudar
+     * quando ninguem assume a tempo (ver `sofiaAjudaNaFila` no gateway).
+     */
+    naFilaDesde: instante('na_fila_desde'),
+
+    /**
+     * OFERTAS: os horarios que as consultas da Sofia MOSTRARAM nesta conversa
+     * (`[{ servicos, profissional, data, hora, em }]`, validade de 2 h). So um
+     * horario daqui pode ser reservado por ela (ver `reservar_horario`). No
+     * banco, e nao em memoria, para reiniciar o servidor nao apagar a trava.
+     */
+    ofertasHorario: text('ofertas_horario', { mode: 'json' }),
+
     ...carimbos(),
     ...exclusaoLogica()
   },

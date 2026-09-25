@@ -136,9 +136,14 @@ function horarioEmTexto(horario) {
 }
 
 /**
- * A base em texto corrido, pronta para o prompt da Sofia. So entra o que foi
- * preenchido: linha vazia no prompt e token pago a toa — e a IA poderia ler
- * "Pix: " como "a empresa nao tem Pix".
+ * O ESSENCIAL da base, em texto corrido: vai no prompt da Sofia em toda
+ * mensagem (quem e, onde fica, contato, horario, pagamento). So entra o que
+ * foi preenchido: linha vazia no prompt e token pago a toa — e a IA poderia
+ * ler "Pix: " como "a empresa nao tem Pix".
+ *
+ * Regras da casa, perguntas frequentes e extras ficam FORA (`detalhesParaIa`):
+ * eram metade do prompt e so importam quando o cliente pergunta. A Sofia os le
+ * pela ferramenta `consultar_informacoes`.
  *
  * @returns {string} vazio quando nada foi preenchido
  */
@@ -174,6 +179,19 @@ export function textoParaIa(empresa) {
   }
   if (b.pagamento.formas.length) add('Formas de pagamento', b.pagamento.formas.join(', '));
   add('Sobre pagamento', b.pagamento.observacao);
+  return l.join('\n');
+}
+
+/**
+ * Os DETALHES da base (regras da casa, perguntas frequentes, outras
+ * informacoes): o que a ferramenta `consultar_informacoes` devolve.
+ *
+ * @returns {string} vazio quando nada disso foi preenchido
+ */
+export function detalhesParaIa(empresa) {
+  const b = mesclar(empresa);
+  const l = [];
+  const add = (rotulo, valor) => valor?.toString().trim() && l.push(`- ${rotulo}: ${valor.toString().trim()}`);
 
   add('Regras da casa (atrasos, cancelamentos etc.)', b.politicas);
 
@@ -187,7 +205,54 @@ export function textoParaIa(empresa) {
   return l.join('\n');
 }
 
-/** Atalho do atendimento: o texto da base desta empresa (vazio se nada preenchido). */
+/**
+ * Os detalhes em PEDACOS (uma regra, uma pergunta com a resposta, uma frase
+ * dos extras): o que o atendimento escolhe por relevancia para colocar no
+ * prompt de uma mensagem, sem mandar a base inteira (ver relevancia.js).
+ *
+ * @returns {{ tema: string, texto: string }[]}
+ */
+export function itensDosDetalhes(empresa) {
+  const b = mesclar(empresa);
+  const linhas = (texto) => String(texto ?? '').split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const frases = (texto) => String(texto ?? '').split(/(?<=[.!?])\s+|\n+/).map((f) => f.trim()).filter(Boolean);
+  return [
+    ...linhas(b.politicas).map((texto) => ({ tema: 'Regra da casa', texto })),
+    ...b.faq
+      .filter((f) => f.pergunta?.trim() && f.resposta?.trim())
+      .map((f) => ({ tema: 'Pergunta frequente', texto: `P: ${f.pergunta.trim()} R: ${f.resposta.trim()}` })),
+    ...frases(b.extras).map((texto) => ({ tema: 'Outras informações', texto }))
+  ];
+}
+
+/**
+ * O indice do que existe nos detalhes: vai no prompt (poucos tokens) para a
+ * Sofia saber QUE a resposta existe e ir buscar, em vez de achar que nao sabe
+ * ou de responder de memoria.
+ */
+export function indiceDosDetalhes(empresa) {
+  const b = mesclar(empresa);
+  const partes = [];
+  if (b.politicas?.trim()) partes.push('regras da casa (atraso, cancelamento etc.)');
+  const perguntas = b.faq.filter((f) => f.pergunta?.trim() && f.resposta?.trim()).map((f) => f.pergunta.trim());
+  if (perguntas.length) partes.push(`perguntas frequentes: ${perguntas.join(' / ')}`);
+  if (b.extras?.trim()) partes.push('outras informações');
+  return partes.join('; ');
+}
+
+/**
+ * Atalho do atendimento: a base desta empresa como a Sofia a recebe.
+ * `texto` vai no prompt; `detalhes`, so quando ela consulta; `itens` e
+ * `indice` servem para o atendimento escolher o que e relevante a cada mensagem.
+ *
+ * @returns {Promise<{ texto: string, detalhes: string, itens: {tema: string, texto: string}[], indice: string }>}
+ */
 export async function baseParaIa(tenantId) {
-  return textoParaIa(await lerBase(tenantId));
+  const base = await lerBase(tenantId);
+  return {
+    texto: textoParaIa(base),
+    detalhes: detalhesParaIa(base),
+    itens: itensDosDetalhes(base),
+    indice: indiceDosDetalhes(base)
+  };
 }

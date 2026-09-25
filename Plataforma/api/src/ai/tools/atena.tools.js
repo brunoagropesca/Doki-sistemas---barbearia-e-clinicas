@@ -171,13 +171,12 @@ export function ferramentasDaAtena({ tenantId, fuso, leadId, conversationId = nu
 
   const consultarHorarios = definirFerramenta({
     nome: 'consultar_horarios',
-    descricao:
-      'Horários REALMENTE livres de um serviço numa data. Use antes de afirmar que um horário ' +
-      'está livre. Aceita nomes ("Corte Social", "Carlos"). Sem profissional: todos que fazem o serviço.',
+    // Descricoes curtas de proposito: vao em toda chamada da Sofia e da Atena.
+    descricao: 'Horários livres (e preço) de um serviço numa data. Use antes de dizer que um horário está livre.',
     argumentos: z.object({
-      servicoId: z.string().describe('Nome (ou id) do serviço.'),
-      profissionalId: z.string().optional().describe('Nome (ou id) do profissional. Omitir = todos.'),
-      data: z.string().optional().describe('Como o cliente disse: "sexta", "dia 25", "amanhã", "25/09". Padrão: hoje.')
+      servicoId: z.string().describe('Nome do serviço.'),
+      profissionalId: z.string().optional().describe('Nome do profissional. Omitir = todos.'),
+      data: z.string().optional().describe('Como o cliente disse ("sexta", "dia 25"). Padrão: hoje.')
     }),
     async executar({ servicoId, profissionalId, data }) {
       const quando = interpretar(data);
@@ -486,14 +485,9 @@ export function ferramentasDaAtena({ tenantId, fuso, leadId, conversationId = nu
 
   const agendamentosDoCliente = definirFerramenta({
     nome: 'consultar_agendamentos_do_cliente',
-    descricao:
-      'Agendamentos (OS) deste cliente, com o id de cada um. Necessário antes de remarcar, ' +
-      'cancelar ou excluir.',
+    descricao: 'Agendamentos deste cliente, com o id de cada um. Necessário antes de remarcar, cancelar ou excluir.',
     argumentos: z.object({
-      apenasFuturos: z
-        .boolean()
-        .optional()
-        .describe('true = só o que ainda vai acontecer. false/omitido = histórico completo.')
+      apenasFuturos: z.boolean().optional().describe('true = só os futuros.')
     }),
     async executar({ apenasFuturos }) {
       if (!leadId) return { agendamentos: [], aviso: 'Cliente ainda não identificado.' };

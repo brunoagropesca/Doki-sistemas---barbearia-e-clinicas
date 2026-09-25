@@ -118,7 +118,7 @@ export function resolverProfissional(servico, ref) {
  * prompt. Devolve null para catalogo grande — passado disso, o resumo custaria
  * mais do que as consultas que ele evita.
  */
-export async function resumoDoCatalogo(tenantId, { maxServicos = 25 } = {}) {
+export async function resumoDoCatalogo(tenantId, { maxServicos = catalogo.LIMITE_SERVICOS_ATIVOS } = {}) {
   const lista = await catalogoDaEmpresa(tenantId);
   if (lista.length === 0 || lista.length > maxServicos) return null;
 

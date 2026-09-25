@@ -268,10 +268,12 @@ describe('o que chega ao WhatsApp do cliente', () => {
   });
 
   it('**negrito** do Markdown sai como *negrito* do WhatsApp', async () => {
+    // Preco do catalogo do seed: um valor fora dele cairia na trava de preco
+    // inventado (alucinacao.test.js) e o teste deixaria de medir a formatacao.
     const r = await falarComSofia('quais serviços?', [
-      { texto: '- **Descoloração**: *R$ 500,00*' }
+      { texto: '- **Corte Degradê**: *R$ 55,00*' }
     ]);
-    assert.equal(r.baloes[0], '- *Descoloração*: *R$ 500,00*');
+    assert.equal(r.baloes[0], '- *Corte Degradê*: *R$ 55,00*');
   });
 
   it('a Sofia sem resposta (repetiu o pedido) passa para uma pessoa, sem prometer retorno', async () => {

@@ -70,6 +70,23 @@ export async function atualizarServico(tenantId, id, dados) {
   return buscarServico(tenantId, id);
 }
 
+export async function contarServicosAtivos(tenantId) {
+  const [r] = await db
+    .select({ n: sql`COUNT(*)`.as('n') })
+    .from(services)
+    .where(and(baseServico(tenantId), eq(services.ativo, true)));
+  return Number(r?.n) || 0;
+}
+
+/** Troca o nome de uma categoria em todos os servicos dela, de uma vez. */
+export async function renomearCategoriaDeServicos(tenantId, de, para) {
+  const r = await db
+    .update(services)
+    .set({ categoria: para })
+    .where(and(baseServico(tenantId), eq(services.categoria, de)));
+  return r.rowsAffected ?? 0;
+}
+
 export async function excluirServico(tenantId, id) {
   const r = await db.update(services).set({ deletedAt: new Date() }).where(and(baseServico(tenantId), eq(services.id, id)));
   return (r.rowsAffected ?? 0) > 0;

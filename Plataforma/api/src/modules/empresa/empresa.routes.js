@@ -67,8 +67,12 @@ export async function rotasEmpresa(app) {
     return { empresa: await service.salvar(req.tenantId, dados, req.usuario) };
   });
 
-  /** GET /api/empresa/texto-ia — exatamente o que a Sofia recebe (previa na tela). */
+  /**
+   * GET /api/empresa/texto-ia — exatamente o que a Sofia recebe (previa na tela):
+   * `texto` vai em toda mensagem; `detalhes`, so quando ela consulta.
+   */
   app.get('/api/empresa/texto-ia', { config: apenas.admin }, async (req) => {
-    return { texto: await service.baseParaIa(req.tenantId) };
+    const { texto, detalhes } = await service.baseParaIa(req.tenantId);
+    return { texto, detalhes };
   });
 }

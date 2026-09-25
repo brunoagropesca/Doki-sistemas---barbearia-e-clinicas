@@ -1,0 +1,217 @@
+/* ================================================================
+ * CATALOGO — servicos
+ *
+ * A lista reaproveita as pecas da Equipe (busca, chips, linha densa,
+ * menu "⋯"); aqui fica so o que e do catalogo: o aviso do teto de
+ * servicos ativos, a coluna de categorias e o formulario.
+ * ================================================================ */
+
+/* ─── Teto de servicos ativos ─── */
+.cat-limite {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--e4);
+  padding: var(--e3) var(--e4) calc(var(--e3) + 4px);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  background: var(--superficie);
+  overflow: hidden;
+}
+.cat-limite__numeros { display: flex; flex-direction: column; align-items: flex-start; flex: none; min-width: 92px; }
+.cat-limite__numeros strong { font-size: 24px; line-height: 1.1; }
+.cat-limite__numeros strong span { font-size: 15px; color: var(--texto-fraco); font-weight: 600; }
+.cat-limite__numeros > span { font-size: 11.5px; color: var(--texto-fraco); }
+.cat-limite__texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cat-limite__texto p { margin: 0; font-size: 13.5px; font-weight: 600; }
+.cat-limite__texto small { font-size: 12px; color: var(--texto-suave); }
+.cat-limite__trilho { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--superficie-2); }
+.cat-limite__barra { display: block; height: 100%; background: var(--primaria); transition: width 0.3s; }
+.cat-limite--alto { border-color: rgba(232, 149, 88, 0.35); background: var(--alerta-suave); }
+.cat-limite--alto .cat-limite__barra { background: var(--alerta); }
+.cat-limite--alto .cat-limite__numeros strong { color: var(--alerta); }
+.cat-limite--cheio { border-color: rgba(234, 33, 67, 0.4); background: var(--perigo-suave); }
+.cat-limite--cheio .cat-limite__barra { background: var(--perigo); }
+.cat-limite--cheio .cat-limite__numeros strong { color: #ff6b82; }
+
+/* ─── Categorias + lista ─── */
+.cat-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--e4); align-items: start; }
+.cat-principal { min-width: 0; }
+
+.cat-categorias { padding: var(--e2); position: sticky; top: var(--e4); }
+.cat-categorias__titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-fraco);
+}
+.cat-categorias__nova {
+  padding: 2px 8px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: none;
+  color: #8db6ff;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+.cat-categorias__nova:hover { background: var(--primaria-suave); }
+.cat-categorias ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.cat-categorias__item { position: relative; }
+
+.cat-categoria {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e2);
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--raio);
+  background: none;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.cat-categoria span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cat-categoria small,
+.cat-grupo small {
+  flex: none;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--superficie-3);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--texto-suave);
+}
+.cat-categoria:hover { background: var(--superficie-2); color: var(--texto); }
+.cat-categoria--ativa { background: var(--primaria-suave); color: var(--texto); }
+.cat-categoria--ativa small { background: rgba(24, 86, 255, 0.35); color: var(--texto); }
+
+/* O lapis aparece no hover (no toque, sempre): renomear e raro, nao pode poluir. */
+.cat-categorias__item .cat-categoria { padding-right: 38px; }
+.cat-categoria__editar {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--texto-fraco);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s;
+}
+.cat-categoria__editar svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.cat-categorias__item:hover .cat-categoria__editar,
+.cat-categoria__editar:focus-visible { opacity: 1; }
+.cat-categoria__editar:hover { background: var(--superficie-3); color: var(--texto); }
+@media (hover: none) { .cat-categoria__editar { opacity: 1; } }
+/* Com o lapis a mostra, a contagem vai para o lado dele. */
+.cat-categorias__item:hover .cat-categoria small { visibility: hidden; }
+@media (hover: none) { .cat-categorias__item .cat-categoria small { visibility: hidden; } }
+
+/* ─── Lista de servicos ─── */
+.cat-lista .eq-linha { grid-template-columns: minmax(200px, 2.2fr) minmax(90px, 0.9fr) minmax(100px, 1fr) minmax(110px, 1.1fr) 90px 40px; }
+.cat-grupo {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  padding: 14px var(--e4) 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8db6ff;
+  border-bottom: 1px solid var(--borda);
+}
+
+/* Iniciais dos profissionais, com a cor de cada um na agenda. */
+.cat-pessoas { display: flex; align-items: center; }
+.cat-pessoa {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-left: -6px;
+  border-radius: 50%;
+  border: 2px solid #0b1022;
+  background: var(--cor);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.cat-pessoa:first-child { margin-left: 0; }
+.cat-pessoa--mais { background: var(--superficie-3); color: var(--texto-suave); font-size: 10px; }
+.cat-pessoa--mini { width: 10px; height: 10px; margin: 0; border: none; }
+
+/* ─── Formulario ─── */
+.cat-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 var(--e3); }
+.cat-form > :nth-child(1),
+.cat-form > :nth-child(2),
+.cat-form > :nth-child(6) { grid-column: span 3; }
+.cat-form__nova { margin-top: var(--e2); }
+.cat-interruptor { display: inline-flex; align-items: center; gap: var(--e2); height: 40px; font-size: 13.5px; cursor: pointer; }
+.cat-interruptor input { width: 18px; height: 18px; accent-color: var(--primaria); }
+
+@media (min-width: 640px) {
+  .cat-form > :nth-child(1) { grid-column: span 2; }
+  .cat-form > :nth-child(2) { grid-column: span 1; }
+}
+
+/* ─── Telas medias e celular ─── */
+@media (max-width: 1180px) {
+  .cat-lista .eq-linha { grid-template-columns: minmax(180px, 2fr) minmax(90px, 1fr) minmax(100px, 1fr) 90px 40px; }
+  .cat-lista .eq-linha > :nth-child(4) { display: none; }
+}
+@media (max-width: 900px) {
+  /* A coluna de categorias vira uma faixa rolavel acima da lista. */
+  .cat-layout { grid-template-columns: minmax(0, 1fr); }
+  .cat-categorias { position: static; padding: var(--e2); }
+  .cat-categorias ul { flex-direction: row; overflow-x: auto; scrollbar-width: none; }
+  .cat-categorias ul::-webkit-scrollbar { display: none; }
+  .cat-categoria { white-space: nowrap; }
+}
+@media (max-width: 820px) {
+  .cat-limite { align-items: flex-start; gap: var(--e3); }
+  .cat-limite__numeros { min-width: 64px; }
+  .cat-lista .eq-linha {
+    grid-template-columns: minmax(0, 1fr) auto 36px;
+    gap: 2px var(--e3);
+    padding: 10px var(--e4);
+  }
+  /* Segunda linha em texto pequeno: duracao e preco. */
+  .cat-lista .eq-linha > :nth-child(2) { grid-column: 1; grid-row: 2; flex-direction: row; gap: 6px; font-size: 12px; color: var(--texto-suave); }
+  .cat-lista .eq-linha > :nth-child(3) { grid-column: 2; grid-row: 1; align-items: flex-end; }
+  .cat-lista .eq-linha > :nth-child(4) { display: none; }
+  .cat-lista .eq-linha > :nth-child(5) { grid-column: 2; grid-row: 2; justify-self: end; }
+  .cat-lista .eq-linha > :nth-child(6) { grid-column: 3; grid-row: 1 / span 2; }
+  .cat-lista .eq-linha--cabecalho { display: none; }
+  .cat-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cat-form > :nth-child(1),
+  .cat-form > :nth-child(2),
+  .cat-form > :nth-child(6) { grid-column: span 2; }
+}
+
+/* Na faixa rolavel (celular/tablet) o lapis em toda categoria esconderia as
+ * contagens: ele aparece so na categoria escolhida. */
+@media (max-width: 900px) {
+  .cat-categoria__editar { display: none; }
+  .cat-categorias__item .cat-categoria { padding-right: 10px; }
+  .cat-categorias__item .cat-categoria small { visibility: visible; }
+  .cat-categorias__item:has(.cat-categoria--ativa) .cat-categoria { padding-right: 38px; }
+  .cat-categorias__item:has(.cat-categoria--ativa) .cat-categoria small { visibility: hidden; }
+  .cat-categorias__item:has(.cat-categoria--ativa) .cat-categoria__editar { display: grid; opacity: 1; }
+}

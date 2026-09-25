@@ -56,6 +56,9 @@ const OPCOES_CONTEXTO = [
 
 const OPCOES_FECHAMENTO = ['18:00', '19:00', '20:00', '21:00', '22:00', '23:00', '23:30'].map((h) => [h, `${h}`]);
 
+/** Horario do lembrete de vespera: fim de tarde, quando o cliente ainda pode remarcar. */
+const OPCOES_LEMBRETE = ['12:00', '14:00', '16:00', '17:00', '18:00', '19:00', '20:00'].map((h) => [h, `${h}`]);
+
 const OPCOES_AGRUPAMENTO = [
   [0, 'Desligado (responde na hora)'],
   [3, '3 segundos (Rápido)'],
@@ -251,6 +254,26 @@ export function Personas() {
               ))}
             </Selecao>
           </div>
+
+          <div className="ci-caixa">
+            <div className="linha linha--entre">
+              <div className="ci-caixa__titulo">🔔 Lembrete na Véspera</div>
+              <Interruptor ativo={Boolean(c.lembreteAtivo)} aoMudar={(v) => salvarCfg.mutate({ lembreteAtivo: v })} />
+            </div>
+            <p className="texto-fraco">
+              Na véspera, a partir deste horário, cada cliente com horário marcado para amanhã recebe uma mensagem só
+              com todos os seus serviços. Reduz as faltas; se ele responder pedindo para remarcar, a Sofia atende.
+            </p>
+            <Selecao
+              value={c.lembreteHora ?? '18:00'}
+              disabled={!c.lembreteAtivo}
+              onChange={(e) => salvarCfg.mutate({ lembreteHora: e.target.value })}
+            >
+              {comValorAtual(OPCOES_LEMBRETE, c.lembreteHora ?? '18:00', (v) => v).map(([v, r]) => (
+                <option key={v} value={v}>{r}</option>
+              ))}
+            </Selecao>
+          </div>
         </div>
       </section>
 
@@ -409,7 +432,7 @@ function CartaoSofia({ agente, tons, cadeia }) {
 
       <Campo
         rotulo="PROMPT DE SISTEMA (PERSONA & DIRETRIZES)"
-        dica="A Sofia nunca acessa o banco: sobre preços, horários e agendamentos ela consulta a Atena. Essa regra é aplicada automaticamente."
+        dica="Preços vêm do catálogo; horários, a Sofia consulta direto na agenda. Ela só marca um horário que a consulta mostrou ao cliente, e remarcar ou cancelar passa pela Atena. Essas regras são aplicadas automaticamente."
       >
         <AreaTexto
           value={form.systemPrompt}

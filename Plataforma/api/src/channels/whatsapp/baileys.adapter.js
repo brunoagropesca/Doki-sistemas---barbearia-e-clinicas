@@ -646,6 +646,26 @@ export async function desconectar(tenantId, instanciaChave = 'W1', { sair = fals
   return { ok: true };
 }
 
+/**
+ * Mostra (ou tira) o "digitando..." para o cliente.
+ *
+ * Usado enquanto a IA pensa: sem ele o cliente olhava uma tela parada por
+ * 10-30 s e mandava "??". E enfeite — nunca lanca, e com a conexao fechada
+ * simplesmente nao faz nada (a resposta sai do mesmo jeito, ou falha no envio).
+ *
+ * @param {'composing'|'paused'} estado
+ */
+export async function presenca({ tenantId, instanciaChave = 'W1', destino, estado = 'composing' }) {
+  const conexao = conexoes.get(chaveDe(tenantId, instanciaChave));
+  if (!conexao?.aberta || !conexao.sock.sendPresenceUpdate) return;
+  try {
+    const jid = `${normalizarTelefone(destino)}@s.whatsapp.net`;
+    await conexao.sock.sendPresenceUpdate(estado, jid);
+  } catch (err) {
+    log.debug({ err: err.message }, 'Nao foi possivel atualizar a presenca');
+  }
+}
+
 /** A conexao esta aberta e pronta para enviar? */
 export function estaConectada(tenantId, instanciaChave = 'W1') {
   return conexoes.get(chaveDe(tenantId, instanciaChave))?.aberta === true;
@@ -720,5 +740,5 @@ export function encerrarTodas() {
 
 /** Registra este adaptador no gateway. */
 export function instalarAdaptadorWhatsapp() {
-  registrarAdaptador('whatsapp', { enviar, conectar, desconectar, estaConectada, fotoDePerfil });
+  registrarAdaptador('whatsapp', { enviar, presenca, conectar, desconectar, estaConectada, fotoDePerfil });
 }

@@ -134,6 +134,27 @@
       "when": 1790199596592,
       "tag": "0018_aviso_cancelado",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1790347149654,
+      "tag": "0019_fila_desde",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1790351412439,
+      "tag": "0020_lembrete_vespera",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1790353352887,
+      "tag": "0021_ofertas_horario",
+      "breakpoints": true
     }
   ]
 }

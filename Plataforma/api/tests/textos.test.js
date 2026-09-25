@@ -1,6 +1,6 @@
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { criarAppDeTeste, entrar } from './helpers/ambiente.js';
+import { abrirACasa, criarAppDeTeste, entrar } from './helpers/ambiente.js';
 import { garantirUsuarioDev } from '../src/db/usuario-dev.js';
 
 /**
@@ -17,6 +17,7 @@ const trocar = (original, novo, cab = cabDev) =>
 
 before(async () => {
   ({ app } = await criarAppDeTeste());
+  await abrirACasa();
   const dono = await entrar(app);
   cabDono = dono.cabecalho;
   tenantId = dono.usuario.tenantId;

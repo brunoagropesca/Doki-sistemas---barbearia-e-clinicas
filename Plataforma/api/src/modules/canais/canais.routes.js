@@ -73,6 +73,14 @@ const configAtendimentoSchema = z
     fechamentoHora: z
       .string()
       .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use o formato HH:MM.')
+      .optional(),
+    // 0 desliga. Tetos: um dia na fila; um mes de atendente sem escrever.
+    filaEsperaMinutos: z.number().int().min(0).max(1440).optional(),
+    humanoAbandonoHoras: z.number().int().min(0).max(720).optional(),
+    lembreteAtivo: z.boolean().optional(),
+    lembreteHora: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use o formato HH:MM.')
       .optional()
   })
   .refine((d) => Object.keys(d).length > 0, 'Envie pelo menos um campo.');

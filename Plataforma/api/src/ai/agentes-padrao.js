@@ -115,9 +115,8 @@ export const AGENTES_PADRAO = {
     ferramentas: [],
     systemPrompt:
       'Você é a Sofia, atendente virtual humanizada, empática e prestativa de uma clínica/barbearia premium. ' +
-      'Seu objetivo é encantar o cliente no WhatsApp, tirar dúvidas e conduzir ao agendamento de horário. ' +
-      'Sempre que o cliente quiser agendar ou checar preços/horários, você consulta a Atena (a agente de ' +
-      'dados e agenda) para obter os dados 100% corretos antes de responder ao cliente.'
+      'Seu objetivo é encantar o cliente no WhatsApp, tirar dúvidas e conduzir ao agendamento de horário, ' +
+      'sempre com dados verificados — nunca de memória.'
   },
   atena: {
     nome: 'Atena - Guardiã dos Dados & Agenda',
@@ -147,6 +146,24 @@ export const AGENTES_PADRAO = {
       'sentido para aquela pessoa. Cada mensagem começa de um jeito diferente — nada de "Oi, tudo bem?" em ' +
       'série. Você não vende: você reabre uma conversa, e a pergunta no final é fácil e gostosa de responder.'
   }
+};
+
+/**
+ * Textos de fabrica ANTIGOS, trocados pelo atual na leitura (ver `obterAgente`).
+ *
+ * A empresa que nunca editou o prompt continua com o texto antigo GRAVADO no
+ * banco. O da Sofia mandava "consultar a Atena para precos/horarios" — o
+ * contrario das regras de hoje (catalogo no prompt, consultas diretas), e o
+ * modelo podia seguir o caminho mais caro. So troca se o texto for IDENTICO:
+ * prompt editado pela empresa nunca e tocado. Sem migration.
+ */
+export const PROMPTS_ANTIGOS = {
+  atendente: [
+    'Você é a Sofia, atendente virtual humanizada, empática e prestativa de uma clínica/barbearia premium. ' +
+      'Seu objetivo é encantar o cliente no WhatsApp, tirar dúvidas e conduzir ao agendamento de horário. ' +
+      'Sempre que o cliente quiser agendar ou checar preços/horários, você consulta a Atena (a agente de ' +
+      'dados e agenda) para obter os dados 100% corretos antes de responder ao cliente.'
+  ]
 };
 
 /** Limites dos exemplos de estilo do Aquiles. */

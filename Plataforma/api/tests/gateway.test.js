@@ -1,6 +1,6 @@
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { criarAppDeTeste, entrar } from './helpers/ambiente.js';
+import { abrirACasa, criarAppDeTeste, entrar } from './helpers/ambiente.js';
 import { receberMensagem, recarregarAgrupador, registrarAdaptador } from '../src/channels/gateway.js';
 
 /**
@@ -38,6 +38,7 @@ const adaptadorFalso = {
 
 before(async () => {
   ({ app } = await criarAppDeTeste());
+  await abrirACasa();
   ({ cabecalho: cabDono } = await entrar(app));
 
   const { db } = await import('../src/db/client.js');
@@ -245,6 +246,197 @@ describe('agrupamento no fluxo real', () => {
 
     await atendimento.salvarConfiguracao(tenantId, { agrupamentoSegundos: 0 });
     recarregarAgrupador(tenantId);
+  });
+});
+
+/**
+ * Um turno por vez em cada conversa (e historico sem repeticao).
+ *
+ * BUG 1: o cliente escrevia enquanto a Sofia "pensava" e saiam DUAS chamadas
+ * em paralelo — a segunda nao via a primeira. BUG 2: com mensagens picotadas,
+ * as primeiras iam soltas no historico E de novo no lote.
+ *
+ * A IA aqui e um Ollama de mentira: o `fetch` e trocado por um que demora
+ * `atrasoMs` e registra cada chamada (quando comecou, quando acabou e o que o
+ * modelo recebeu). So contam as chamadas da SOFIA — as que levam as
+ * ferramentas dela; a leitura de humor tambem passa pelo modelo.
+ */
+describe('um turno por vez em cada conversa', () => {
+  const fetchOriginal = globalThis.fetch;
+  let chamadas = [];
+  let atrasoMs = 0;
+  const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+  const daSofia = () => chamadas.filter((c) => c.sofia);
+  /** Mensagens de usuario que o modelo recebeu numa chamada. */
+  const doUsuario = (c) => c.corpo.messages.filter((m) => m.role === 'user').map((m) => m.content);
+
+  /** O que o modelo "responde": pedido de pessoa vira transferencia; o resto, texto. */
+  function respostaDoModelo(corpo) {
+    const ultima = corpo.messages.at(-1);
+    const pediuPessoa = corpo.messages.some((m) => m.role === 'user' && /falar com uma pessoa/.test(m.content));
+    if (pediuPessoa && ultima.role !== 'tool' && corpo.tools?.length) {
+      return {
+        content: '',
+        tool_calls: [{ id: 't1', type: 'function', function: { name: 'transferir_para_humano', arguments: '{"motivo":"Cliente pediu uma pessoa."}' } }]
+      };
+    }
+    if (pediuPessoa) return { content: 'Claro, vou te passar para um atendente agora.' };
+    // Resposta diferente a cada chamada: da para achar a resposta N no historico da N+1.
+    return { content: `Resposta numero ${chamadas.length}.` };
+  }
+
+  before(async () => {
+    const { db } = await import('../src/db/client.js');
+    const { aiProviders } = await import('../src/db/schema/index.js');
+    await db.insert(aiProviders).values({
+      id: 'aip_gateway_turnos',
+      tenantId,
+      provedor: 'ollama',
+      habilitado: true,
+      prioridade: 0,
+      baseUrl: 'http://ia-falsa.local/v1',
+      modelos: [{ nome: 'modelo-falso', ativo: true }]
+    });
+
+    globalThis.fetch = async (url, opcoes = {}) => {
+      if (!String(url).startsWith('http://ia-falsa.local')) return fetchOriginal(url, opcoes);
+      const corpo = JSON.parse(opcoes.body);
+      const chamada = { inicio: Date.now(), fim: null, corpo, sofia: (corpo.tools ?? []).some((t) => t.function?.name === 'transferir_para_humano') };
+      chamadas.push(chamada);
+      await esperar(atrasoMs);
+      const mensagem = respostaDoModelo(corpo);
+      chamada.fim = Date.now();
+      chamada.resposta = mensagem.content;
+      const dados = { choices: [{ message: mensagem, finish_reason: 'stop' }], usage: { prompt_tokens: 5, completion_tokens: 5 } };
+      return { ok: true, status: 200, json: async () => dados, text: async () => JSON.stringify(dados) };
+    };
+
+    const atendimento = await import('../src/modules/atendimento/atendimento.service.js');
+    await atendimento.salvarConfiguracao(tenantId, { agrupamentoSegundos: 1 });
+    recarregarAgrupador(tenantId);
+  });
+
+  after(async () => {
+    globalThis.fetch = fetchOriginal;
+    const { db } = await import('../src/db/client.js');
+    const { aiProviders } = await import('../src/db/schema/index.js');
+    const { eq } = await import('drizzle-orm');
+    await db.delete(aiProviders).where(eq(aiProviders.id, 'aip_gateway_turnos'));
+    const atendimento = await import('../src/modules/atendimento/atendimento.service.js');
+    await atendimento.salvarConfiguracao(tenantId, { agrupamentoSegundos: 0 });
+    recarregarAgrupador(tenantId);
+  });
+
+  it('mensagem que chega com a Sofia pensando espera a vez e ve a resposta anterior', { timeout: 30_000 }, async () => {
+    chamadas = [];
+    atrasoMs = 2500;
+    const tel = '5511955508801';
+
+    const primeira = receberMensagem({ tenantId, remetente: tel, texto: 'quero cortar amanhã', idExterno: 'turno_a1' });
+    // O lote da 1ª sai em 1 s; a IA leva 2,5 s. A 2ª chega no meio disso.
+    await esperar(1500);
+    const segunda = receberMensagem({ tenantId, remetente: tel, texto: 'e a barba também', idExterno: 'turno_a2' });
+    const [r1, r2] = await Promise.all([primeira, segunda]);
+
+    assert.equal(r1.respondido, true);
+    assert.equal(r2.respondido, true);
+    const [c1, c2] = daSofia();
+    assert.ok(c1 && c2, 'duas chamadas da Sofia, uma por turno');
+    assert.ok(c2.inicio >= c1.fim, `as chamadas nao podem se sobrepor (2ª comecou ${c1.fim - c2.inicio} ms antes do fim da 1ª)`);
+
+    assert.ok(
+      c2.corpo.messages.some((m) => m.role === 'assistant' && m.content === c1.resposta),
+      'a 2ª chamada recebe a resposta da 1ª no historico'
+    );
+    assert.deepEqual(doUsuario(c2).slice(-2), ['quero cortar amanhã', 'e a barba também']);
+  });
+
+  it('se o turno anterior passou para uma pessoa, o que esperava nao responde', { timeout: 30_000 }, async () => {
+    chamadas = [];
+    atrasoMs = 2500;
+    enviados.length = 0;
+    const tel = '5511955508802';
+
+    const primeira = receberMensagem({ tenantId, remetente: tel, texto: 'quero falar com uma pessoa', idExterno: 'turno_b1' });
+    await esperar(1500);
+    const segunda = receberMensagem({ tenantId, remetente: tel, texto: 'alô?', idExterno: 'turno_b2' });
+    const [r1, r2] = await Promise.all([primeira, segunda]);
+
+    assert.equal(r1.transferido, true);
+    assert.equal(r2.respondido, false);
+    assert.equal(r2.motivo, 'aguardando_humano');
+    const paraEle = enviados.filter((e) => e.destino === tel);
+    assert.equal(paraEle.length, 1, 'so o aviso da transferencia chega ao cliente');
+  });
+
+  it('mensagens picotadas: o modelo recebe UMA mensagem com as tres, sem repetir', { timeout: 30_000 }, async () => {
+    chamadas = [];
+    atrasoMs = 0;
+    const tel = '5511955508803';
+
+    const resultados = await Promise.all([
+      receberMensagem({ tenantId, remetente: tel, texto: 'boa tarde', idExterno: 'turno_c1' }),
+      esperar(100).then(() => receberMensagem({ tenantId, remetente: tel, texto: 'queria marcar', idExterno: 'turno_c2' })),
+      esperar(200).then(() => receberMensagem({ tenantId, remetente: tel, texto: 'pra sexta', idExterno: 'turno_c3' }))
+    ]);
+
+    assert.equal(resultados.filter((r) => r.respondido).length, 1);
+    const [c] = daSofia();
+    assert.deepEqual(doUsuario(c), ['boa tarde\nqueria marcar\npra sexta'], 'antes as duas primeiras vinham soltas E dentro do lote');
+  });
+
+  /**
+   * "digitando..." enquanto a IA pensa: antes o cliente via a tela parada por
+   * 10-30 s e mandava "??". A ordem importa: liga antes da IA, desliga quando
+   * ela termina, e so depois a resposta sai.
+   */
+  it('mostra "digitando" enquanto a IA pensa e desliga antes de enviar', { timeout: 30_000 }, async () => {
+    chamadas = [];
+    atrasoMs = 2500;
+    const tel = '5511955508807';
+    const linha = [];
+    const inicio = Date.now();
+    registrarAdaptador('whatsapp', {
+      ...adaptadorFalso,
+      async presenca({ destino, estado }) {
+        if (destino === tel) linha.push({ o: `presenca:${estado}`, t: Date.now() - inicio });
+      },
+      async enviar(dados) {
+        if (dados.destino === tel) linha.push({ o: 'envio', t: Date.now() - inicio });
+        return adaptadorFalso.enviar(dados);
+      }
+    });
+    try {
+      const r = await receberMensagem({ tenantId, remetente: tel, texto: 'queria um horário amanhã', idExterno: 'turno_e1' });
+      assert.equal(r.respondido, true);
+    } finally {
+      registrarAdaptador('whatsapp', adaptadorFalso);
+    }
+
+    const ordem = linha.map((x) => x.o);
+    assert.equal(ordem[0], 'presenca:composing', 'o "digitando" liga antes de tudo');
+    const pausa = ordem.indexOf('presenca:paused');
+    const envio = ordem.indexOf('envio');
+    assert.ok(pausa > 0 && envio > pausa, `desliga e so depois envia: ${ordem.join(' → ')}`);
+    const [sofia] = daSofia();
+    assert.ok(linha[0].t <= sofia.inicio - inicio + 5, 'aparece antes de a IA comecar a pensar');
+  });
+
+  it('clientes diferentes continuam em paralelo (a trava e por conversa)', { timeout: 30_000 }, async () => {
+    chamadas = [];
+    atrasoMs = 1500;
+    const tels = ['5511955508804', '5511955508805', '5511955508806'];
+
+    const resultados = await Promise.all(
+      tels.map((tel, i) => receberMensagem({ tenantId, remetente: tel, texto: 'queria um horário', idExterno: `turno_d${i}` }))
+    );
+
+    assert.ok(resultados.every((r) => r.respondido));
+    const sofia = daSofia();
+    assert.equal(sofia.length, 3);
+    const ultimoInicio = Math.max(...sofia.map((c) => c.inicio));
+    const primeiroFim = Math.min(...sofia.map((c) => c.fim));
+    assert.ok(ultimoInicio < primeiroFim, 'as tres chamadas rodaram ao mesmo tempo');
   });
 });
 
