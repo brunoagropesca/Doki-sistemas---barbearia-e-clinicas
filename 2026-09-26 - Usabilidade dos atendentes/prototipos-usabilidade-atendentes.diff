@@ -1,0 +1,768 @@
+diff --git a/api/src/automacao/automacao.routes.js b/api/src/automacao/automacao.routes.js
+index 85c026a..5a4acb1 100644
+--- a/api/src/automacao/automacao.routes.js
++++ b/api/src/automacao/automacao.routes.js
+@@ -2,6 +2,7 @@ import { z } from 'zod';
+ import { assinar } from '../core/eventos.js';
+ import { apenas } from '../http/plugins/autenticacao.js';
+ import { executarComando } from './comando.js';
++import { painelAberto, painelFechado } from '../modules/equipe/presenca.js';
+ 
+ const comandoSchema = z.object({
+   conversationId: z.string().min(1, 'Informe a conversa.'),
+@@ -59,11 +60,17 @@ export async function rotasAutomacao(app) {
+     batida.unref?.();
+ 
+     conexoes.add(raw);
++    // Painel aberto = pessoa presente (ver modules/equipe/presenca.js).
++    painelAberto(req.tenantId, req.usuario.id);
+ 
++    let limpo = false;
+     function limpar() {
++      if (limpo) return;
++      limpo = true;
+       clearInterval(batida);
+       desassinar();
+       conexoes.delete(raw);
++      painelFechado(req.tenantId, req.usuario.id);
+     }
+ 
+     req.raw.on('close', limpar);
+diff --git a/api/src/automacao/comando.js b/api/src/automacao/comando.js
+index 3515074..545631c 100644
+--- a/api/src/automacao/comando.js
++++ b/api/src/automacao/comando.js
+@@ -1,4 +1,4 @@
+-import { NaoEncontrado, RegraDeNegocio } from '../core/errors.js';
++import { NaoEncontrado, RegraDeNegocio, SemPermissao } from '../core/errors.js';
+ import { FUSO_PADRAO } from '../core/datetime.js';
+ import { consultarAtena } from '../ai/atena.js';
+ import { fala } from '../core/painel.js';
+@@ -39,7 +39,13 @@ export async function executarComando({ tenantId, conversationId, comando, usuar
+   if (!pedido) throw new RegraDeNegocio('Diga o que a Atena deve fazer. Ex: /atena remarcar para sexta às 15h');
+   if (pedido.length > LIMITE) throw new RegraDeNegocio(`Comando longo demais (máximo ${LIMITE} caracteres).`);
+ 
+-  const conversa = await conversas.obter(tenantId, conversationId);
++  // Com o usuario: conversa fora do escopo dele e "nao encontrada" (como nas
++  // outras rotas). Antes o comando valia para QUALQUER conversa da empresa —
++  // um atendente podia mandar a Atena remarcar o cliente de outra pessoa.
++  const conversa = await conversas.obter(tenantId, conversationId, usuario);
++  if (!(await conversas.podeAgir(tenantId, conversa, usuario))) {
++    throw new SemPermissao('Esta conversa está com outro atendente.');
++  }
+   if (!conversa) throw new NaoEncontrado('Conversa');
+   if (conversa.status === 'finalizada') {
+     throw new RegraDeNegocio('Esta conversa foi finalizada. Reabra para dar comandos à Atena.');
+diff --git a/api/src/core/errors.js b/api/src/core/errors.js
+index f9bd389..f879f7f 100644
+--- a/api/src/core/errors.js
++++ b/api/src/core/errors.js
+@@ -54,9 +54,18 @@ export class SemPermissao extends AppError {
+ }
+ 
+ /** 404 — o registro nao existe, ou nao pertence a esta empresa. */
++/**
++ * "Conversa não encontrada", não "Conversa nao encontrado". O gênero vem da
++ * PRIMEIRA palavra do recurso ("Mensagem da campanha" é feminino).
++ */
++const FEMININOS = new Set(['Conversa', 'Mensagem', 'Notificacao', 'Campanha', 'Conexao', 'Sessao', 'Resposta', 'Etiqueta', 'Empresa', 'Licenca', 'Ordem', 'Categoria', 'Venda', 'Funcao']);
++const ACENTOS = [[/Notificacao/g, 'Notificação'], [/Conexao/g, 'Conexão'], [/Sessao/g, 'Sessão'], [/Licenca/g, 'Licença'], [/Funcao/g, 'Função'], [/Usuario/g, 'Usuário'], [/([Ss])ervico/g, '$1erviço'], [/rapida/g, 'rápida']];
++
+ export class NaoEncontrado extends AppError {
+   constructor(recurso = 'Registro') {
+-    super(`${recurso} nao encontrado.`, { status: 404, code: 'NAO_ENCONTRADO' });
++    const primeira = recurso.normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(' ')[0];
++    const nome = ACENTOS.reduce((t, [de, para]) => t.replace(de, para), recurso);
++    super(`${nome} não encontrad${FEMININOS.has(primeira) ? 'a' : 'o'}.`, { status: 404, code: 'NAO_ENCONTRADO' });
+   }
+ }
+ 
+diff --git a/api/src/http/plugins/erros.js b/api/src/http/plugins/erros.js
+index ee29e0a..41b7e72 100644
+--- a/api/src/http/plugins/erros.js
++++ b/api/src/http/plugins/erros.js
+@@ -60,7 +60,7 @@ export function registrarTratamentoDeErros(app) {
+       return res.status(409).send({
+         erro: {
+           codigo: 'CONFLITO',
+-          mensagem: 'Ja existe um registro com esses dados.'
++          mensagem: 'Já existe um registro com esses dados.'
+         }
+       });
+     }
+diff --git a/api/src/main.js b/api/src/main.js
+index d927b2f..09cdb91 100644
+--- a/api/src/main.js
++++ b/api/src/main.js
+@@ -18,6 +18,7 @@ import {
+ import { testarModelosNoBoot } from './modules/ia/ia.service.js';
+ import { criarApp } from './app.js';
+ import { iniciarRotinas } from './automacao/rotinas.js';
++import { AUSENTE_APOS_MS, marcarAusentesSemPainel } from './modules/equipe/presenca.js';
+ import { sincronizarHistorico } from './modules/historico/historico.service.js';
+ import { iniciarBackupAutomatico } from './modules/dados/backups.js';
+ import { enviarMensagem } from './channels/gateway.js';
+@@ -72,6 +73,9 @@ async function principal() {
+   // O relogio da Atena: fechamento do dia, lembrete de vespera e demais rotinas.
+   // O envio entra por injecao, como nas campanhas: as rotinas nao conhecem o canal.
+   const pararRotinas = iniciarRotinas({ enviar: enviarMensagem });
++  // Quem ficou "online" sem painel aberto (o servidor caiu ou reiniciou) vira
++  // "ausente" se nao reabrir o painel em alguns minutos.
++  setTimeout(() => marcarAusentesSemPainel().catch(() => {}), AUSENTE_APOS_MS).unref?.();
+   // Um backup por dia (guarda os 14 ultimos), sem ninguem precisar lembrar.
+   const pararBackups = iniciarBackupAutomatico();
+ 
+diff --git a/api/src/modules/agenda/agenda.service.js b/api/src/modules/agenda/agenda.service.js
+index af894db..0f273a4 100644
+--- a/api/src/modules/agenda/agenda.service.js
++++ b/api/src/modules/agenda/agenda.service.js
+@@ -19,7 +19,7 @@ import { calcularHorariosLivres, podeAgendar } from './disponibilidade.js';
+ import { planejarSequencia } from './sequencia.js';
+ import * as repo from './agenda.repo.js';
+ import * as leadsRepo from '../leads/leads.repo.js';
+-import { escopoDe } from '../equipe/equipe.config.js';
++import { escopoDaAgenda, escopoDe } from '../equipe/equipe.config.js';
+ import { escolherAtendente } from '../equipe/distribuidor.js';
+ import * as conversasRepo from '../conversas/conversas.repo.js';
+ import { registrarDesfecho } from '../historico/historico.service.js';
+@@ -106,7 +106,7 @@ export async function listar(tenantId, filtros = {}, usuario) {
+   const dataFinal = filtros.dataFim || dataInicial;
+ 
+   const linhas = await repo.listar(tenantId, {
+-    escopo: await escopoDe(tenantId, usuario),
++    escopo: await escopoDaAgenda(tenantId, usuario),
+     inicioEm: inicioDoDia(dataInicial, fuso),
+     fimEm: fimDoDia(dataFinal, fuso),
+     professionalId: filtros.professionalId,
+@@ -149,7 +149,7 @@ export async function obter(tenantId, id, usuario) {
+  */
+ async function garantirVisivel(tenantId, linha, usuario) {
+   if (!usuario) return;
+-  const escopo = await escopoDe(tenantId, usuario);
++  const escopo = await escopoDaAgenda(tenantId, usuario);
+   if (escopo.tudo) return;
+ 
+   const a = linha.agendamento;
+@@ -972,6 +972,16 @@ export async function encerrarPorConversa(tenantId, conversationId, dados = {},
+   return { vinculadas: linhas.length, concluidas };
+ }
+ 
++/** Resumo que chegou DEPOIS do encerramento (escrito pela IA em segundo plano). */
++export async function anexarResumoNasOs(tenantId, conversationId, texto) {
++  const linhas = await repo.vinculadasAConversa(tenantId, conversationId);
++  const agora = new Date();
++  for (const a of linhas) {
++    if (a.resumoAtendimento) continue;
++    await repo.atualizar(tenantId, a.id, { resumoAtendimento: texto, resumoEm: agora });
++  }
++}
++
+ /**
+  * Tira uma OS da agenda do dia a dia, sem apagar nada.
+  *
+diff --git a/api/src/modules/conversas/conversas.routes.js b/api/src/modules/conversas/conversas.routes.js
+index 441ecc5..2843b25 100644
+--- a/api/src/modules/conversas/conversas.routes.js
++++ b/api/src/modules/conversas/conversas.routes.js
+@@ -87,7 +87,7 @@ export async function rotasConversas(app) {
+    * desligada, o pedido explicito de um atendente deve ser atendido.
+    */
+   app.post('/api/conversas/:id/distribuir', { config: apenas.atendente }, async (req) => {
+-    return service.distribuir(req.tenantId, req.params.id, { forcar: true });
++    return service.distribuirManual(req.tenantId, req.params.id, req.usuario);
+   });
+ 
+   /** POST /api/conversas/:id/transferir */
+diff --git a/api/src/modules/conversas/conversas.service.js b/api/src/modules/conversas/conversas.service.js
+index f4a9f65..9650c9c 100644
+--- a/api/src/modules/conversas/conversas.service.js
++++ b/api/src/modules/conversas/conversas.service.js
+@@ -22,7 +22,7 @@ import { escolherAtendente } from '../equipe/distribuidor.js';
+ import { atenaPermite } from '../../ai/permissoes.js';
+ import { gerarResumoFinal } from '../../ai/resumo.js';
+ import * as repo from './conversas.repo.js';
+-import { fecharDaConversa as fecharNotificacoes } from '../notificacoes/notificacoes.repo.js';
++import { criar as criarNotificacoes, fecharDaConversa as fecharNotificacoes } from '../notificacoes/notificacoes.repo.js';
+ 
+ const log = comContexto({ modulo: 'conversas' });
+ 
+@@ -402,6 +402,7 @@ export async function devolverParaIa(tenantId, id, usuario) {
+     assignedUserId: temHorario ? linha.conversa.assignedUserId : null,
+     assumidaEm: null
+   });
++  await fecharNotificacoes(tenantId, id);
+   return obter(tenantId, id);
+ }
+ 
+@@ -519,6 +520,30 @@ export async function distribuir(tenantId, id, { forcar = false } = {}) {
+   return { atribuida: true, atendente: escolhido, conversa: await obter(tenantId, id) };
+ }
+ 
++/**
++ * O botao "Distribuir" (manual). Antes a rota chamava `distribuir` direto, sem
++ * olhar quem pedia: um atendente conseguia tirar de outra pessoa uma conversa
++ * que nem enxergava — e a resposta ainda trazia nome e telefone do cliente.
++ *
++ * Agora: quem pede precisa ENXERGAR a conversa, e so a gerencia (quem ve
++ * tudo) redistribui conversa que ja tem responsavel. A resposta volta no
++ * escopo de quem pediu: se foi para outra pessoa, sem os dados do cliente.
++ */
++export async function distribuirManual(tenantId, id, usuario) {
++  const linha = await garantirVisivel(tenantId, await repo.buscarPorId(tenantId, id), usuario);
++  if (linha.conversa.assignedUserId && !(await veTudo(tenantId, usuario))) {
++    throw new SemPermissao('Só a gerência redistribui uma conversa que já tem responsável.');
++  }
++  const r = await distribuir(tenantId, id, { forcar: true });
++  const minha = !r.atendente?.id || r.atendente.id === usuario.id || (await veTudo(tenantId, usuario));
++  return {
++    atribuida: r.atribuida,
++    motivo: r.motivo,
++    atendente: r.atendente ? { id: r.atendente.id, nome: r.atendente.nome } : null,
++    ...(minha ? { conversa: await obter(tenantId, id, usuario) } : {})
++  };
++}
++
+ /** Transfere para outro atendente, guardando o rastro de quem passou por ela. */
+ export async function transferir(tenantId, id, { paraUserId, motivo }, usuario) {
+   const linha = await repo.buscarPorId(tenantId, id);
+@@ -577,6 +602,17 @@ export async function transferir(tenantId, id, { paraUserId, motivo }, usuario)
+     metadados: { tipo: 'transferencia', de: usuario.id, para: destino.id }
+   });
+ 
++  // Quem recebe fica sabendo na hora (o mesmo aviso dos encaminhamentos da IA),
++  // com o motivo. Os avisos antigos desta conversa, para outras pessoas, saem.
++  await fecharNotificacoes(tenantId, id);
++  await criarNotificacoes(tenantId, {
++    userIds: [destino.id],
++    conversationId: id,
++    leadNome: linha.leadNome,
++    motivo: `Transferida por ${usuario.nome ?? 'um colega'}${motivo ? `: ${motivo}` : ''}`,
++    urgente: false
++  });
++
+   return obter(tenantId, id);
+ }
+ 
+@@ -764,20 +800,10 @@ export async function finalizar(tenantId, id, { resumo } = {}, usuario, opcoes =
+   }
+ 
+   let resumoFinal = resumo?.trim() || linha.conversa.resumo || null;
+-  let resumoDaIa = false;
+-
+-  if (!resumoFinal && (await atenaPermite(tenantId, 'resumo'))) {
+-    const recentes = await repo.listarMensagens(tenantId, id, { limite: 40 });
+-    resumoFinal = await gerarResumoFinal({
+-      tenantId,
+-      conversationId: id,
+-      leadNome: linha.leadNome,
+-      // O banco devolve do mais novo ao mais velho; o resumo le em ordem.
+-      mensagens: recentes.map((r) => r.mensagem).reverse(),
+-      provedores: opcoes.provedores ?? null
+-    });
+-    resumoDaIa = Boolean(resumoFinal);
+-  }
++
++  // Sem resumo digitado, a Atena escreve — DEPOIS de responder. Antes o clique
++  // em "Finalizar" esperava a IA (6 a 10 s) com a tela parada.
++  const resumoPelaIa = !resumoFinal && (await atenaPermite(tenantId, 'resumo'));
+ 
+   await repo.atualizar(tenantId, id, {
+     status: 'finalizada',
+@@ -799,10 +825,54 @@ export async function finalizar(tenantId, id, { resumo } = {}, usuario, opcoes =
+     { usuario, concluirPassados: opcoes.concluirPassados ?? true }
+   );
+ 
+-  log.info({ tenantId, conversationId: id, userId: usuario.id, os, resumoDaIa }, 'Conversa finalizada');
++  if (resumoPelaIa) {
++    agendarResumo(tenantId, id, linha.leadNome, opcoes.provedores ?? null);
++  }
++
++  // Conversa encerrada: nenhum aviso de "atender" continua na tela de ninguem
++  // (o urgente ficava preso e so saia com um clique que dava erro).
++  await fecharNotificacoes(tenantId, id);
++
++  log.info({ tenantId, conversationId: id, userId: usuario.id, os, resumoPelaIa }, 'Conversa finalizada');
+   return obter(tenantId, id);
+ }
+ 
++/** Resumos sendo escritos em segundo plano (os testes esperam por eles). */
++const resumosEmAndamento = new Set();
++
++export function aguardarResumos() {
++  return Promise.all([...resumosEmAndamento]);
++}
++
++/**
++ * Escreve o resumo da conversa ja finalizada e o leva para as OS dela. Nunca
++ * lanca: falhar aqui so significa ficar sem resumo, como antes.
++ */
++function agendarResumo(tenantId, id, leadNome, provedores) {
++  const tarefa = (async () => {
++    try {
++      const recentes = await repo.listarMensagens(tenantId, id, { limite: 40 });
++      const texto = await gerarResumoFinal({
++        tenantId,
++        conversationId: id,
++        leadNome,
++        mensagens: recentes.map((r) => r.mensagem).reverse(),
++        provedores
++      });
++      if (!texto) return;
++      const atual = await repo.buscarPorId(tenantId, id);
++      // Alguem escreveu um resumo nesse meio tempo (reabriu e finalizou de novo): vale o dele.
++      if (atual?.conversa.resumo) return;
++      await repo.atualizar(tenantId, id, { resumo: texto });
++      await agenda.anexarResumoNasOs(tenantId, id, texto);
++    } catch (err) {
++      log.warn({ err, tenantId, conversationId: id }, 'Resumo em segundo plano falhou');
++    }
++  })();
++  resumosEmAndamento.add(tarefa);
++  tarefa.finally(() => resumosEmAndamento.delete(tarefa));
++}
++
+ /**
+  * Grava a leitura de humor feita pela Sofia.
+  *
+@@ -889,6 +959,17 @@ export async function reabrir(tenantId, id, usuario) {
+     throw new RegraDeNegocio('Esta conversa nao esta finalizada.');
+   }
+ 
++  // O cliente ja voltou a escrever e tem uma conversa NOVA aberta no mesmo
++  // numero: reabrir a antiga bateria no indice "uma aberta por cliente" e a
++  // atendente lia "Ja existe um registro com esses dados". Diz o que houve e
++  // qual e a conversa atual (a tela oferece abrir).
++  const atual = await repo.buscarAbertaDoLead(tenantId, linha.conversa.leadId, linha.conversa.channelInstanceId);
++  if (atual) {
++    throw new Conflito('Este cliente já voltou a escrever e tem uma conversa aberta. Continue por ela.', {
++      conversaAtualId: atual.id
++    });
++  }
++
+   await repo.atualizar(tenantId, id, {
+     status: 'humana',
+     assignedUserId: usuario.id,
+@@ -900,7 +981,12 @@ export async function reabrir(tenantId, id, usuario) {
+ }
+ 
+ export async function marcarLida(tenantId, id, usuario) {
+-  await garantirVisivel(tenantId, await repo.buscarPorId(tenantId, id), usuario);
++  const linha = await garantirVisivel(tenantId, await repo.buscarPorId(tenantId, id), usuario);
++  // So quem RESPONDE pela conversa (ou qualquer um, se ela nao tem dono) a marca
++  // como lida. Antes o dono abria para acompanhar e o contador da atendente
++  // zerava — ela nunca sabia que o cliente tinha escrito.
++  const dono = linha.conversa.assignedUserId;
++  if (dono && dono !== usuario?.id) return { ok: true, acompanhando: true };
+   await repo.atualizar(tenantId, id, { naoLidas: 0 });
+   return { ok: true };
+ }
+diff --git a/api/src/modules/empresa/empresa.service.js b/api/src/modules/empresa/empresa.service.js
+index bf0e716..6219c21 100644
+--- a/api/src/modules/empresa/empresa.service.js
++++ b/api/src/modules/empresa/empresa.service.js
+@@ -81,7 +81,7 @@ export async function obter(tenantId) {
+     db.query.tenants.findFirst({ where: eq(tenants.id, tenantId) }),
+     lerBase(tenantId)
+   ]);
+-  if (!tenant) throw new NaoEncontrado('Empresa nao encontrada.');
++  if (!tenant) throw new NaoEncontrado('Empresa');
+   return { nome: tenant.nome, segmento: tenant.segmento, ...base };
+ }
+ 
+diff --git a/api/src/modules/equipe/equipe.config.js b/api/src/modules/equipe/equipe.config.js
+index 3191f1a..d47c75a 100644
+--- a/api/src/modules/equipe/equipe.config.js
++++ b/api/src/modules/equipe/equipe.config.js
+@@ -63,7 +63,10 @@ const PADRAO = {
+   // Assinatura: o nome de quem respondeu no topo da mensagem que chega ao
+   // cliente. Desligada por padrao — ligar muda o que o cliente ve.
+   assinaturaAtendente: false,
+-  assinaturaSofia: false
++  assinaturaSofia: false,
++  // A privacidade das CONVERSAS escondia tambem a AGENDA: a atendente da
++  // recepcao nao via os horarios do dia que ela mesma precisa organizar.
++  agendaCompletaParaEquipe: false
+ };
+ 
+ /** Chave em `settings` de cada campo. */
+@@ -74,7 +77,8 @@ const CHAVES = {
+   distribuirSomenteOnline: 'distribuicao_somente_online',
+   distribuirParaGerencia: 'distribuicao_inclui_gerencia',
+   assinaturaAtendente: 'assinatura_atendente',
+-  assinaturaSofia: 'assinatura_sofia'
++  assinaturaSofia: 'assinatura_sofia',
++  agendaCompletaParaEquipe: 'agenda_completa_equipe'
+ };
+ 
+ async function ler(tenantId, chave, padrao) {
+@@ -166,6 +170,16 @@ export async function escopoDe(tenantId, usuario) {
+  * como veio. So no que VAI para o cliente: a conversa gravada fica sem, porque
+  * o livechat ja mostra o autor no topo do balao.
+  */
++/**
++ * Recorte da AGENDA (lista e detalhe dos horarios). Com "agenda completa para
++ * a equipe" ligada, todos veem todos os horarios; as conversas continuam com a
++ * privacidade escolhida, e o faturamento continua no recorte de cada um.
++ */
++export async function escopoDaAgenda(tenantId, usuario) {
++  if ((await obterConfiguracao(tenantId)).agendaCompletaParaEquipe) return { tudo: true };
++  return escopoDe(tenantId, usuario);
++}
++
+ export function assinar(nome, texto) {
+   const quem = String(nome ?? '').trim();
+   const corpo = String(texto ?? '');
+diff --git a/api/src/modules/equipe/equipe.routes.js b/api/src/modules/equipe/equipe.routes.js
+index 1ddc44d..ebc1e61 100644
+--- a/api/src/modules/equipe/equipe.routes.js
++++ b/api/src/modules/equipe/equipe.routes.js
+@@ -61,7 +61,8 @@ const configuracaoSchema = z
+     distribuirSomenteOnline: z.boolean().optional(),
+     distribuirParaGerencia: z.boolean().optional(),
+     assinaturaAtendente: z.boolean().optional(),
+-    assinaturaSofia: z.boolean().optional()
++    assinaturaSofia: z.boolean().optional(),
++    agendaCompletaParaEquipe: z.boolean().optional()
+   })
+   .refine((d) => Object.keys(d).length > 0, 'Envie pelo menos um campo.');
+ 
+diff --git a/api/src/modules/equipe/presenca.js b/api/src/modules/equipe/presenca.js
+new file mode 100644
+index 0000000..9ed85a9
+--- /dev/null
++++ b/api/src/modules/equipe/presenca.js
+@@ -0,0 +1,78 @@
++import { and, eq, inArray } from 'drizzle-orm';
++import { db } from '../../db/client.js';
++import { users } from '../../db/schema/auth.js';
++import { emitir, EVENTOS } from '../../core/eventos.js';
++import { comContexto } from '../../core/logger.js';
++
++const log = comContexto({ modulo: 'presenca' });
++
++/**
++ * Presenca de verdade: quem esta com o PAINEL ABERTO.
++ *
++ * Antes so o botao "Sair" deixava a pessoa offline. Quem fechava o navegador
++ * as 18h continuava "online" ate alguem mudar na mao — e a distribuicao
++ * entregava a ela o cliente que pediu uma pessoa as 8h da manha seguinte.
++ *
++ * O painel mantem uma conexao de tempo real aberta (/api/eventos). Sem nenhuma
++ * conexao da pessoa por AUSENTE_APOS_MS, quem estava "online" vira "ausente"
++ * (a distribuicao, por padrao, so entrega para "online"). Quando ela volta a
++ * abrir o painel, volta a "online" — so se foi o SISTEMA que a tirou: quem
++ * escolheu "ausente" na mao continua ausente.
++ */
++export const AUSENTE_APOS_MS = 5 * 60_000;
++
++const abertas = new Map(); // userId -> quantas conexoes
++const timers = new Map(); // userId -> timer
++const tiradosPeloSistema = new Set();
++
++export function painelAberto(tenantId, userId) {
++  abertas.set(userId, (abertas.get(userId) ?? 0) + 1);
++  clearTimeout(timers.get(userId));
++  timers.delete(userId);
++  if (tiradosPeloSistema.delete(userId)) {
++    mudar(tenantId, userId, 'ausente', 'online').catch((err) => log.warn({ err, userId }, 'Nao foi possivel voltar a online'));
++  }
++}
++
++export function painelFechado(tenantId, userId, { aposMs = AUSENTE_APOS_MS } = {}) {
++  const restantes = Math.max(0, (abertas.get(userId) ?? 1) - 1);
++  if (restantes > 0) return abertas.set(userId, restantes);
++  abertas.delete(userId);
++  clearTimeout(timers.get(userId));
++  const t = setTimeout(async () => {
++    timers.delete(userId);
++    if (abertas.get(userId)) return;
++    try {
++      if (await mudar(tenantId, userId, 'online', 'ausente')) tiradosPeloSistema.add(userId);
++    } catch (err) {
++      log.warn({ err, userId }, 'Nao foi possivel marcar ausente');
++    }
++  }, aposMs);
++  t.unref?.();
++  timers.set(userId, t);
++}
++
++/** Ao ligar o servidor: quem esta "online" mas sem painel aberto (servidor caiu, reiniciou). */
++export async function marcarAusentesSemPainel() {
++  const online = await db.select({ id: users.id, tenantId: users.tenantId }).from(users).where(eq(users.statusPresenca, 'online'));
++  for (const u of online) {
++    if (!abertas.get(u.id) && (await mudar(u.tenantId, u.id, 'online', 'ausente'))) tiradosPeloSistema.add(u.id);
++  }
++}
++
++/** Troca de->para so se o status atual ainda for `de` (nao briga com quem mudou na mao). */
++async function mudar(tenantId, userId, de, para) {
++  const r = await db.update(users).set({ statusPresenca: para }).where(and(eq(users.id, userId), inArray(users.statusPresenca, [de])));
++  const mudou = (r.rowsAffected ?? 0) > 0;
++  if (mudou) {
++    log.info({ userId, de, para }, 'Presenca ajustada pelo painel');
++    emitir(EVENTOS.CONVERSA, { tenantId });
++  }
++  return mudou;
++}
++
++/** So para os testes. */
++export function _zerarPresenca() {
++  for (const t of timers.values()) clearTimeout(t);
++  abertas.clear(); timers.clear(); tiradosPeloSistema.clear();
++}
+diff --git a/api/tests/automacao.test.js b/api/tests/automacao.test.js
+index f2ebd59..f1cb952 100644
+--- a/api/tests/automacao.test.js
++++ b/api/tests/automacao.test.js
+@@ -168,6 +168,8 @@ describe('resumo automatico ao finalizar', () => {
+     const conv = await import('../src/modules/conversas/conversas.service.js');
+     const falso = provedorFalso([{ texto }]);
+     await conv.finalizar(tenantId, id, {}, { ...ctx.usuario }, { provedores: falso.provedores });
++    // O resumo da IA e escrito DEPOIS de responder (o clique nao espera a IA).
++    await conv.aguardarResumos();
+     return { falso, conversa: await conv.obter(tenantId, id) };
+   };
+ 
+diff --git a/web/src/telas/Conversas.css b/web/src/telas/Conversas.css
+index ed23a57..ff1b952 100644
+--- a/web/src/telas/Conversas.css
++++ b/web/src/telas/Conversas.css
+@@ -1231,3 +1231,10 @@
+ .fio__lead-texto { display: flex; flex-direction: column; min-width: 0; }
+ .fio__lead-texto strong,
+ .fio__lead-texto .texto-fraco { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
++
++/* Conversa que saiu do meu alcance: aviso + o que eu tinha escrito. */
++.fio--indisponivel { display: flex; flex-direction: column; gap: var(--e3); padding: var(--e4); }
++.fio__rascunho-perdido blockquote {
++  margin: var(--e2) 0; padding: var(--e3); border-left: 3px solid var(--primaria);
++  background: var(--superficie); border-radius: var(--raio); white-space: pre-wrap;
++}
+diff --git a/web/src/telas/Conversas.jsx b/web/src/telas/Conversas.jsx
+index b965ad0..1ccda75 100644
+--- a/web/src/telas/Conversas.jsx
++++ b/web/src/telas/Conversas.jsx
+@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
+ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+ import { api } from '../lib/api.js';
+-import { Aviso, Botao, Carregando, FotoLead, Status, Vazio } from '../componentes/ui.jsx';
++import { Aviso, Botao, Carregando, FotoLead, Modal, Status, Vazio } from '../componentes/ui.jsx';
+ import { TextoWhatsapp } from '../lib/TextoWhatsapp.jsx';
+ import { BalaoAudio } from './conversas/BalaoAudio.jsx';
+ import { Compositor, IconeAnexo, tamanhoLegivel } from './conversas/Compositor.jsx';
+@@ -291,10 +291,39 @@ export function Conversas() {
+   );
+ }
+ 
++/**
++ * Rascunho por conversa, guardado no navegador. Se outra pessoa assume a
++ * conversa enquanto eu escrevo (ou a pagina recarrega), o texto nao se perde.
++ */
++const chaveRascunho = (id) => `rascunho:${id}`;
++function lerRascunho(id) {
++  try {
++    return localStorage.getItem(chaveRascunho(id)) ?? '';
++  } catch {
++    return '';
++  }
++}
++function gravarRascunho(id, texto) {
++  try {
++    if (texto) localStorage.setItem(chaveRascunho(id), texto);
++    else localStorage.removeItem(chaveRascunho(id));
++  } catch {
++    // navegador sem armazenamento: o rascunho vale so enquanto a tela estiver aberta
++  }
++}
++
+ function Fio({ conversationId, aoVoltar, aoMudar, veioDeLista = false }) {
+   const queryClient = useQueryClient();
+   const { usuario, podeAcessar } = useAuth();
+-  const [texto, setTexto] = useState('');
++  const [texto, setTextoBruto] = useState(() => lerRascunho(conversationId));
++  const setTexto = (valor) =>
++    setTextoBruto((anterior) => {
++      const novo = typeof valor === 'function' ? valor(anterior) : valor;
++      gravarRascunho(conversationId, novo);
++      return novo;
++    });
++  const [confirmandoFim, setConfirmandoFim] = useState(false);
++  const [resumoFim, setResumoFim] = useState('');
+   const [perfilAberto, setPerfilAberto] = useState(false);
+   const [transferindo, setTransferindo] = useState(false);
+   const fimRef = useRef(null);
+@@ -367,13 +396,46 @@ function Fio({ conversationId, aoVoltar, aoMudar, veioDeLista = false }) {
+     if (!responder.isPending) responder.mutate({ anexo: { dataUrl, nome }, ...(legenda ? { conteudo: legenda } : {}) });
+   }
+ 
++  // Abre outra conversa na mesma mesa (ex.: a atual do cliente que voltou a escrever).
++  const navegar = useNavigate();
++  const abrirOutra = (id) => navegar(`/conversas?id=${id}`);
++
+   const acao = useMutation({
+     mutationFn: ({ rota, corpo }) => api.post(`/api/conversas/${conversationId}/${rota}`, corpo ?? {}),
+     onSuccess: recarregar
+   });
+ 
+   if (dados.isLoading) return <Carregando />;
+-  if (dados.isError) return <Aviso tom="perigo">{dados.error.message}</Aviso>;
++  if (dados.isError) {
++    // A conversa sumiu do meu alcance (outra pessoa assumiu, foi transferida):
++    // explica em vez de "nao encontrada" seco, e devolve o que eu tinha escrito.
++    const sumiu = dados.error.status === 404;
++    return (
++      <div className="fio fio--indisponivel">
++        <Aviso tom={sumiu ? 'info' : 'perigo'}>
++          {sumiu
++            ? 'Esta conversa não está mais com você — outra pessoa assumiu ou ela foi transferida.'
++            : dados.error.message}
++        </Aviso>
++        {texto && (
++          <div className="fio__rascunho-perdido">
++            <p className="texto-suave">O que você tinha escrito:</p>
++            <blockquote>{texto}</blockquote>
++            <Botao
++              tamanho="sm"
++              variante="secundario"
++              onClick={() => navigator.clipboard?.writeText(texto)}
++            >
++              Copiar texto
++            </Botao>
++          </div>
++        )}
++        <Botao tamanho="sm" variante="fantasma" onClick={aoVoltar}>
++          Voltar para a lista
++        </Botao>
++      </div>
++    );
++  }
+ 
+   const finalizada = conversa.status === 'finalizada';
+   const eMinha = conversa.assignedUserId === usuario?.id;
+@@ -456,7 +518,7 @@ function Fio({ conversationId, aoVoltar, aoMudar, veioDeLista = false }) {
+             variante="fantasma"
+             tamanho="sm"
+             carregando={acao.isPending && acao.variables?.rota === 'finalizar'}
+-            onClick={() => acao.mutate({ rota: 'finalizar' })}
++            onClick={() => setConfirmandoFim(true)}
+             title="Encerra o atendimento. Se ninguem escreveu resumo, a Atena escreve."
+           >
+             Finalizar
+@@ -479,7 +541,55 @@ function Fio({ conversationId, aoVoltar, aoMudar, veioDeLista = false }) {
+         )}
+       </div>
+ 
+-      {acao.isError && <Aviso tom="perigo">{acao.error.message}</Aviso>}
++      {acao.isError && (
++        <Aviso tom="perigo">
++          {acao.error.message}
++          {/* Reabrir com o cliente ja em outra conversa: o servidor diz qual. */}
++          {acao.error.detalhes?.conversaAtualId && (
++            <>
++              {' '}
++              <Botao tamanho="sm" variante="secundario" onClick={() => abrirOutra(acao.error.detalhes.conversaAtualId)}>
++                Abrir a conversa atual
++              </Botao>
++            </>
++          )}
++        </Aviso>
++      )}
++
++      <Modal
++        titulo="Finalizar atendimento"
++        aberto={confirmandoFim}
++        aoFechar={() => setConfirmandoFim(false)}
++        rodape={
++          <>
++            <Botao variante="fantasma" onClick={() => setConfirmandoFim(false)}>Cancelar</Botao>
++            <Botao
++              carregando={acao.isPending}
++              onClick={() =>
++                acao.mutate(
++                  { rota: 'finalizar', corpo: resumoFim.trim() ? { resumo: resumoFim.trim() } : {} },
++                  { onSuccess: () => { setConfirmandoFim(false); setResumoFim(''); } }
++                )
++              }
++            >
++              Finalizar
++            </Botao>
++          </>
++        }
++      >
++        <p className="texto-suave">
++          O atendimento sai da sua lista. Se o cliente escrever de novo, uma conversa nova começa.
++        </p>
++        <label className="campo">
++          <span>Resumo (opcional)</span>
++          <textarea
++            rows={3}
++            value={resumoFim}
++            onChange={(e) => setResumoFim(e.target.value)}
++            placeholder="Em branco, a Atena escreve o resumo em segundo plano."
++          />
++        </label>
++      </Modal>
+ 
+       {/* Dono da conversa, mas ainda sem ter escrito: explica o que falta, porque
+           "e minha" e "estou atendendo" parecem a mesma coisa e nao sao. */}
+diff --git a/web/src/telas/Equipe.jsx b/web/src/telas/Equipe.jsx
+index aab62c7..585d962 100644
+--- a/web/src/telas/Equipe.jsx
++++ b/web/src/telas/Equipe.jsx
+@@ -1184,6 +1184,24 @@ function Privacidade() {
+         </div>
+       </Cartao>
+ 
++      <Cartao titulo="Agenda">
++        <label className="opcao">
++          <input
++            type="checkbox"
++            checked={Boolean(config.agendaCompletaParaEquipe)}
++            disabled={!podeEditar || salvar.isPending}
++            onChange={(e) => salvar.mutate({ agendaCompletaParaEquipe: e.target.checked })}
++          />
++          <span>
++            <strong>Toda a equipe vê a agenda completa</strong>
++            <div className="texto-fraco">
++              Para quem organiza a recepção. As conversas continuam com a regra acima, e o faturamento continua
++              visível só para quem já via.
++            </div>
++          </span>
++        </label>
++      </Cartao>
++
+       {/* A "assinatura": o nome de quem respondeu no topo da mensagem que o
+           cliente recebe. So muda o WhatsApp dele — no livechat o autor ja
+           aparece em cima de cada balao. */}
+diff --git a/web/src/telas/conversas/Compositor.jsx b/web/src/telas/conversas/Compositor.jsx
+index 8472111..aebe7c3 100644
+--- a/web/src/telas/conversas/Compositor.jsx
++++ b/web/src/telas/conversas/Compositor.jsx
+@@ -67,7 +67,12 @@ function saudacao() {
+   return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+ }
+ 
+-const primeiroNome = (nome) => String(nome ?? '').trim().split(/\s+/)[0] ?? '';
++/** Nome de verdade do cliente — o rotulo generico "Contato WhatsApp" nao conta. */
++const primeiroNome = (nome) => {
++  const limpo = String(nome ?? '').trim();
++  if (!limpo || /^(contato|cliente|lead)\b/i.test(limpo)) return '';
++  return limpo.split(/\s+/)[0] ?? '';
++};
+ 
+ /**
+  * Cores dos cartoes de resposta rapida. Fica LONGE de laranja e verde-agua de
+@@ -79,7 +84,11 @@ const PALETA_CARTOES = ['#7f66ff', '#3b82f6', '#ec4899', '#22c55e', '#ef4444', '
+ /** Troca as variaveis da resposta rapida pelos dados desta conversa. */
+ export function preencherVariaveis(texto, { cliente, atendente }) {
+   return texto
+-    .replace(/\{nome\}/gi, primeiroNome(cliente) || 'tudo bem')
++    // Sem nome de verdade, some o nome e a virgula antes dele: "Bom dia!" em vez de "Bom dia, Contato!".
++    .replace(/,?\s*\{nome\}/gi, (trecho) => {
++      const nome = primeiroNome(cliente);
++      return nome ? trecho.replace(/\{nome\}/i, nome) : '';
++    })
+     .replace(/\{atendente\}/gi, primeiroNome(atendente))
+     .replace(/\{saudacao\}/gi, saudacao());
+ }
