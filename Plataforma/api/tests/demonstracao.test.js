@@ -92,6 +92,70 @@ describe('banco de demonstracao', () => {
     assert.ok((await lista('ativas')).length >= 30);
   });
 
+  /**
+   * A demonstracao precisa mostrar o sistema de HOJE, nao o de antes: a
+   * Sofia consultando direto, a Atena so gravando, visitas de varios servicos
+   * em sequencia, horario da IA com responsavel, cartoes que piscam no quadro.
+   */
+  describe('segue os parametros atuais do sistema', () => {
+    const q = async (sql) => {
+      const { abrir } = await import('../src/modules/demonstracao/demonstracao.js');
+      return (await (await abrir()).client.execute(sql)).rows;
+    };
+
+    it('a Atena so aparece para gravar, com origem propria; a Sofia consulta direto', async () => {
+      const porOrigem = Object.fromEntries((await q(`select origem, agent_key, count(*) n from ai_calls group by 1, 2`)).map((r) => [`${r.origem}|${r.agent_key}`, Number(r.n)]));
+      assert.ok(porOrigem['atena|atena'] > 0, JSON.stringify(porOrigem));
+      assert.ok(porOrigem['atendimento|atendente'] > porOrigem['atena|atena'] * 2, 'a Sofia faz a maior parte');
+      assert.equal(porOrigem['atendimento|atena'], undefined, 'o formato antigo (Atena como "atendimento") nao existe mais');
+      assert.ok(porOrigem['humor|null'] > 0, 'a leitura de humor tambem aparece nas metricas');
+
+      // Conversa so de preco (catalogo no prompt) nao acorda a Atena.
+      const [precoComAtena] = await q(`select count(*) n from ai_calls a join conversations c on c.id = a.conversation_id where a.origem = 'atena' and c.resumo like 'Perguntou o preço%'`);
+      assert.equal(Number(precoComAtena.n), 0);
+    });
+
+    it('visitas com varios servicos: em sequencia, mesmo cliente, marcadas pela IA, ligadas a conversa', async () => {
+      const grupos = await q(`select conversation_id, count(*) n from appointments where conversation_id is not null group by 1 having n >= 2`);
+      assert.ok(grupos.length >= 20, `visitas: ${grupos.length}`);
+
+      for (const g of grupos.slice(0, 40)) {
+        const aps = await q(`select lead_id, criado_por, inicio_em, fim_em, status, responsavel_user_id from appointments where conversation_id = '${g.conversation_id}' order by inicio_em`);
+        assert.equal(new Set(aps.map((a) => a.lead_id)).size, 1, 'mesmo cliente');
+        assert.ok(aps.every((a) => a.criado_por === 'ia'));
+        assert.equal(new Set(aps.map((a) => a.responsavel_user_id)).size, 1, 'um responsavel para a visita inteira');
+        for (let i = 1; i < aps.length; i++) {
+          const espera = (Number(aps[i].inicio_em) - Number(aps[i - 1].fim_em)) / 60_000;
+          assert.ok(espera >= 0 && espera <= 10, `espera entre servicos: ${espera} min`);
+        }
+        const passados = aps.filter((a) => ['concluido', 'faltou', 'cancelado'].includes(a.status));
+        if (passados.length === aps.length) assert.equal(new Set(aps.map((a) => a.status)).size, 1, 'a visita inteira tem o mesmo destino');
+      }
+    });
+
+    it('horario marcado pela IA sempre tem um atendente responsavel', async () => {
+      const [semDono] = await q(`select count(*) n from appointments where criado_por = 'ia' and responsavel_user_id is null`);
+      assert.equal(Number(semDono.n), 0);
+    });
+
+    it('a Sofia fala a data por extenso, sem **negrito** de Markdown', async () => {
+      const [comMarkdown] = await q(`select count(*) n from messages where autor_tipo = 'ia' and conteudo like '%**%'`);
+      assert.equal(Number(comMarkdown.n), 0);
+      const [porExtenso] = await q(`select count(*) n from messages where autor_tipo = 'ia' and conteudo like '%-feira, __/__%'`);
+      assert.ok(Number(porExtenso.n) > 50, `mensagens com data por extenso: ${porExtenso.n}`);
+    });
+
+    it('no quadro, piscam a fila e as conversas em que o cliente espera o atendente — nao todas', async () => {
+      const quadro = (await pedir('GET', '/api/quadro', { ...dev, ...COOKIE })).json();
+      const cartoes = quadro.colunas.flatMap((c) => c.cartoes);
+      const piscando = cartoes.filter((c) => c.precisaDeGente);
+      assert.ok(piscando.some((c) => c.precisaDeGente === 'na_fila'));
+      assert.ok(piscando.some((c) => c.precisaDeGente === 'sem_resposta'));
+      const comAtendente = cartoes.filter((c) => c.status === 'humana');
+      assert.ok(comAtendente.some((c) => !c.precisaDeGente), 'as ja respondidas pelo atendente nao piscam');
+    });
+  });
+
   it('responder um cliente na demonstracao NAO chega ao WhatsApp de verdade', async () => {
     const { registrarAdaptador, obterAdaptador } = await import('../src/channels/gateway.js');
     const original = obterAdaptador('whatsapp');

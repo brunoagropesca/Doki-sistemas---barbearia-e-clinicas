@@ -3,6 +3,7 @@ import * as s from '../../db/schema/index.js';
 import { ID } from '../../core/ids.js';
 import { gerarHashSenha } from '../../core/crypto.js';
 import { FUSO_PADRAO } from '../../core/datetime.js';
+import { rotuloDaData } from '../../core/datas-naturais.js';
 
 /**
  * Gera a empresa de DEMONSTRACAO: 3 meses de movimento de um salao/barbearia
@@ -55,6 +56,29 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
   const T = ID.tenant();
   const linhas = {}; // nome da tabela -> linhas (inseridas em lote no fim)
   const add = (tabela, linha) => (linhas[tabela] ??= []).push(linha);
+
+  // Configuracao de IA, menu e modo de atendimento: copiadas da empresa real,
+  // para a demonstracao responder como o sistema de verdade. Lidas JA aqui
+  // porque o uso de IA simulado usa os modelos que a empresa configurou.
+  const [menuReal, agentesReais, provedoresReais, ajustesReais] = await Promise.all([
+    origem.select().from(s.menuFlows).where(and(eq(s.menuFlows.tenantId, tenantOrigem), eq(s.menuFlows.ativo, true))),
+    origem.select().from(s.agentProfiles).where(eq(s.agentProfiles.tenantId, tenantOrigem)),
+    origem.select().from(s.aiProviders).where(eq(s.aiProviders.tenantId, tenantOrigem)),
+    origem.select().from(s.settings).where(and(eq(s.settings.tenantId, tenantOrigem), ne(s.settings.chave, 'empresa.base_conhecimento')))
+  ]);
+
+  /**
+   * Os modelos da cascata real, na ordem de prioridade: o primeiro responde
+   * quase tudo, os outros sao a reserva (e aparecem quando o primeiro falha).
+   * Sem nenhum configurado, um par plausivel so para a tela ter o que mostrar.
+   */
+  const cascata = provedoresReais
+    .filter((p) => p.habilitado && p.modeloPadrao)
+    .sort((a, b) => a.prioridade - b.prioridade)
+    .map((p) => ({ provedor: p.provedor, modelo: p.modeloPadrao }));
+  if (cascata.length === 0) {
+    cascata.push({ provedor: 'gemini', modelo: 'models/gemini-2.5-flash-lite' }, { provedor: 'groq', modelo: 'llama-3.3-70b-versatile' });
+  }
 
   // ==========================================================================
   // EMPRESA, EQUIPE DO SISTEMA, CONEXOES
@@ -290,6 +314,123 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
   const existentes = [];
   const fieisExistentes = [];
   let ponteiro = 0;
+  // Minutos ocupados de cada profissional em cada dia: `${profId}|${data}` -> [[ini, fim]].
+  // E o que permite encaixar as visitas de varios servicos sem sobrepor ninguem.
+  const ocupacao = new Map();
+  const ocupar = (prof, data, ini, fim) => {
+    const chave = `${prof.id}|${data}`;
+    if (!ocupacao.has(chave)) ocupacao.set(chave, []);
+    ocupacao.get(chave).push([ini, fim]);
+  };
+  const livre = (prof, data, ini, fim) => !(ocupacao.get(`${prof.id}|${data}`) ?? []).some(([a, b]) => ini < b && a < fim);
+
+  /**
+   * Um agendamento com tudo o que ele gera: status coerente com a data,
+   * historico de atendimento e venda no balcao quando concluido.
+   * `forcarStatus` mantem a MESMA sorte para todos os servicos de uma visita
+   * (ou o cliente veio, ou faltou, ou cancelou — nao pela metade).
+   */
+  function registrarAgendamento({ cliente, sv, prof, data, dow, minuto, origemAg, criadoEm, forcarStatus = null }) {
+    const ini = instante(data, Math.floor(minuto / 60), minuto % 60);
+    const fim = new Date(ini.getTime() + sv.duracaoMinutos * MIN);
+    const futuro = data > hoje;
+    const ehHoje = data === hoje;
+    const passou = fim.getTime() < agora;
+    let status = forcarStatus;
+    if (!status) {
+      if (futuro || (ehHoje && !passou)) {
+        status = ehHoje && ini.getTime() < agora ? 'em_andamento' : pesado([['confirmado', 3], ['pendente', 2]]);
+      } else {
+        status = pesado([['concluido', 90], ['faltou', 4], ['cancelado', 6]]);
+      }
+    }
+    // Visita de varios servicos acontecendo AGORA: o que terminou esta
+    // concluido, o que esta rolando esta em andamento, o resto vem depois.
+    if (status === 'concluido' && fim.getTime() > agora) status = 'em_andamento';
+    if (status === 'em_andamento' && ini.getTime() > agora) status = 'confirmado';
+
+    const desconto = status === 'concluido' && chance(0.07) ? int(1, 3) * 500 : 0;
+    const ap = {
+      id: ID.agendamento(),
+      tenantId: T,
+      leadId: cliente.id,
+      serviceId: sv.id,
+      professionalId: prof.id,
+      inicioEm: ini,
+      fimEm: fim,
+      status,
+      precoCentavos: sv.precoCentavos,
+      descontoCentavos: desconto,
+      criadoPor: origemAg,
+      // Horario marcado pela Sofia tambem ganha um atendente responsavel
+      // (a regra do sistema: nada fica "sem dono" depois de marcado).
+      responsavelUserId: origemAg === 'humano' || origemAg === 'ia' ? um(atendentes).id : null,
+      confirmadoEm: status !== 'pendente' ? new Date(criadoEm.getTime() + HORA) : null,
+      concluidoEm: status === 'concluido' ? fim : null,
+      canceladoEm: status === 'cancelado' ? new Date(ini.getTime() - int(1, 30) * HORA) : null,
+      motivoCancelamento: status === 'cancelado' ? um(MOTIVOS) : null,
+      observacoes: chance(0.05) ? 'Cliente pediu para usar produto sem perfume.' : '',
+      createdAt: criadoEm
+    };
+    add('appointments', ap);
+    ocupar(prof, data, minuto, minuto + sv.duracaoMinutos);
+
+    if (['concluido', 'faltou', 'cancelado'].includes(status)) {
+      const anteriores = visitas.get(cliente.id) ?? 0;
+      if (status === 'concluido') visitas.set(cliente.id, anteriores + 1);
+      const valor = status === 'concluido' ? sv.precoCentavos - desconto : 0;
+      add('serviceHistory', {
+        id: ID.historico(),
+        tenantId: T,
+        appointmentId: ap.id,
+        resultado: status,
+        professionalId: prof.id,
+        professionalNome: prof.nome,
+        serviceId: sv.id,
+        serviceNome: sv.nome,
+        serviceCategoria: sv.categoria,
+        leadId: cliente.id,
+        clienteNovo: status === 'concluido' && anteriores === 0 && cliente.createdAt.getTime() >= INICIO_JANELA,
+        precoCentavos: sv.precoCentavos,
+        descontoCentavos: desconto,
+        valorCentavos: valor,
+        precoTabelaCentavos: sv.precoCentavos,
+        duracaoMinutos: sv.duracaoMinutos,
+        inicioEm: ini,
+        encerradoEm: fim,
+        dataLocal: data,
+        diaSemana: dow,
+        horaLocal: Math.floor(minuto / 60),
+        antecedenciaHoras: Math.round((ini.getTime() - criadoEm.getTime()) / HORA),
+        origem: origemAg,
+        responsavelUserId: ap.responsavelUserId,
+        humor: chance(0.3) ? pesado([['satisfeito', 7], ['neutro', 2], ['frustrado', 1]]) : null,
+        motivoCancelamento: ap.motivoCancelamento
+      });
+      contAtend++;
+
+      // Venda no balcao depois de ~1 em 5 atendimentos.
+      if (status === 'concluido' && chance(0.2)) {
+        const pr = um(produtos.filter((x) => x.ativo));
+        const qtd = pesado([[1, 7], [2, 2], [3, 1]]);
+        const vendaId = ID.venda();
+        add('productSales', {
+          id: vendaId,
+          tenantId: T,
+          leadId: cliente.id,
+          productId: pr.id,
+          appointmentId: ap.id,
+          quantidade: qtd,
+          precoUnitarioCentavos: pr.precoCentavos,
+          totalCentavos: pr.precoCentavos * qtd,
+          vendidoPorUserId: um(atendentes).id,
+          vendidoEm: new Date(fim.getTime() + int(1, 10) * MIN)
+        });
+        add('stockMovements', { id: ID.produto().replace('prod', 'mov'), tenantId: T, productId: pr.id, tipo: 'venda', quantidade: -qtd, estoqueResultante: pr.estoque, motivo: 'Venda no balcão', referenciaId: vendaId, createdAt: new Date(fim.getTime() + 5 * MIN) });
+      }
+    }
+    return ap;
+  }
 
   for (let d = -90; d <= 14; d++) {
     const data = somaDias(hoje, d);
@@ -322,99 +463,16 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
         if (minuto + sv.duracaoMinutos > hf * 60) break;
         let cliente = chance(0.45) && fieisExistentes.length ? um(fieisExistentes) : um(existentes);
         for (let tenta = 0; cliente.sumiu && d > -50 && tenta < 5; tenta++) cliente = um(existentes);
-        const ini = instante(data, Math.floor(minuto / 60), minuto % 60);
-        const fim = new Date(ini.getTime() + sv.duracaoMinutos * MIN);
-        const ehHoje = d === 0;
-        const passou = fim.getTime() < agora;
-        let status;
-        if (futuro || (ehHoje && !passou)) {
-          status = ehHoje && ini.getTime() < agora ? 'em_andamento' : pesado([['confirmado', 3], ['pendente', 2]]);
-        } else {
-          status = pesado([['concluido', 90], ['faltou', 4], ['cancelado', 6]]);
-        }
-        const desconto = status === 'concluido' && chance(0.07) ? int(1, 3) * 500 : 0;
-        const origemAg = pesado([['humano', 30], ['ia', 8], ['cliente', 12]]);
-        const criadoEm = new Date(ini.getTime() - int(2, 120) * HORA);
-        const ap = {
-          id: ID.agendamento(),
-          tenantId: T,
-          leadId: cliente.id,
-          serviceId: sv.id,
-          professionalId: prof.id,
-          inicioEm: ini,
-          fimEm: fim,
-          status,
-          precoCentavos: sv.precoCentavos,
-          descontoCentavos: desconto,
-          criadoPor: origemAg,
-          responsavelUserId: origemAg === 'humano' ? um(atendentes).id : null,
-          confirmadoEm: status !== 'pendente' ? new Date(criadoEm.getTime() + HORA) : null,
-          concluidoEm: status === 'concluido' ? fim : null,
-          canceladoEm: status === 'cancelado' ? new Date(ini.getTime() - int(1, 30) * HORA) : null,
-          motivoCancelamento: status === 'cancelado' ? um(MOTIVOS) : null,
-          observacoes: chance(0.05) ? 'Cliente pediu para usar produto sem perfume.' : '',
-          createdAt: criadoEm
-        };
-        add('appointments', ap);
+        // A Sofia so oferece horarios da grade (09:00, 09:30...): o que ela
+        // marcou comeca num deles. Encaixe quebrado (14:35) e coisa da recepcao.
+        const naGrade = minuto % 30 === 0;
+        const origemAg = pesado([['humano', 30], ['ia', naGrade ? 14 : 0], ['cliente', 12]]);
+        const criadoEm = new Date(instante(data, Math.floor(minuto / 60), minuto % 60).getTime() - int(2, 120) * HORA);
+        const ap = registrarAgendamento({ cliente, sv, prof, data, dow, minuto, origemAg, criadoEm });
         if (origemAg === 'ia' && criadoEm.getTime() < agora) {
           const dia = dataLocal(criadoEm.getTime());
           if (!marcadosPelaIa.has(dia)) marcadosPelaIa.set(dia, []);
-          marcadosPelaIa.get(dia).push({ ap, sv, prof, dow, minuto });
-        }
-
-        if (['concluido', 'faltou', 'cancelado'].includes(status)) {
-          const anteriores = visitas.get(cliente.id) ?? 0;
-          if (status === 'concluido') visitas.set(cliente.id, anteriores + 1);
-          const valor = status === 'concluido' ? sv.precoCentavos - desconto : 0;
-          add('serviceHistory', {
-            id: ID.historico(),
-            tenantId: T,
-            appointmentId: ap.id,
-            resultado: status,
-            professionalId: prof.id,
-            professionalNome: prof.nome,
-            serviceId: sv.id,
-            serviceNome: sv.nome,
-            serviceCategoria: sv.categoria,
-            leadId: cliente.id,
-            clienteNovo: status === 'concluido' && anteriores === 0 && cliente.createdAt.getTime() >= INICIO_JANELA,
-            precoCentavos: sv.precoCentavos,
-            descontoCentavos: desconto,
-            valorCentavos: valor,
-            precoTabelaCentavos: sv.precoCentavos,
-            duracaoMinutos: sv.duracaoMinutos,
-            inicioEm: ini,
-            encerradoEm: fim,
-            dataLocal: data,
-            diaSemana: dow,
-            horaLocal: Math.floor(minuto / 60),
-            antecedenciaHoras: Math.round((ini.getTime() - criadoEm.getTime()) / HORA),
-            origem: origemAg,
-            responsavelUserId: ap.responsavelUserId,
-            humor: chance(0.3) ? pesado([['satisfeito', 7], ['neutro', 2], ['frustrado', 1]]) : null,
-            motivoCancelamento: ap.motivoCancelamento
-          });
-          contAtend++;
-
-          // Venda no balcao depois de ~1 em 5 atendimentos.
-          if (status === 'concluido' && chance(0.2)) {
-            const pr = um(produtos.filter((x) => x.ativo));
-            const qtd = pesado([[1, 7], [2, 2], [3, 1]]);
-            const vendaId = ID.venda();
-            add('productSales', {
-              id: vendaId,
-              tenantId: T,
-              leadId: cliente.id,
-              productId: pr.id,
-              appointmentId: ap.id,
-              quantidade: qtd,
-              precoUnitarioCentavos: pr.precoCentavos,
-              totalCentavos: pr.precoCentavos * qtd,
-              vendidoPorUserId: um(atendentes).id,
-              vendidoEm: new Date(fim.getTime() + int(1, 10) * MIN)
-            });
-            add('stockMovements', { id: ID.produto().replace('prod', 'mov'), tenantId: T, productId: pr.id, tipo: 'venda', quantidade: -qtd, estoqueResultante: pr.estoque, motivo: 'Venda no balcão', referenciaId: vendaId, createdAt: new Date(fim.getTime() + 5 * MIN) });
-          }
+          marcadosPelaIa.get(dia).push({ ap, sv, prof, dow, minuto, data });
         }
         minuto += sv.duracaoMinutos + (chance(0.3) ? 30 : 0);
       }
@@ -426,21 +484,129 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
   }
 
   // ==========================================================================
+  // VISITAS COM VARIOS SERVICOS (marcadas pela Sofia, em sequencia)
+  // ==========================================================================
+  /**
+   * Como o sistema faz hoje (agenda/sequencia.js): o servico seguinte comeca
+   * quando o anterior termina — as vezes com uma espera curta, a limpeza do
+   * profissional —, cada um com quem faz aquele servico e esta livre. Tudo
+   * marcado junto, pela IA, ligado a conversa em que o cliente pediu.
+   */
+  progresso('Visitas com vários serviços', 40);
+  const PACOTES = [
+    ['Corte Degradê', 'Barba Terapia', 'Design de Sobrancelha'],
+    ['Corte Social', 'Barba Tradicional'],
+    ['Coloração', 'Hidratação'],
+    ['Manicure', 'Pedicure'],
+    ['Corte Feminino Longo', 'Escova Modelada'],
+    ['Limpeza de Pele', 'Design com Henna'],
+    ['Corte Navalhado', 'Pigmentação de Barba']
+  ].map((nomes) => nomes.map((n) => servicos.find((x) => x.nome === n)));
+
+  /** Encaixa um pacote a partir de `minuto`. Devolve os itens ou null. */
+  function encaixarPacote(pacote, data, dow, minuto) {
+    const itens = [];
+    let inicio = minuto;
+    let anterior = null;
+    for (const sv of pacote) {
+      const podem = profissionais.filter((p) => p.ativo && p.servicosCats.includes(sv.categoria) && p.jornada.dias[dow]?.[0]);
+      // Quem acabou de atender segue atendendo, se puder.
+      const ordem = anterior && podem.includes(anterior) ? [anterior, ...podem.filter((p) => p !== anterior)] : podem;
+      let achou = null;
+      for (const espera of [0, 5, 10]) {
+        const ini = inicio + espera;
+        achou = ordem.find((p) => {
+          const f = p.jornada.dias[dow][0];
+          const [hi, mi] = f.inicio.split(':').map(Number);
+          const [hf, mf] = f.fim.split(':').map(Number);
+          const fim = ini + sv.duracaoMinutos;
+          return ini >= hi * 60 + mi && fim <= hf * 60 + mf && livre(p, data, ini, fim);
+        });
+        if (achou) {
+          itens.push({ sv, prof: achou, minuto: ini, espera });
+          inicio = ini + sv.duracaoMinutos;
+          break;
+        }
+      }
+      if (!achou) return null;
+      anterior = achou;
+    }
+    return itens;
+  }
+
+  const visitasEmSequencia = [];
+  for (let d = -75; d <= 12; d++) {
+    const data = somaDias(hoje, d);
+    const dow = diaSemana(data);
+    if (dow === 0) continue;
+    const fimDoDiaMs = instante(data, 23, 59).getTime();
+    const cadastrados = existentes.filter((c) => c.createdAt.getTime() <= fimDoDiaMs);
+    for (let k = int(1, 3); k > 0; k--) {
+      const pacote = um(PACOTES);
+      const itens = encaixarPacote(pacote, data, dow, um([9, 10, 11, 13, 14, 15, 16]) * 60 + um([0, 30]));
+      if (!itens) continue;
+      const cliente = um(cadastrados);
+      const primeiro = instante(data, Math.floor(itens[0].minuto / 60), itens[0].minuto % 60).getTime();
+      // Marcado de 4h a 3 dias antes — e sempre no passado (a conversa ja aconteceu).
+      const criadoEm = new Date(Math.min(primeiro - int(4, 72) * HORA, agora - int(1, 30) * HORA));
+      // A visita inteira tem o mesmo destino: veio, faltou ou cancelou.
+      const ultimo = instante(data, 0, 0).getTime() + (itens.at(-1).minuto + itens.at(-1).sv.duracaoMinutos) * MIN;
+      const destino =
+        ultimo < agora ? pesado([['concluido', 90], ['faltou', 4], ['cancelado', 6]])
+          : primeiro > agora ? pesado([['confirmado', 4], ['pendente', 1]])
+            : 'concluido'; // acontecendo agora: vira concluido / em andamento / confirmado por item
+      const aps = itens.map((it) =>
+        registrarAgendamento({ cliente, sv: it.sv, prof: it.prof, data, dow, minuto: it.minuto, origemAg: 'ia', criadoEm, forcarStatus: destino })
+      );
+      visitasEmSequencia.push({ cliente, data, itens, aps, criadoEm });
+    }
+  }
+
+  // ==========================================================================
   // CONVERSAS DO WHATSAPP (historico + as abertas agora na mesa)
   // ==========================================================================
   progresso('Conversas do WhatsApp', 45);
   const primeiroNome = (c) => c.nome.split(' ')[0];
+
+  /**
+   * Os roteiros falam como a Sofia fala HOJE:
+   *   - data por extenso vinda da consulta ("sexta-feira, 26/09"), nunca
+   *     "sexta" solto; 2 ou 3 opcoes reais, nao a lista inteira;
+   *   - so confirma o que foi marcado; "obrigado" ganha resposta curta;
+   *   - varios servicos na mesma visita, um depois do outro.
+   *
+   * `ia` diz o que cada resposta da IA custou, na ordem das mensagens 'ia':
+   *   'simples'  — a Sofia respondeu direto (catalogo no prompt): 1 chamada
+   *   'consulta' — a Sofia consultou a agenda DIRETO (sem a Atena): 2 chamadas
+   *   'atena'    — marcar/remarcar/cancelar: a Sofia pede, a Atena grava e
+   *                relata (2 chamadas dela), a Sofia responde: 4 chamadas
+   * Omitido = tudo 'simples'.
+   */
   const ROTEIROS = [
     {
       chave: 'agendou_ia',
       peso: 6,
+      ia: ['consulta', 'atena', 'simples'],
       resumo: (c, x) => `${primeiroNome(c)} pediu um horário para ${x.servico}. A Sofia ofereceu opções e marcou ${x.dia} às ${x.hora} com ${x.prof}.`,
       msgs: (c, x) => [
-        ['lead', `Oi, boa tarde! Queria marcar ${x.servico.toLowerCase()} pra ${x.dia}`],
-        ['ia', `Oi, ${primeiroNome(c)}! 😊 Claro! ${x.dia[0].toUpperCase() + x.dia.slice(1)} tenho *${x.hora}* com ${x.prof} ou *${x.hora2}* com ${x.prof2}. Qual fica melhor?`],
+        ['lead', `Oi, boa tarde! Queria marcar ${x.servico.toLowerCase()} pra ${x.diaFalado}`],
+        ['ia', `Oi, ${primeiroNome(c)}! 😊 Para ${x.dia}, tenho *${x.hora}* com ${x.prof} ou *${x.hora2}* com ${x.prof2}. Qual fica melhor?`],
         ['lead', `${x.hora} pode ser`],
-        ['ia', `Prontinho! ✅ ${x.servico} marcado para ${x.dia} às *${x.hora}* com ${x.prof}. Te espero!`],
-        ['lead', 'Valeu! 👍']
+        ['ia', `Prontinho! ✅ ${x.servico} marcado para ${x.dia}, às *${x.hora}*, com ${x.prof} (*${x.preco}*). Te espero!`],
+        ['lead', 'Valeu! 👍'],
+        ['ia', 'Imagina! Até lá 💈']
+      ]
+    },
+    {
+      chave: 'varios_servicos',
+      peso: 3,
+      ia: ['consulta', 'atena'],
+      resumo: (c, x) => `${primeiroNome(c)} quis fazer ${x.pacoteTexto} na mesma visita. A Sofia encaixou tudo em sequência para ${x.dia}, a partir das ${x.hora}.`,
+      msgs: (c, x) => [
+        ['lead', `Dá pra fazer ${x.pacoteTexto} no mesmo dia? Pode ser ${x.diaFalado}`],
+        ['ia', `Dá sim, ${primeiroNome(c)}! 😊 Para ${x.dia}, fica assim:\n${x.pacoteLinhas}\n\nTotal: *${x.pacoteTotal}*${x.pacoteEspera ? ` (com ${x.pacoteEspera} min entre um e outro)` : ''}. Pode ser?`],
+        ['lead', 'Fechado!'],
+        ['ia', `Prontinho! ✅ Está tudo marcado para ${x.dia}, a partir das *${x.hora}*. Te espero!`]
       ]
     },
     {
@@ -450,7 +616,20 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
       msgs: (c, x) => [
         ['lead', `Quanto tá ${x.servico.toLowerCase()}?`],
         ['ia', `${x.servico} sai por *${x.preco}* e leva uns ${x.minutos} minutos. Quer que eu veja um horário pra você?`],
-        ['lead', 'Vou ver minha agenda e te falo']
+        ['lead', 'Vou ver minha agenda e te falo'],
+        ['ia', 'Combinado! Quando quiser é só chamar 😉']
+      ]
+    },
+    {
+      chave: 'sem_dia',
+      peso: 2,
+      ia: ['simples', 'consulta'],
+      resumo: (c, x) => `Quis marcar ${x.servico} sem dizer o dia. A Sofia perguntou e ofereceu ${x.dia}.`,
+      msgs: (c, x) => [
+        ['lead', `Quero marcar ${x.servico.toLowerCase()}`],
+        ['ia', `Claro, ${primeiroNome(c)}! Tem algum dia de preferência? Se quiser, vejo o próximo dia com vaga.`],
+        ['lead', 'Pode ser o mais cedo possível'],
+        ['ia', `O mais cedo é ${x.dia}: *${x.hora}* com ${x.prof} ou *${x.hora2}* com ${x.prof2}. Algum desses serve?`]
       ]
     },
     {
@@ -485,12 +664,13 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
     {
       chave: 'remarcar',
       peso: 2,
+      ia: ['consulta', 'atena'],
       resumo: (c, x) => `Pediu para remarcar o horário. A Sofia moveu para ${x.dia} às ${x.hora}.`,
       msgs: (c, x) => [
-        ['lead', 'Oi! Vou precisar remarcar meu horário, surgiu um imprevisto'],
-        ['ia', `Sem problemas, ${primeiroNome(c)}! Tenho ${x.dia} às *${x.hora}* ou *${x.hora2}*. Qual prefere?`],
+        ['lead', `Oi! Vou precisar remarcar meu horário, surgiu um imprevisto. Pode ser ${x.diaFalado}?`],
+        ['ia', `Sem problemas, ${primeiroNome(c)}! Para ${x.dia}, tenho *${x.hora}* ou *${x.hora2}*. Qual prefere?`],
         ['lead', x.hora],
-        ['ia', `Feito! 🔄 Seu horário agora é ${x.dia} às *${x.hora}*.`]
+        ['ia', `Feito! 🔄 Seu horário agora é ${x.dia}, às *${x.hora}*.`]
       ]
     },
     {
@@ -523,13 +703,14 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
       resumo: (c, x) => `Perguntou sobre ${x.produto}. Separado para retirar na loja.`,
       msgs: (c, x) => [
         ['lead', `Vocês vendem ${x.produto.toLowerCase()}?`],
-        ['ia', `Temos sim: *${x.produto}* por ${x.precoProduto}. Quer que eu separe um pra você retirar?`],
+        ['ia', `Temos sim: *${x.produto}* por *${x.precoProduto}*. Quer que eu separe um pra você retirar?`],
         ['lead', 'Separa sim, passo amanhã']
       ]
     },
     {
       chave: 'cancelou',
       peso: 1,
+      ia: ['consulta', 'atena'],
       resumo: () => 'Cancelou o horário por imprevisto. A Sofia ofereceu remarcar e o cliente disse que volta a chamar.',
       msgs: (c) => [
         ['lead', 'Preciso cancelar meu horário de amanhã'],
@@ -541,29 +722,105 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
   ];
 
   const DIAS_TEXTO = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
-  const horaTexto = () => `${int(9, 18)}h${pesado([['', 3], ['30', 2]])}`;
+  // Horarios da grade (09:00, 09:30...), como a consulta devolve.
+  const horaGrade = () => `${String(int(9, 18)).padStart(2, '0')}:${um(['00', '30'])}`;
+  const hhmm = (minuto) => `${String(Math.floor(minuto / 60)).padStart(2, '0')}:${String(minuto % 60).padStart(2, '0')}`;
   const reais = (c) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  const detalhes = () => {
+
+  /** Texto de uma visita de varios servicos, como a Sofia apresenta a opcao. */
+  const textoDoPacote = (itens) => {
+    const nomes = itens.map((it) => it.sv.nome.toLowerCase());
+    return {
+      pacoteTexto: nomes.length === 2 ? `${nomes[0]} e ${nomes[1]}` : `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}`,
+      pacoteLinhas: itens.map((it) => `• *${hhmm(it.minuto)}* ${it.sv.nome} com ${it.prof.nome.split(' ')[0]}`).join('\n'),
+      pacoteTotal: reais(itens.reduce((t, it) => t + it.sv.precoCentavos, 0)),
+      pacoteEspera: itens.some((it) => it.espera > 0) ? Math.max(...itens.map((it) => it.espera)) : 0,
+      hora: hhmm(itens[0].minuto)
+    };
+  };
+
+  /**
+   * Detalhes sorteados de uma conversa. `base` e o dia da conversa: a data
+   * oferecida e sempre DEPOIS dele, e o rotulo sai como a consulta devolve
+   * ("amanhã, quinta-feira, 24/09" / "sexta-feira, 26/09").
+   */
+  const detalhes = (base) => {
     const sv = um(servicos);
     const pr = um(produtos);
+    const alvo = somaDias(base, int(1, 6));
+    const pacote = um(PACOTES);
+    let m = um([9, 10, 14, 15]) * 60;
+    const itensPacote = pacote.map((svp) => {
+      const it = { sv: svp, prof: um(profissionais.filter((p) => p.servicosCats.includes(svp.categoria))), minuto: m, espera: 0 };
+      m += svp.duracaoMinutos;
+      return it;
+    });
     return {
       servico: sv.nome,
       preco: reais(sv.precoCentavos),
       minutos: sv.duracaoMinutos,
-      dia: um(DIAS_TEXTO.slice(1)),
-      hora: horaTexto(),
-      hora2: horaTexto(),
+      dia: rotuloDaData(alvo, base),
+      diaFalado: alvo === somaDias(base, 1) ? 'amanhã' : DIAS_TEXTO[diaSemana(alvo)],
+      hora: horaGrade(),
+      hora2: horaGrade(),
       prof: um(profissionais).nome.split(' ')[0],
       prof2: um(profissionais).nome.split(' ')[0],
       atendente: um(atendentes).nome.split(' ')[0],
       produto: pr.nome,
-      precoProduto: reais(pr.precoCentavos)
+      precoProduto: reais(pr.precoCentavos),
+      ...textoDoPacote(itensPacote)
     };
   };
 
+  /** Um modelo da cascata: quase sempre o primeiro; a reserva de vez em quando. */
+  const modeloDaVez = () => (cascata.length > 1 && chance(0.08) ? um(cascata.slice(1)) : cascata[0]);
+
+  /** Uma chamada de IA registrada (o que a Central de IA mostra em Métricas). */
+  function chamadaDeIa({ origem: origemIa, agentKey, em, conversationId, entrada, saida }) {
+    const m = modeloDaVez();
+    // ~2% das chamadas falham no primeiro modelo e a cascata tenta o proximo.
+    if (cascata.length > 1 && chance(0.02)) {
+      add('aiCalls', { id: ID.mensagem().replace('msg', 'aic'), tenantId: T, origem: origemIa, agentKey, provedor: cascata[0].provedor, modelo: cascata[0].modelo, sucesso: false, latenciaMs: int(8000, 20000), tokensEntrada: 0, tokensSaida: 0, erro: 'Tempo esgotado', conversationId, createdAt: new Date(em - 2000) });
+    }
+    add('aiCalls', {
+      id: ID.mensagem().replace('msg', 'aic'),
+      tenantId: T,
+      origem: origemIa,
+      agentKey,
+      provedor: m.provedor,
+      modelo: m.modelo,
+      sucesso: true,
+      latenciaMs: int(650, 1450),
+      tokensEntrada: int(...entrada),
+      tokensSaida: int(...saida),
+      erro: null,
+      conversationId,
+      createdAt: new Date(em)
+    });
+  }
+
+  /**
+   * O custo de UMA resposta da IA, no desenho atual:
+   * a Sofia consulta horarios direto; a Atena so entra para gravar.
+   */
+  function usoDaResposta(tipo, em, conversationId) {
+    const sofia = (dt, entrada, saida) => chamadaDeIa({ origem: 'atendimento', agentKey: 'atendente', em: em - dt, conversationId, entrada, saida });
+    if (tipo === 'consulta') {
+      sofia(2500, [1800, 2100], [9, 40]); // decide consultar a agenda
+      sofia(1000, [2100, 2500], [60, 180]); // responde com as opcoes
+    } else if (tipo === 'atena') {
+      sofia(4200, [1850, 2150], [20, 60]); // pede a marcacao a Atena
+      chamadaDeIa({ origem: 'atena', agentKey: 'atena', em: em - 3300, conversationId, entrada: [1750, 1950], saida: [11, 60] }); // grava
+      chamadaDeIa({ origem: 'atena', agentKey: 'atena', em: em - 2200, conversationId, entrada: [1950, 2350], saida: [40, 120] }); // relata
+      sofia(1000, [2150, 2500], [50, 160]); // confirma ao cliente
+    } else {
+      sofia(1000, [1700, 2300], [20, 160]);
+    }
+  }
+
   const abertosPorLead = new Set();
-  function conversa({ cliente, roteiro, inicio, status, atendente, canal = W1, etapa = 'novo', naoLidas = 0, cortar = null, fixos = null }) {
-    const x = { ...detalhes(), ...fixos };
+  function conversa({ cliente, roteiro, inicio, status, atendente, responsavel = null, canal = W1, etapa = 'novo', naoLidas = 0, cortar = null, fixos = null }) {
+    const x = { ...detalhes(dataLocal(inicio)), ...fixos };
     if (atendente) x.atendente = atendente.nome.split(' ')[0];
     let msgs = roteiro.msgs(cliente, x);
     if (cortar) msgs = msgs.slice(0, cortar);
@@ -572,12 +829,14 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
     let cli = 0;
     let ia = 0;
     let hum = 0;
+    let respostasIa = 0;
     let primeira = null;
     for (const [autor, texto] of msgs) {
       t += (autor === 'lead' ? int(20, 180) : autor === 'humano' ? int(40, 400) : int(3, 12)) * 1000;
       if (autor === 'lead') cli++;
       else if (autor === 'humano') hum++;
       else if (autor === 'ia' || autor === 'menu') ia++;
+      if (autor === 'ia') usoDaResposta(roteiro.ia?.[respostasIa++] ?? 'simples', t, id);
       if (autor !== 'lead' && autor !== 'sistema' && primeira === null) primeira = Math.round((t - inicio) / 1000);
       add('messages', {
         id: ID.mensagem(),
@@ -592,6 +851,13 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
         createdAt: new Date(t)
       });
     }
+    // Leitura de humor: depois da primeira resposta da IA e a cada 3
+    // mensagens do cliente (o padrao de `humor_a_cada_mensagens`).
+    if (respostasIa > 0) {
+      for (let k = 1; k <= cli; k += 3) {
+        chamadaDeIa({ origem: 'humor', agentKey: null, em: inicio + k * 45_000, conversationId: id, entrada: [380, 720], saida: [28, 66] });
+      }
+    }
     const ultima = msgs.at(-1);
     add('conversations', {
       id,
@@ -600,7 +866,9 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
       channelInstanceId: canal.id,
       canal: 'whatsapp',
       status,
-      assignedUserId: atendente?.id ?? null,
+      // Conversa em que a Sofia marcou horario ganha o atendente responsavel
+      // pelo horario (continua com a IA, mas tem dono).
+      assignedUserId: atendente?.id ?? responsavel ?? null,
       assumidaEm: atendente ? new Date(inicio + 2 * MIN) : null,
       ultimaMensagemPreview: ultima[1].slice(0, 120),
       ultimaMensagemEm: new Date(t),
@@ -617,33 +885,40 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
       finalizadaEm: status === 'finalizada' ? new Date(t + int(5, 60) * MIN) : null,
       createdAt: new Date(inicio)
     });
-    // Uso da IA por mensagem que ela respondeu.
-    for (let k = 0; k < ia + (roteiro.chave === 'agendou_ia' ? 2 : 0); k++) {
-      const ok = chance(0.97);
-      add('aiCalls', {
-        id: ID.mensagem().replace('msg', 'aic'),
-        tenantId: T,
-        origem: 'atendimento',
-        agentKey: k > ia - 1 ? 'atena' : 'atendente',
-        ...pesado([
-          [{ provedor: 'gemini', modelo: 'gemini-2.5-flash' }, 7],
-          [{ provedor: 'groq', modelo: 'llama-3.3-70b-versatile' }, 3]
-        ]),
-        sucesso: ok,
-        latenciaMs: int(600, 3200),
-        tokensEntrada: int(1400, 2600),
-        tokensSaida: int(60, 260),
-        erro: ok ? null : 'Tempo esgotado',
-        conversationId: id,
-        createdAt: new Date(inicio + k * 20_000)
-      });
-    }
     return id;
   }
 
   // Historico: ~30 conversas por dia util nos ultimos 90 dias. Quem conversa
   // ja e cliente cadastrado naquele dia.
-  const hh = (minuto) => `${Math.floor(minuto / 60)}h${minuto % 60 ? String(minuto % 60).padStart(2, '0') : ''}`;
+  /** Como o cliente fala a data ("amanhã", "sexta") e como a Sofia confirma ("sexta-feira, 26/09"). */
+  const datasDaConversa = (dataAg, inicioConversa) => {
+    const base = dataLocal(inicioConversa);
+    return {
+      dia: rotuloDaData(dataAg, base),
+      diaFalado: dataAg === base ? 'hoje' : dataAg === somaDias(base, 1) ? 'amanhã' : DIAS_TEXTO[diaSemana(dataAg)]
+    };
+  };
+
+  // Cada visita de varios servicos tem a conversa em que o cliente pediu —
+  // e todos os agendamentos dela apontam para essa conversa.
+  const roteiroPacote = ROTEIROS.find((r) => r.chave === 'varios_servicos');
+  for (const v of visitasEmSequencia) {
+    const inicio = v.criadoEm.getTime() - int(2, 8) * MIN;
+    const id = conversa({
+      cliente: v.cliente,
+      roteiro: roteiroPacote,
+      inicio,
+      status: 'finalizada',
+      responsavel: v.aps[0].responsavelUserId,
+      canal: chance(0.8) ? W1 : W2,
+      fixos: { ...datasDaConversa(v.data, inicio), ...textoDoPacote(v.itens) }
+    });
+    for (const ap of v.aps) {
+      ap.conversationId = id;
+      ap.responsavelUserId = v.aps[0].responsavelUserId;
+    }
+  }
+
   for (let d = -90; d <= -1; d++) {
     const data = somaDias(hoje, d);
     const dow = diaSemana(data);
@@ -652,21 +927,24 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
     const n = Math.round((dow === 0 ? 6 : 20 + PESO_DIA[dow] * 10) * (1 + (d + 90) / 300));
     const doDia = marcadosPelaIa.get(data) ?? [];
     for (let k = 0; k < n; k++) {
-      const roteiro = pesado(ROTEIROS.map((r) => [r, r.peso]));
+      // Varios servicos so aparecem ligados a uma visita de verdade (acima).
+      const roteiro = pesado(ROTEIROS.filter((r) => r !== roteiroPacote).map((r) => [r, r.peso]));
       const h = pesado([[8, 1], [9, 2], [10, 3], [11, 3], [12, 4], [13, 3], [14, 3], [15, 3], [16, 3], [17, 4], [18, 5], [19, 5], [20, 4], [21, 3], [22, 2], [23, 1]]);
       // "Agendou pela IA": a conversa e a do agendamento que a Sofia marcou —
       // mesmo cliente, servico, profissional e horario, e o agendamento aponta
       // para ela (e o que alimenta "conversas que viraram agendamento").
       const marcado = roteiro.chave === 'agendou_ia' ? doDia.pop() : null;
       if (marcado) {
-        const { ap, sv, prof, dow: diaAg, minuto } = marcado;
+        const { ap, sv, prof, minuto, data: dataAg } = marcado;
+        const inicio = ap.createdAt.getTime() - int(2, 8) * MIN;
         const id = conversa({
           cliente: clientes.find((c) => c.id === ap.leadId),
           roteiro,
-          inicio: ap.createdAt.getTime() - int(2, 8) * MIN,
+          inicio,
           status: 'finalizada',
+          responsavel: ap.responsavelUserId,
           canal: chance(0.8) ? W1 : W2,
-          fixos: { servico: sv.nome, prof: prof.nome.split(' ')[0], dia: DIAS_TEXTO[diaAg], hora: hh(minuto) }
+          fixos: { servico: sv.nome, preco: reais(sv.precoCentavos), prof: prof.nome.split(' ')[0], hora: hhmm(minuto), ...datasDaConversa(dataAg, inicio) }
         });
         ap.conversationId = id;
         continue;
@@ -712,7 +990,24 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
     const quantas = [4, 3, 2, 4, 1][i];
     for (let k = 0; k < quantas; k++) {
       const roteiro = ROTEIROS.find((r) => r.chave === 'pediu_pessoa');
-      conversasAbertas.push({ id: conversa({ cliente: pegar(), roteiro, inicio: recente(180), status: 'humana', atendente: a, etapa: pesado([['entendendo', 2], ['orcamento', 3], ['aguardando', 2]]), naoLidas: chance(0.5) ? int(1, 3) : 0, canal: chance(0.7) ? W1 : W2 }), status: 'humana' });
+      // Metade ja foi respondida pelo atendente (esperando o cliente); a
+      // outra metade termina com o cliente falando — sao essas que piscam
+      // no Quadro de atendimento como "Esperando resposta".
+      const esperandoAtendente = k % 2 === 0;
+      conversasAbertas.push({
+        id: conversa({
+          cliente: pegar(),
+          roteiro,
+          inicio: recente(180),
+          status: 'humana',
+          atendente: a,
+          etapa: pesado([['entendendo', 2], ['orcamento', 3], ['aguardando', 2]]),
+          naoLidas: esperandoAtendente ? int(1, 3) : 0,
+          cortar: esperandoAtendente ? null : 5,
+          canal: chance(0.7) ? W1 : W2
+        }),
+        status: 'humana'
+      });
     }
   }
 
@@ -801,14 +1096,6 @@ export async function gerarDemonstracao({ destino, origem, tenantOrigem, progres
     }
   });
 
-  // Configuracao de IA, menu e modo de atendimento: copiadas da empresa real,
-  // para a demonstracao responder como o sistema de verdade.
-  const [menuReal, agentesReais, provedoresReais, ajustesReais] = await Promise.all([
-    origem.select().from(s.menuFlows).where(and(eq(s.menuFlows.tenantId, tenantOrigem), eq(s.menuFlows.ativo, true))),
-    origem.select().from(s.agentProfiles).where(eq(s.agentProfiles.tenantId, tenantOrigem)),
-    origem.select().from(s.aiProviders).where(eq(s.aiProviders.tenantId, tenantOrigem)),
-    origem.select().from(s.settings).where(and(eq(s.settings.tenantId, tenantOrigem), ne(s.settings.chave, 'empresa.base_conhecimento')))
-  ]);
   for (const m of menuReal) add('menuFlows', { ...m, id: ID.menu(), tenantId: T });
   for (const a of agentesReais) add('agentProfiles', { ...a, id: ID.agente(), tenantId: T });
   for (const pv of provedoresReais) add('aiProviders', { ...pv, id: ID.provedorIa(), tenantId: T });

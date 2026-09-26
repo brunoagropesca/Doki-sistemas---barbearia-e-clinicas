@@ -156,6 +156,17 @@ Análise das 2 conversas de teste do banco de dev: agendamento parcial anunciado
 - **Lista do livechat:** o contador de não lidas foi para a linha da prévia (padrão WhatsApp; antes era empurrado para fora do cartão pelo nome do atendente), a hora fica vermelha quando há não lidas, as etiquetas ficam numa linha só, o selo diz "Com Camila" em vez de "Com atendente" + nome solto, e a barra de rolagem ficou fina.
 - **Zerar o sistema (NÃO ligado):** `api/src/modules/dados/zerar.js` (`zerarSistema`) está escrito, mas SEM rota nem botão: o sistema de permissões bloqueou por ser exclusão irreversível. Mantém a empresa e os logins de dono/DEV; apaga todo o resto (inclusive chaves de IA, conexões de WhatsApp, anexos, backups e a demonstração) e faz VACUUM. Só ligar com decisão explícita do usuário.
 
+### 14. Demonstração atualizada para o sistema atual — 25/09/2026
+O gerador (`api/src/modules/demonstracao/gerador.js`) ainda simulava o desenho antigo. Agora:
+- **Uso de IA como o sistema faz hoje:** cada resposta da Sofia custa 1 chamada (`simples`), 2 (`consulta` — ela consulta a agenda direto) ou 4 (`atena` — a Atena só entra para marcar/remarcar/cancelar, com `origem: 'atena'`). Leitura de humor (`origem: 'humor'`) depois da 1ª resposta e a cada 3 mensagens do cliente. Modelos = a cascata REAL da empresa (provedores habilitados, por prioridade; ~8% na reserva, ~2% de falha com nova tentativa). Sem provedor configurado, um par plausível.
+- **Visitas com vários serviços** (7 pacotes, 1–3 por dia): encaixadas na agenda sem sobrepor ninguém, o seguinte começa quando o anterior termina (espera de 0/5/10 min), mesmo destino para a visita inteira, marcadas pela IA e ligadas à conversa `varios_servicos`.
+- **Falas da Sofia:** data por extenso ("sexta-feira, 26/09") calculada da data real da conversa, horários da grade, só confirma o que marcou, resposta curta a "valeu", roteiro novo `sem_dia` (pergunta o dia / oferece o próximo com vaga). Agendamento da IA só em horário da grade.
+- **Horário da IA tem responsável** (e a conversa ganha o atendente, continuando com a IA).
+- **Quadro:** metade das conversas com atendente já foi respondida (não pisca), a outra metade termina com o cliente (pisca "Esperando resposta"), além da fila.
+- Criação de agendamento extraída para `registrarAgendamento` (status, histórico, venda no balcão) — usada pela agenda comum e pelas visitas.
+- Testes novos em `demonstracao.test.js` (bloco "segue os parâmetros atuais do sistema"). Suíte: **925/925**.
+- Demonstrações já geradas continuam no formato antigo: usar **"Gerar de novo"**.
+
 ## Pendências / próximos passos
 
 - **Testar de verdade no WhatsApp** as mudanças dos itens 8 e 9 (mesmos roteiros da Débora e do Lyu) e olhar os bastidores no Simulador — conferir se a Sofia oferece 2–3 horários (e não a lista inteira) e se passa a data "como o cliente falou".
