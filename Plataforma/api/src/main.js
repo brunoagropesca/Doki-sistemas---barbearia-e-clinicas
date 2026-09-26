@@ -18,6 +18,7 @@ import {
 import { testarModelosNoBoot } from './modules/ia/ia.service.js';
 import { criarApp } from './app.js';
 import { iniciarRotinas } from './automacao/rotinas.js';
+import { AUSENTE_APOS_MS, marcarAusentesSemPainel } from './modules/equipe/presenca.js';
 import { sincronizarHistorico } from './modules/historico/historico.service.js';
 import { iniciarBackupAutomatico } from './modules/dados/backups.js';
 import { enviarMensagem } from './channels/gateway.js';
@@ -72,6 +73,9 @@ async function principal() {
   // O relogio da Atena: fechamento do dia, lembrete de vespera e demais rotinas.
   // O envio entra por injecao, como nas campanhas: as rotinas nao conhecem o canal.
   const pararRotinas = iniciarRotinas({ enviar: enviarMensagem });
+  // Ao ligar ninguem esta conectado: passado o prazo, quem segue "online" sem
+  // painel aberto sai da distribuicao (volta sozinho ao abrir). Ver presenca.js.
+  setTimeout(() => marcarAusentesSemPainel().catch(() => {}), AUSENTE_APOS_MS).unref?.();
   // Um backup por dia (guarda os 14 ultimos), sem ninguem precisar lembrar.
   const pararBackups = iniciarBackupAutomatico();
 

@@ -378,3 +378,124 @@ describe('distribuicao', () => {
     assert.equal((await conversas.distribuir(ctx.tenantId, outra)).atribuida, true, 'agora ausentes recebem');
   });
 });
+
+/**
+ * O botao "Distribuir" chamado por QUEM NAO DEVE.
+ *
+ * Bug reproduzido: uma atendente chamava POST /distribuir com o id de uma
+ * conversa de outra (que ela nem enxerga) — a conversa era tirada da colega e
+ * a resposta trazia nome e telefone do cliente.
+ */
+describe('distribuir: quem pede importa', () => {
+  const distribuirPor = (quem, id) =>
+    app.inject({ method: 'POST', url: `/api/conversas/${id}/distribuir`, headers: quem.cabecalho });
+
+  const responsavelDe = async (id) =>
+    (await app.inject({ method: 'GET', url: `/api/conversas/${id}`, headers: dono.cabecalho })).json().conversa.assignedUserId;
+
+  /** So quem for passado fica online: a distribuicao cai em alguem previsivel. */
+  async function soOnline(...quem) {
+    const { db } = await import('../src/db/client.js');
+    const { users } = await import('../src/db/schema/index.js');
+    const { eq } = await import('drizzle-orm');
+    await db.update(users).set({ statusPresenca: 'ausente' }).where(eq(users.tenantId, ctx.tenantId));
+    for (const q of quem) await presenca(q, 'online');
+  }
+
+  before(async () => {
+    await configurar({ privacidade: 'dono', distribuicaoAutomatica: true, distribuirSomenteOnline: true, criterioDistribuicao: 'menos_carregado' });
+  });
+
+  it('atendente nao distribui a conversa de outra: 404 e nada muda', async () => {
+    const { id } = await novaConversa();
+    assert.equal((await assumir(ana, id)).statusCode, 200);
+    await soOnline(bruno);
+
+    const r = await distribuirPor(bruno, id);
+    assert.equal(r.statusCode, 404, r.body);
+    assert.doesNotMatch(r.body, /Cliente Privacidade|551197/, 'nem nome nem telefone do cliente na resposta');
+    assert.equal(await responsavelDe(id), ana.usuario.id, 'a conversa continua com Ana');
+  });
+
+  it('nem a propria conversa: redistribuir quem ja tem responsavel e da gerencia (403)', async () => {
+    const { id } = await novaConversa();
+    assert.equal((await assumir(ana, id)).statusCode, 200);
+
+    const r = await distribuirPor(ana, id);
+    assert.equal(r.statusCode, 403, r.body);
+    assert.equal(await responsavelDe(id), ana.usuario.id);
+  });
+
+  it('conversa da FILA (sem dono): a atendente distribui normalmente', async () => {
+    // Atendente nova, sem carga: a Ana ja esta no limite de conversas
+    // simultaneas por causa dos testes de cima, e a distribuicao a pularia.
+    const carla = await criarUsuario('Carla Distribui', 'carla.distribui');
+    await soOnline(carla);
+    const { id } = await novaConversa();
+
+    const r = await distribuirPor(carla, id);
+    assert.equal(r.statusCode, 200, r.body);
+    assert.equal(r.json().atribuida, true);
+    assert.equal(r.json().atendente.id, carla.usuario.id);
+    assert.equal(r.json().conversa.id, id, 'ficou com ela: a conversa vem na resposta');
+  });
+
+  it('da fila para OUTRA pessoa: a resposta diz quem recebeu, sem os dados do cliente', async () => {
+    await soOnline(bruno);
+    const { id } = await novaConversa();
+
+    const r = await distribuirPor(ana, id);
+    assert.equal(r.statusCode, 200, r.body);
+    assert.equal(r.json().atendente.id, bruno.usuario.id);
+    assert.equal(r.json().conversa, undefined, 'a conversa foi para Bruno: Ana nao recebe o telefone');
+    assert.deepEqual(Object.keys(r.json().atendente).sort(), ['id', 'nome']);
+  });
+
+  it('o dono redistribui uma conversa que ja tem responsavel', async () => {
+    const { id } = await novaConversa();
+    assert.equal((await assumir(ana, id)).statusCode, 200);
+    await soOnline(bruno);
+
+    const r = await distribuirPor(dono, id);
+    assert.equal(r.statusCode, 200, r.body);
+    assert.equal(r.json().atendente.id, bruno.usuario.id);
+    assert.equal(r.json().conversa.id, id, 'o dono ve tudo: a conversa vem na resposta');
+    assert.equal(await responsavelDe(id), bruno.usuario.id);
+  });
+});
+
+/**
+ * Bug reproduzido: o dono abria a conversa da atendente para acompanhar e o
+ * contador de nao lidas dela ia a zero — ela nunca ficava sabendo que o
+ * cliente tinha escrito.
+ */
+describe('nao lidas sao de quem atende', () => {
+  const lida = (quem, id) => app.inject({ method: 'POST', url: `/api/conversas/${id}/lida`, headers: quem.cabecalho });
+  const naoLidas = async (id) =>
+    (await app.inject({ method: 'GET', url: `/api/conversas/${id}`, headers: dono.cabecalho })).json().conversa.naoLidas;
+
+  it('o dono abre para acompanhar e o contador da atendente continua', async () => {
+    const conv = await import('../src/modules/conversas/conversas.service.js');
+    const { id } = await novaConversa();
+    assert.equal((await assumir(ana, id)).statusCode, 200);
+    await lida(ana, id); // comeca do zero
+    await conv.registrarRecebida(ctx.tenantId, id, { conteudo: 'Oi, ainda tem horario?' });
+    await conv.registrarRecebida(ctx.tenantId, id, { conteudo: 'Pode ser amanha' });
+    assert.equal(await naoLidas(id), 2);
+
+    const r = await lida(dono, id);
+    assert.equal(r.statusCode, 200, r.body);
+    assert.equal(r.json().acompanhando, true);
+    assert.equal(await naoLidas(id), 2, 'o dono so acompanhou: as 2 continuam para a Ana');
+
+    assert.equal((await lida(ana, id)).statusCode, 200);
+    assert.equal(await naoLidas(id), 0, 'a propria atendente leu');
+  });
+
+  it('conversa sem responsavel (fila) continua sendo zerada por quem abrir', async () => {
+    const { id } = await novaConversa();
+    assert.ok((await naoLidas(id)) > 0);
+    assert.equal((await lida(dono, id)).statusCode, 200);
+    assert.equal(await naoLidas(id), 0);
+  });
+});

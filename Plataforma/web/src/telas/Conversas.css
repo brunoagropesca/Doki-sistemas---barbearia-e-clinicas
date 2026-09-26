@@ -213,6 +213,28 @@
   min-height: 0;
 }
 
+/* A conversa deixou de ser desta pessoa: explicacao + o rascunho que ela tinha. */
+.fio--indisponivel {
+  gap: var(--e3);
+  padding: var(--e4);
+}
+.fio__rascunho-perdido {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--e2);
+}
+.fio__rascunho-perdido blockquote {
+  margin: 0;
+  width: 100%;
+  padding: var(--e2) var(--e3);
+  border-left: 3px solid var(--primaria);
+  background: var(--superficie);
+  border-radius: var(--raio);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .fio__topo {
   display: flex;
   align-items: center;

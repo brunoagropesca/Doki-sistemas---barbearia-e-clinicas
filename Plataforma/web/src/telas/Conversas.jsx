@@ -291,10 +291,50 @@ export function Conversas() {
   );
 }
 
+/**
+ * Rascunho da resposta, por conversa, guardado no navegador.
+ *
+ * Sem isto, o texto que a atendente digitava sumia quando outra pessoa
+ * assumia a conversa (a tela virava um aviso de erro) ou quando a pagina
+ * recarregava. O localStorage fica num try/catch: em aba anonima ou com o
+ * armazenamento bloqueado ele falha, e ai o rascunho vale so enquanto a tela
+ * estiver aberta — como era antes.
+ *
+ * A chave leva QUEM escreve, alem da conversa: no computador da recepcao,
+ * dividido pela equipe, a Bia nao pode abrir a conversa e dar de cara com o
+ * rascunho que a Camila deixou (nem mandar sem querer).
+ */
+const chaveRascunho = (usuarioId, id) => `rascunho:${usuarioId ?? 'anonimo'}:${id}`;
+
+function lerRascunho(usuarioId, id) {
+  try {
+    return localStorage.getItem(chaveRascunho(usuarioId, id)) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function gravarRascunho(usuarioId, id, texto) {
+  try {
+    if (texto) localStorage.setItem(chaveRascunho(usuarioId, id), texto);
+    else localStorage.removeItem(chaveRascunho(usuarioId, id));
+  } catch {
+    // Sem armazenamento: segue so na memoria da tela.
+  }
+}
+
 function Fio({ conversationId, aoVoltar, aoMudar, veioDeLista = false }) {
   const queryClient = useQueryClient();
   const { usuario, podeAcessar } = useAuth();
-  const [texto, setTexto] = useState('');
+  const [texto, setTextoBruto] = useState(() => lerRascunho(usuario?.id, conversationId));
+  // Aceita valor ou funcao, como o setState normal: todo o codigo que ja chama
+  // setTexto continua igual, e o setTexto('') depois de enviar limpa o rascunho.
+  const setTexto = (valor) =>
+    setTextoBruto((atual) => {
+      const novo = typeof valor === 'function' ? valor(atual) : valor;
+      gravarRascunho(usuario?.id, conversationId, novo);
+      return novo;
+    });
   const [perfilAberto, setPerfilAberto] = useState(false);
   const [transferindo, setTransferindo] = useState(false);
   const fimRef = useRef(null);
@@ -373,6 +413,29 @@ function Fio({ conversationId, aoVoltar, aoMudar, veioDeLista = false }) {
   });
 
   if (dados.isLoading) return <Carregando />;
+  // 404 aqui quase sempre e "a conversa deixou de ser sua" (outra pessoa
+  // assumiu, ou ela foi transferida): o servidor responde "nao encontrada"
+  // de proposito, para nao revelar quem atende. Em vez de um erro vermelho,
+  // explicamos e devolvemos o que a pessoa tinha escrito.
+  if (dados.isError && dados.error.status === 404) {
+    return (
+      <div className="fio fio--indisponivel">
+        <Aviso tom="info">Esta conversa não está mais com você — outra pessoa assumiu ou ela foi transferida.</Aviso>
+        {texto && (
+          <div className="fio__rascunho-perdido">
+            <p className="texto-fraco">O que você tinha escrito:</p>
+            <blockquote>{texto}</blockquote>
+            <Botao variante="secundario" onClick={() => navigator.clipboard?.writeText(texto)}>
+              Copiar texto
+            </Botao>
+          </div>
+        )}
+        <div>
+          <Botao onClick={aoVoltar}>Voltar para a lista</Botao>
+        </div>
+      </div>
+    );
+  }
   if (dados.isError) return <Aviso tom="perigo">{dados.error.message}</Aviso>;
 
   const finalizada = conversa.status === 'finalizada';

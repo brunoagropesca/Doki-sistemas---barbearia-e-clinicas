@@ -85,9 +85,10 @@ export async function rotasConversas(app) {
    *
    * `forcar` porque aqui alguem CLICOU: mesmo com a distribuicao automatica
    * desligada, o pedido explicito de um atendente deve ser atendido.
+   * `distribuirManual` confere quem pede (escopo e gerencia) antes.
    */
   app.post('/api/conversas/:id/distribuir', { config: apenas.atendente }, async (req) => {
-    return service.distribuir(req.tenantId, req.params.id, { forcar: true });
+    return service.distribuirManual(req.tenantId, req.params.id, req.usuario);
   });
 
   /** POST /api/conversas/:id/transferir */

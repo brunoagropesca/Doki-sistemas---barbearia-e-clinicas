@@ -1,4 +1,4 @@
-import { NaoEncontrado, RegraDeNegocio } from '../core/errors.js';
+import { NaoEncontrado, RegraDeNegocio, SemPermissao } from '../core/errors.js';
 import { FUSO_PADRAO } from '../core/datetime.js';
 import { consultarAtena } from '../ai/atena.js';
 import { fala } from '../core/painel.js';
@@ -39,8 +39,16 @@ export async function executarComando({ tenantId, conversationId, comando, usuar
   if (!pedido) throw new RegraDeNegocio('Diga o que a Atena deve fazer. Ex: /atena remarcar para sexta às 15h');
   if (pedido.length > LIMITE) throw new RegraDeNegocio(`Comando longo demais (máximo ${LIMITE} caracteres).`);
 
-  const conversa = await conversas.obter(tenantId, conversationId);
+  // Com o usuario: conversa fora do escopo dele vira 404, como nas outras
+  // rotas. Sem isto um atendente mandava "/atena remarca para sabado" numa
+  // conversa de outra pessoa (ou que ele nem ve) e a Atena executava.
+  const conversa = await conversas.obter(tenantId, conversationId, usuario);
   if (!conversa) throw new NaoEncontrado('Conversa');
+  // Enxergar nao basta: agir e so na propria, na sem dono, ou para quem
+  // acompanha a equipe inteira — a mesma regra de responder.
+  if (!(await conversas.podeAgir(tenantId, conversa, usuario))) {
+    throw new SemPermissao('Esta conversa está com outro atendente.');
+  }
   if (conversa.status === 'finalizada') {
     throw new RegraDeNegocio('Esta conversa foi finalizada. Reabra para dar comandos à Atena.');
   }

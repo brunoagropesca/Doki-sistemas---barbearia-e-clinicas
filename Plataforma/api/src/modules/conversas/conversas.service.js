@@ -519,6 +519,39 @@ export async function distribuir(tenantId, id, { forcar = false } = {}) {
   return { atribuida: true, atendente: escolhido, conversa: await obter(tenantId, id) };
 }
 
+/**
+ * O botao "Distribuir" — `distribuir` com as regras de QUEM pede.
+ *
+ * `distribuir` e usada pela IA e pelas rotinas, sem usuario, e por isso nao
+ * olha permissao nenhuma. Chamada direto pela rota, uma atendente conseguia
+ * tirar do colega uma conversa que ela nem enxerga — e a resposta ainda trazia
+ * nome e telefone do cliente. Aqui:
+ *   - conversa fora do escopo de quem pede → 404, como nas outras rotas;
+ *   - conversa que ja tem responsavel so e redistribuida pela gerencia (quem
+ *     ve tudo); a fila (sem dono) qualquer atendente distribui, como antes;
+ *   - a conversa so volta na resposta se continuar visivel para quem pediu.
+ *     Se foi para outra pessoa, volta so quem recebeu.
+ */
+export async function distribuirManual(tenantId, id, usuario) {
+  const linha = await garantirVisivel(tenantId, await repo.buscarPorId(tenantId, id), usuario);
+  const gerencia = await veTudo(tenantId, usuario);
+
+  if (linha.conversa.assignedUserId && !gerencia) {
+    throw new SemPermissao('Só a gerência redistribui uma conversa que já tem responsável.');
+  }
+
+  const r = await distribuir(tenantId, id, { forcar: true });
+  const destino = r.atendente ? { id: r.atendente.id, nome: r.atendente.nome } : null;
+  const continuaVisivel = !destino || destino.id === usuario.id || gerencia;
+
+  return {
+    atribuida: r.atribuida,
+    motivo: r.motivo ?? null,
+    atendente: destino,
+    ...(continuaVisivel ? { conversa: await obter(tenantId, id, usuario) } : {})
+  };
+}
+
 /** Transfere para outro atendente, guardando o rastro de quem passou por ela. */
 export async function transferir(tenantId, id, { paraUserId, motivo }, usuario) {
   const linha = await repo.buscarPorId(tenantId, id);
@@ -900,7 +933,15 @@ export async function reabrir(tenantId, id, usuario) {
 }
 
 export async function marcarLida(tenantId, id, usuario) {
-  await garantirVisivel(tenantId, await repo.buscarPorId(tenantId, id), usuario);
+  const linha = await garantirVisivel(tenantId, await repo.buscarPorId(tenantId, id), usuario);
+
+  // As nao lidas sao do RESPONSAVEL. O dono (ou a gerencia) abre a conversa
+  // para acompanhar: se isso zerasse o contador, a atendente nunca ficaria
+  // sabendo que o cliente escreveu. Conversa sem responsavel (fila, IA)
+  // continua sendo zerada por quem abrir — ali quem abre e quem vai atender.
+  const dono = linha.conversa.assignedUserId;
+  if (dono && dono !== usuario?.id) return { ok: true, acompanhando: true };
+
   await repo.atualizar(tenantId, id, { naoLidas: 0 });
   return { ok: true };
 }

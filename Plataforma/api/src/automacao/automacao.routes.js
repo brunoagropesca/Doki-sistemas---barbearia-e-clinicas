@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { assinar } from '../core/eventos.js';
 import { apenas } from '../http/plugins/autenticacao.js';
 import { executarComando } from './comando.js';
+import { painelAberto, painelFechado } from '../modules/equipe/presenca.js';
 
 const comandoSchema = z.object({
   conversationId: z.string().min(1, 'Informe a conversa.'),
@@ -59,11 +60,19 @@ export async function rotasAutomacao(app) {
     batida.unref?.();
 
     conexoes.add(raw);
+    // Presenca = painel aberto: esta aba conta como "estou aqui". Ver presenca.js.
+    painelAberto(req.tenantId, req.usuario.id).catch(() => {});
 
+    // Trava: `limpar` e chamada pelo fechamento da conexao E pela batida que
+    // falha. Sem ela a mesma aba seria descontada duas vezes da presenca.
+    let limpo = false;
     function limpar() {
+      if (limpo) return;
+      limpo = true;
       clearInterval(batida);
       desassinar();
       conexoes.delete(raw);
+      painelFechado(req.tenantId, req.usuario.id);
     }
 
     req.raw.on('close', limpar);

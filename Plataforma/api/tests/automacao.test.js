@@ -412,6 +412,63 @@ describe('comando direto a Atena', () => {
     const res = await app.inject({ method: 'POST', url: '/api/atena/comando', payload: { conversationId: 'x', comando: 'y' } });
     assert.equal(res.statusCode, 401);
   });
+
+  /**
+   * Bug reproduzido: o comando buscava a conversa SEM o usuario, e um
+   * atendente mandava "/atena remarca para sabado" na conversa de outra
+   * pessoa — a Atena executava.
+   */
+  describe('so na conversa que e da pessoa', () => {
+    const atendentes = {};
+
+    const criarAtendente = async (nome, username) => {
+      const r = await app.inject({ method: 'POST', url: '/api/usuarios', headers: cab, payload: { nome, username, senha: 'trocar@123', cargo: 'atendente' } });
+      assert.equal(r.statusCode, 201, r.body);
+      return entrar(app, username, 'trocar@123');
+    };
+
+    /** Cliente e conversa proprios, assumidos pela Bia. */
+    const conversaDaBia = async (n) => {
+      const conv = await import('../src/modules/conversas/conversas.service.js');
+      const leads = await import('../src/modules/leads/leads.service.js');
+      const lead = await leads.encontrarOuCriarPorTelefone(tenantId, `55119650${String(1000 + n)}`, `Cliente Comando ${n}`);
+      const id = await conv.encontrarOuAbrir(tenantId, { leadId: lead.id, canal: 'whatsapp' });
+      await conv.registrarRecebida(tenantId, id, { conteudo: 'Queria remarcar para sabado' });
+      const r = await app.inject({ method: 'POST', url: `/api/conversas/${id}/assumir`, headers: atendentes.bia.cabecalho });
+      assert.equal(r.statusCode, 200, r.body);
+      return id;
+    };
+
+    before(async () => {
+      atendentes.bia = await criarAtendente('Bia Comando', 'bia.comando');
+      atendentes.leo = await criarAtendente('Leo Comando', 'leo.comando');
+    });
+
+    it('na conversa de outra atendente: 404, a Atena nem roda e nada fica registrado', async () => {
+      const id = await conversaDaBia(1);
+
+      const r = await app.inject({
+        method: 'POST',
+        url: '/api/atena/comando',
+        headers: atendentes.leo.cabecalho,
+        payload: { conversationId: id, comando: 'remarca para sabado' }
+      });
+      assert.equal(r.statusCode, 404, r.body);
+
+      const { mensagens } = (await app.inject({ method: 'GET', url: `/api/conversas/${id}/mensagens`, headers: cab })).json();
+      assert.ok(!mensagens.some((m) => m.metadados?.atena), 'nenhum comando da Atena registrado');
+    });
+
+    it('na propria conversa, a Atena atende normalmente', async () => {
+      const id = await conversaDaBia(2);
+      const falso = provedorFalso([{ texto: 'Sabado ha horarios livres com o Carlos.' }]);
+
+      const r = await executarComando({
+        tenantId, conversationId: id, comando: 'ver horarios de sabado', usuario: atendentes.bia.usuario, provedores: falso.provedores
+      });
+      assert.match(r.resposta, /horarios livres/i);
+    });
+  });
 });
 
 describe('ferramentas por nome (menos voltas, menos tokens)', () => {
