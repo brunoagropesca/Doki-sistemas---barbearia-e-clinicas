@@ -204,7 +204,7 @@ body { overscroll-behavior: none; }
   }
   .quadro__coluna {
     scroll-snap-align: start;
-    max-height: calc(100dvh - 300px);
+    max-height: 100%; /* a altura vem da .quadro-tela (Quadro.css) */
   }
 
   /* Meu perfil: foto de tamanho de celular. */

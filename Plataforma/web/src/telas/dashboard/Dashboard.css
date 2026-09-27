@@ -287,3 +287,158 @@
   .mc-coluna { height: 26px; }
 }
 .dash-datas__erro { font-size: 12px; color: var(--gr-ruim); }
+
+/* ================================================================
+ * ANIMACOES DE ENTRADA — a pagina "se monta" ao entrar
+ *
+ * So valem com `.dash--animar` (botao "Animacoes" no topo; preferencia em
+ * dashboard/animacao.js). Ordem: titulo e filtros -> numeros (que contam, ver
+ * useContagem) -> abas -> blocos -> o conteudo de cada bloco (colunas crescem,
+ * barras se estendem, o mapa de calor acende em onda, linhas das tabelas).
+ *
+ * Mesmas regras de animacoes.css: so transform/opacity, so na entrada, e
+ * `backwards` (terminada, a animacao some: nada de transform sobrando).
+ * Cada bloco guarda o proprio momento em --b; o que esta dentro dele entra
+ * depois, somando o proprio indice (--i, --o) vindo do JSX.
+ * ================================================================ */
+
+@keyframes dash-surgir { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes dash-lado { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
+@keyframes dash-encaixar {
+  0% { opacity: 0; transform: translateY(16px) scale(0.94); }
+  70% { opacity: 1; transform: translateY(-2px) scale(1.01); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes dash-crescer-y { from { transform: scaleY(0); } to { transform: none; } }
+@keyframes dash-crescer-x { from { transform: scaleX(0); } to { transform: none; } }
+@keyframes dash-acender { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
+
+.dash {
+  --dash-curva: cubic-bezier(0.22, 1, 0.36, 1);
+  --dash-mola: cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* Titulo, acoes e filtros */
+.dash--animar .dash-topo > div:first-child { animation: dash-lado 420ms var(--dash-curva) backwards; }
+.dash--animar .dash-topo__acoes { animation: dash-surgir 420ms var(--dash-curva) 80ms backwards; }
+.dash--animar .dash-filtros .eq-chip,
+.dash--animar .dash-datas { animation: dash-surgir 360ms var(--dash-curva) backwards; }
+.dash--animar .dash-filtros .eq-chip:nth-child(1) { animation-delay: 100ms; }
+.dash--animar .dash-filtros .eq-chip:nth-child(2) { animation-delay: 130ms; }
+.dash--animar .dash-filtros .eq-chip:nth-child(3) { animation-delay: 160ms; }
+.dash--animar .dash-filtros .eq-chip:nth-child(4) { animation-delay: 190ms; }
+.dash--animar .dash-filtros .eq-chip:nth-child(5) { animation-delay: 220ms; }
+.dash--animar .dash-datas { animation-delay: 250ms; }
+
+/* Numeros principais: encaixam um a um (e contam, no Dashboard.jsx) */
+.dash--animar .kpi { animation: dash-encaixar 560ms var(--dash-curva) backwards; }
+.dash--animar .kpi:nth-child(1) { animation-delay: 150ms; }
+.dash--animar .kpi:nth-child(2) { animation-delay: 220ms; }
+.dash--animar .kpi:nth-child(3) { animation-delay: 290ms; }
+.dash--animar .kpi:nth-child(4) { animation-delay: 360ms; }
+.dash--animar .kpi:nth-child(5) { animation-delay: 430ms; }
+.dash--animar .kpi:nth-child(6) { animation-delay: 500ms; }
+.dash--animar .kpi:nth-child(7) { animation-delay: 570ms; }
+.dash--animar .kpi:nth-child(8) { animation-delay: 640ms; }
+
+/* Abas */
+.dash--animar .dash-abas { animation: dash-lado 420ms var(--dash-curva) 500ms backwards; }
+
+/* Blocos: sobem em sequencia; cada um guarda o seu momento em --b */
+.dash--animar .dash-bloco { animation: dash-surgir 520ms var(--dash-curva) var(--b, 0ms) backwards; }
+.dash--animar .dash-grade > :nth-child(1) { --b: 250ms; }
+.dash--animar .dash-grade > :nth-child(2) { --b: 380ms; }
+.dash--animar .dash-grade > :nth-child(3) { --b: 510ms; }
+.dash--animar .dash-grade > :nth-child(4) { --b: 640ms; }
+.dash--animar .dash-grade > :nth-child(5) { --b: 770ms; }
+.dash--animar .dash-trio > :nth-child(1) { --b: 510ms; }
+.dash--animar .dash-trio > :nth-child(2) { --b: 600ms; }
+.dash--animar .dash-trio > :nth-child(3) { --b: 690ms; }
+
+/* Grafico de colunas: a grade se desenha e cada coluna cresce da base */
+.dash--animar .gr-grade {
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+  animation: dash-crescer-x 600ms var(--dash-curva) calc(var(--b, 0ms) + 120ms) backwards;
+}
+.dash--animar .gr-coluna path,
+.dash--animar .gr-coluna rect:not(.gr-alvo) {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: dash-crescer-y 560ms var(--dash-mola) calc(var(--b, 0ms) + 220ms + var(--i, 0) * 28ms) backwards;
+}
+
+/* Barras horizontais (servicos, profissionais) e a barra "de onde vem" */
+.dash--animar .gr-barras__item { animation: dash-surgir 420ms var(--dash-curva) calc(var(--b, 0ms) + 150ms + var(--i, 0) * 80ms) backwards; }
+.dash--animar .gr-barras__barra {
+  transform-origin: 0 50%;
+  animation: dash-crescer-x 640ms var(--dash-curva) calc(var(--b, 0ms) + 200ms + var(--i, 0) * 80ms) backwards;
+}
+.dash--animar .gr-parte__barra {
+  transform-origin: 0 50%;
+  animation: dash-crescer-x 700ms var(--dash-curva) calc(var(--b, 0ms) + 220ms) backwards;
+}
+.dash--animar .dash-mini { animation: dash-encaixar 480ms var(--dash-curva) calc(var(--b, 0ms) + 380ms) backwards; }
+.dash--animar .dash-mini + .dash-mini { animation-delay: calc(var(--b, 0ms) + 460ms); }
+
+/* Mapa de calor: acende numa onda diagonal (--o = dia + hora) */
+.dash--animar .mc-cel { animation: dash-acender 380ms var(--dash-mola) calc(var(--b, 0ms) + 150ms + var(--o, 0) * 16ms) backwards; }
+.dash--animar .mc-total__barra {
+  transform-origin: 0 50%;
+  animation: dash-crescer-x 600ms var(--dash-curva) calc(var(--b, 0ms) + 500ms) backwards;
+}
+
+/* Tabelas: as linhas entram em cascata (as 12 primeiras) */
+.dash--animar .dash-tabela tbody tr { animation: dash-lado 380ms var(--dash-curva) calc(var(--b, 0ms) + 150ms) backwards; }
+.dash--animar .dash-tabela tbody tr:nth-child(2) { animation-delay: calc(var(--b, 0ms) + 190ms); }
+.dash--animar .dash-tabela tbody tr:nth-child(3) { animation-delay: calc(var(--b, 0ms) + 230ms); }
+.dash--animar .dash-tabela tbody tr:nth-child(4) { animation-delay: calc(var(--b, 0ms) + 270ms); }
+.dash--animar .dash-tabela tbody tr:nth-child(5) { animation-delay: calc(var(--b, 0ms) + 310ms); }
+.dash--animar .dash-tabela tbody tr:nth-child(6) { animation-delay: calc(var(--b, 0ms) + 350ms); }
+.dash--animar .dash-tabela tbody tr:nth-child(7) { animation-delay: calc(var(--b, 0ms) + 390ms); }
+.dash--animar .dash-tabela tbody tr:nth-child(8) { animation-delay: calc(var(--b, 0ms) + 430ms); }
+.dash--animar .dash-tabela tbody tr:nth-child(9) { animation-delay: calc(var(--b, 0ms) + 470ms); }
+.dash--animar .dash-tabela tbody tr:nth-child(10) { animation-delay: calc(var(--b, 0ms) + 510ms); }
+.dash--animar .dash-tabela tbody tr:nth-child(11) { animation-delay: calc(var(--b, 0ms) + 550ms); }
+.dash--animar .dash-tabela tbody tr:nth-child(n + 12) { animation-delay: calc(var(--b, 0ms) + 590ms); }
+
+/* Botao "Animacoes" (liga/desliga so as do Dashboard) */
+.dash-topo__acoes { gap: var(--e2); }
+.dash-animar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+  height: 38px;
+  padding: 0 var(--e3);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio);
+  background: var(--superficie);
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.dash-animar:hover { border-color: var(--primaria); color: var(--texto); }
+.dash-animar__trilho {
+  position: relative;
+  width: 30px;
+  height: 17px;
+  border-radius: 999px;
+  background: var(--superficie-3);
+  transition: background 0.2s;
+}
+.dash-animar__trilho span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--texto-fraco);
+  transition: transform 0.22s var(--dash-curva, ease), background 0.2s;
+}
+.dash-animar--ligado { color: var(--texto); }
+.dash-animar--ligado .dash-animar__trilho { background: var(--primaria); }
+.dash-animar--ligado .dash-animar__trilho span { transform: translateX(13px); background: #fff; }

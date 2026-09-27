@@ -114,6 +114,19 @@ describe('funil: as regras que movem o cartao', () => {
     assert.equal(etapaDoFato('cancelar_agendamento', { sucesso: true }), null);
   });
 
+  it('dia sem vaga com a PROXIMA data oferecida tambem e orcamento (caso do Lyu, domingo)', () => {
+    const r = { horariosLivres: [], proximaDataComVaga: { data: '2026-09-28', horarios: ['08:00 Bruno', '11:00 Carlos'] } };
+    assert.equal(etapaDoFato('consultar_horarios', r), 'orcamento');
+    assert.equal(etapaDoFato('consultar_varios_servicos', { opcoes: [], proximaDataComVaga: { opcoes: ['x'] } }), 'orcamento');
+    assert.equal(etapaDoFato('consultar_horarios', { horariosLivres: [], proximaDataComVaga: { horarios: [] } }), null);
+  });
+
+  it('horario marcado leva a "aguardando" (antes o cartao ficava parado em "entendendo")', () => {
+    assert.equal(etapaDoFato('criar_agendamento', { sucesso: true }), 'aguardando');
+    assert.equal(etapaDoFato('agendar_varios_servicos', { sucesso: true }), 'aguardando');
+    assert.equal(etapaDoFato('criar_agendamento', { erro: 'horario ocupado' }), null);
+  });
+
   it('a Atena consulta horarios e o cartao avanca sozinho, sem ninguem mandar', async () => {
     const { id } = await novaConversa();
     assert.equal(await etapaDe(id), 'novo');

@@ -675,3 +675,17 @@
   font-size: 13.5px;
   line-height: 1.4;
 }
+
+/* ── Popup de atendente: duas colunas (uma no celular), sem rolar ── */
+.eq-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--e3) var(--e4);
+  align-items: start;
+}
+/* O interruptor de "Conta ativa" alinha com o campo ao lado (desce o rotulo). */
+.eq-form__interruptor { padding-top: 22px; }
+@media (max-width: 560px) {
+  .eq-form { grid-template-columns: 1fr; }
+  .eq-form__interruptor { padding-top: 0; }
+}

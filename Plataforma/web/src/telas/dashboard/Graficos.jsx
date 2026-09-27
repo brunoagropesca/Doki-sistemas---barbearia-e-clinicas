@@ -160,7 +160,8 @@ export function ColunasEmpilhadas({ dados, series, rotuloX, rotuloLongo, formata
               .map((se) => ({ se, v: d[se.chave] ?? 0 }))
               .filter((p) => p.v > 0);
             return (
-              <g key={i} opacity={incompleto?.(d) ? 0.45 : undefined}>
+              // --i: ordem da coluna, para ela crescer em cascata (animacoes do Dashboard).
+              <g key={i} className="gr-coluna" style={{ '--i': i }} opacity={incompleto?.(d) ? 0.45 : undefined}>
                 {partes.map(({ se, v }, j) => {
                   const y0 = y(acumulado);
                   acumulado += v;
@@ -238,7 +239,7 @@ export function BarrasH({ itens, valor, rotulo, formatar, detalhe, cor = 'var(--
       {itens.map((item, i) => {
         const v = valor(item);
         return (
-          <li key={i} className="gr-barras__item" tabIndex={0} title={`${rotulo(item)}: ${formatar(v)}${detalhe ? ` · ${detalhe(item)}` : ''}`}>
+          <li key={i} className="gr-barras__item" style={{ '--i': i }} tabIndex={0} title={`${rotulo(item)}: ${formatar(v)}${detalhe ? ` · ${detalhe(item)}` : ''}`}>
             <span className="gr-barras__rotulo">{rotulo(item)}</span>
             <span className="gr-barras__trilho">
               <span className="gr-barras__barra" style={{ width: `${Math.max(1.5, (v / maximo) * 100)}%`, background: corDe?.(item) ?? cor }} />

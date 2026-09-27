@@ -48,10 +48,25 @@ export function etapaDoFato(ferramenta, resultado) {
 
   // Horarios de verdade oferecidos = o cliente ja tem uma proposta na mao.
   // Consulta que voltou vazia nao e orcamento: nao havia o que oferecer.
-  if (ferramenta === 'consultar_horarios' && (resultado.horariosLivres?.length > 0 || resultado.porProfissional?.length > 0)) {
+  // A "proxima data com vaga" TAMBEM e oferta: dia fechado/lotado devolve a
+  // lista vazia e os horarios do proximo dia a parte — e sao eles que a Sofia
+  // oferece. Sem isto o cartao ficava em "entendendo" (caso do Lyu num domingo).
+  const proximaTemVaga =
+    resultado.proximaDataComVaga?.horarios?.length > 0 || resultado.proximaDataComVaga?.opcoes?.length > 0;
+  if (
+    ferramenta === 'consultar_horarios' &&
+    (resultado.horariosLivres?.length > 0 || resultado.porProfissional?.length > 0 || proximaTemVaga)
+  ) {
     return 'orcamento';
   }
-  if (ferramenta === 'consultar_varios_servicos' && resultado.opcoes?.length > 0) return 'orcamento';
+  if (ferramenta === 'consultar_varios_servicos' && (resultado.opcoes?.length > 0 || proximaTemVaga)) return 'orcamento';
+
+  // Horario marcado (pela Sofia, via reservar_horario, ou pela Atena): o
+  // atendimento fechou. E a ultima coluna de conversa — o cartao mostra o dia
+  // marcado, e no proprio dia a OS assume o lugar dele no quadro.
+  if ((ferramenta === 'criar_agendamento' || ferramenta === 'agendar_varios_servicos') && resultado.sucesso) {
+    return 'aguardando';
+  }
 
   return null;
 }

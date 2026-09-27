@@ -215,7 +215,36 @@ Antes, as ferramentas da Sofia dependiam dos grupos da Atena (a Sofia lê direto
 - **Causa do erro:** `POST /api/conversas/abrir` usava `abrirConversaSchema` sem importá-lo (desde o commit inicial) → ReferenceError em TODA chamada. Import corrigido.
 - **2º bug na mesma rota:** chamada pela ficha (sem conexão), `buscarAbertaDoLead` só achava conversa SEM conexão → cliente que falou pela W1 ganharia uma 2ª conversa paralela. Novo `repo.buscarQualquerAbertaDoLead` / `service.conversaAbertaDoLead` (qualquer conexão) usado primeiro.
 - **Popup:** a rota aceita `criar: false` (só procura; sem aberta → `conversa: null`). `telas/contatos/IniciarConversa.jsx` (`useEnviarMensagem`): com atendimento aberto vai direto; sem, abre popup animado (dois balões entrando + "digitando") "X não tem nenhum atendimento aberto — iniciar nova conversa?". Usado na lista de Clientes e na ficha (os 2 botões).
-- Verificado no Chrome (cópia): popup → Iniciar → abre o chat; 2º clique vai direto para a mesma conversa. `conversas.test.js` 34/34. (Lembrete: `conversas.schemas.js` é CRLF — a 1ª edição por script não aplicou.) Suíte: 985/985. Verificado no Chrome (cópia sem sessão = conexão fora): "Aguardando a conexão voltar…" em 0,2 s, campo livre, "Não entregue" + Reenviar após 61 s, diário gravado.
+- Verificado no Chrome (cópia): popup → Iniciar → abre o chat; 2º clique vai direto para a mesma conversa. `conversas.test.js` 34/34.
+
+### 21. Animações no sistema (leves) — 27/09/2026
+- Tudo em `web/src/estilos/animacoes.css` (importado no `main.jsx` depois do `global.css`, portanto DEPOIS do CSS das telas). Só `transform`/`opacity`, só na entrada, `prefers-reduced-motion` desliga tudo.
+- O que anima: troca de tela (`.conteudo > *` sobe de leve); `.cartao`/`.metrica` (cascata nos 8 primeiros de `.grade`); linhas de `.tabela` e itens `.conversa` (cascata nos 10 primeiros); balões do chat (`.msg:nth-last-child(-n+5)`: ao abrir só o fim do fio; cada mensagem nova "salta", no estilo do popup de nova conversa); `.cartao-q` do Quadro (menos o `--atencao`, que tem o pisca dele); `.vazio`/`.carregando` (fade); botão afunda ao clicar; ícone do menu se adianta no hover; contador de fila salta quando o número muda (`key={naFila}` no Layout); troca de tema com fusão via View Transitions (`lib/tema.js`).
+- **Regra importante:** usar `animation-fill-mode: backwards`, NUNCA `both` em elementos que contêm popups — com `both` sobra `transform: matrix(1,0,0,1,0,0)` e isso vira "bloco de contenção" de `position: fixed` (mesmo bug do Modal). Medido: fica `none` ao terminar.
+- Medido no Chrome (cópia): navegando 6 telas, 75 quadros/s, 0 tarefas longas, pior quadro 27 ms.
+
+### 22. Seletor de tema contínuo (arrastar muda a cor ao vivo) — 27/09/2026
+- O tema virou um VALOR de 0 (claro) a 2 (full black) em `lib/tema.js`. Clique/teclado/menu recolhido → `definirTema(chave)` (modo inteiro, com a fusão do View Transitions, como antes). Segurar e arrastar (> 4 px) → `previsualizarValor` a cada quadro (rAF); soltar → `fixarValor` (fica o tom intermediário; a menos de 4% de um modo, encaixa nele). Salvo em `layout.tema` (modo mais perto) + `layout.tema-valor` (só quando intermediário).
+- Nos inteiros vale o CSS de sempre (`data-tema`, nenhuma variável no `style` do `<html>`). No meio, `variaveisEm(valor)` mistura as paletas (espelho numérico de `global.css` — **se mudar uma cor de tema em global.css, mude aqui também**) e põe as variáveis inline no `<html>`.
+- Legibilidade: texto, bordas, `--tinta` e tons coloridos NÃO são misturados (texto e fundo se encontravam no mesmo cinza) — vêm inteiros da paleta vizinha com melhor contraste mínimo (WCAG) contra o fundo e contra um cartão (`vidro` sobre o fundo).
+- Medido no Chrome (cópia): arrastando de ponta a ponta, 75 quadros/s, pior quadro 14 ms; soltar em ~0,6 mantém o tom e sobrevive ao recarregar; clicar num modo volta ao CSS puro.
+
+### 23. Quadro: cartão parado em "Entendendo" (conversa real do Lyu) — 27/09/2026
+- Linha do tempo real: a Sofia consultou horários num DOMINGO → `horariosLivres: []` + `proximaDataComVaga` (os horários de segunda, que ela ofereceu) → `etapaDoFato` só olhava `horariosLivres`/`porProfissional` → nada. Depois marcou (OS de amanhã) → nenhuma regra para "agendou" → cartão parado; só andou quando a LEITURA de humor/etapa rodou minutos depois.
+- `automacao/funil.js#etapaDoFato`: `proximaDataComVaga` com horários/opções também = `orcamento`; `criar_agendamento`/`agendar_varios_servicos` com `sucesso` = `aguardando` (vale para a Sofia, cujo `reservar_horario` usa essas ferramentas por baixo e já anuncia o evento). Descrição da coluna "Aguardando" em `quadro/etapas.js` atualizada ("ou horário já marcado para outro dia").
+- `automacao.test.js` +2 testes (35/35). Reproduzido na cópia com o fluxo real: entendendo → orcamento (consulta de domingo) → aguardando (reserva).
+
+### 24. Quadro gerando rolagem na janela inteira (modo demonstração) — 27/09/2026
+- 1ª parte: `.quadro__coluna` tinha `max-height: calc(100vh - 300px)` (não contava as faixas do topo) → agora `.quadro-tela` ocupa a altura disponível (`.conteudo:has(> .quadro-tela)` em flex coluna, `.quadro` com `grid-template-rows: 100%`, coluna `max-height: 100%`); contador do topo da coluna não quebra mais de linha. Idem em `celular.css`.
+- 2ª parte (a causa real da janela rolando): os `span.mesa__so-leitor` (texto só para leitor de tela, `position: absolute`) dos cartões não tinham ancestral posicionado e se posicionavam pela PÁGINA — documento com 1.799 px numa janela de 908. Correção: **`.conteudo { position: relative }`** (Layout.css) — contém os `absolute` de todas as telas — e `.quadro__cartoes { position: relative }`.
+- **Como verificar rolagem da janela:** medir `document.scrollingElement.scrollHeight` vs `innerHeight` (não só o `.conteudo`), e reproduzir no modo demonstração (muitos cartões) com um usuário dev — ver o método em `scratchpad/pw/niveis.mjs` (esconder subárvores até a altura voltar).
+- Verificado na cópia em modo demonstração: 10 telas sem rolagem da janela.
+
+### 25. Dashboard "se montando" ao entrar + botão para desligar — 27/09/2026
+- `telas/dashboard/animacao.js`: preferência `dashboard.animacoes` no navegador (padrão: ligada, a menos que o sistema peça "reduzir movimento"); contexto `AnimarDashboard`; `useContagem` (número conta até o valor em ~0,9 s via rAF; ao trocar de período, anda do valor anterior ao novo).
+- Coreografia em `dashboard/Dashboard.css` (bloco `.dash--animar`): título/filtros → 8 KPIs encaixam em cascata e os valores contam → abas → blocos (cada um com seu momento em `--b`) → dentro deles: grade do gráfico se desenha, colunas crescem da base (`--i` no `<g class="gr-coluna">`), barras horizontais se estendem, mapa de calor acende em onda diagonal (`--o` = dia + hora), linhas de tabela em cascata. Só transform/opacity, fill-mode `backwards`.
+- Botão "Animações" (interruptor) ao lado de "Exportar Excel": desliga só as do Dashboard.
+- Medido na cópia com dados da demonstração: 73 quadros/s na montagem, 0 quadros > 50 ms; números contados terminam iguais aos reais; desligar persiste após recarregar. (Lembrete: `conversas.schemas.js` é CRLF — a 1ª edição por script não aplicou.) Suíte: 985/985. Verificado no Chrome (cópia sem sessão = conexão fora): "Aguardando a conexão voltar…" em 0,2 s, campo livre, "Não entregue" + Reenviar após 61 s, diário gravado.
 
 ## Pendências / próximos passos
 

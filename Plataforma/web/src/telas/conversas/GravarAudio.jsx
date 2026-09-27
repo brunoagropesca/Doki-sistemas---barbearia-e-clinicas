@@ -69,6 +69,14 @@ export function GravarAudio({ aoGravar, desabilitado, aoAlternar }) {
   // atendente trocou de conversa no meio de uma gravacao).
   useEffect(() => () => pararTrilha(), []);
 
+  // O aviso de erro some sozinho: ele flutua por cima da conversa, e parado
+  // ali para sempre so atrapalharia a leitura.
+  useEffect(() => {
+    if (!erro) return undefined;
+    const timer = setTimeout(() => setErro(null), 7000);
+    return () => clearTimeout(timer);
+  }, [erro]);
+
   function pararTrilha() {
     trilhaRef.current?.getTracks().forEach((t) => t.stop());
     trilhaRef.current = null;
@@ -84,13 +92,21 @@ export function GravarAudio({ aoGravar, desabilitado, aoAlternar }) {
       return;
     }
 
+    // Fora de conexao segura (http pelo IP da rede local, o jeito de abrir no
+    // celular pelo INICIAR-NA-REDE) o navegador nem oferece o microfone: nao e
+    // questao de permissao, e a mensagem precisa dizer isso.
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      setErro('O navegador só libera o microfone em conexão segura (https ou no próprio computador). Pelo endereço da rede local, grave pelo computador.');
+      return;
+    }
+
     let trilha;
     try {
       trilha = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
       // Negou a permissao, ou nao ha microfone — o navegador nao distingue os
       // dois casos no erro, entao a mensagem cobre ambos.
-      setErro('Não consegui acessar o microfone. Verifique a permissão do navegador.');
+      setErro('Não consegui acessar o microfone. Libere a permissão no cadeado da barra de endereço e tente de novo.');
       return;
     }
 
@@ -161,7 +177,14 @@ export function GravarAudio({ aoGravar, desabilitado, aoAlternar }) {
             <path d="M5 11a7 7 0 0 0 14 0M12 18v3.5" />
           </svg>
         </button>
-        {erro && <span className="fio__mic-erro" role="alert">{erro}</span>}
+        {/* Flutua ACIMA do compositor: na mesma linha do campo, o texto longo
+            esmagava o campo de digitacao ate sumir (no celular). Toque fecha. */}
+        {erro && (
+          <button type="button" className="fio__mic-erro" role="alert" onClick={() => setErro(null)} title="Fechar">
+            <span>{erro}</span>
+            <span className="fio__mic-erro-fechar" aria-hidden="true">✕</span>
+          </button>
+        )}
       </>
     );
   }

@@ -7,6 +7,14 @@
  * viraria uma lista de 200 linhas sem nocao de etapa.
  * ================================================================ */
 
+/* A tela do quadro ocupa EXATAMENTE a altura disponivel e quem rola sao as
+   colunas. Antes a coluna tinha altura fixa (100vh - 300px), que nao contava
+   as faixas de cima (demonstracao, licenca): a pagina inteira ganhava rolagem
+   e o quadro "sambava". */
+.conteudo:has(> .quadro-tela) { display: flex; flex-direction: column; }
+.quadro-tela { flex: 1; min-height: 0; }
+.quadro-tela > .quadro { flex: 1; min-height: 0; grid-template-rows: 100%; }
+
 .quadro {
   display: grid;
   grid-auto-flow: column;
@@ -39,7 +47,8 @@
   display: flex;
   flex-direction: column;
   min-height: 200px;
-  max-height: calc(100vh - 300px);
+  /* Ate o fim da area do quadro (ver .quadro-tela): nunca passa da tela. */
+  max-height: 100%;
   background: var(--superficie);
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
@@ -60,12 +69,17 @@
   border-top-right-radius: var(--raio-g);
   border-bottom: 1px solid var(--borda);
 }
+/* Titulo e contador sempre na mesma linha (o .linha quebra quando falta
+   espaco: em "Orcamento apresentado" o contador descia). */
+.quadro__topo .linha { flex-wrap: nowrap; align-items: flex-start; }
+.quadro__topo strong { min-width: 0; }
 .quadro__topo p {
   font-size: 12px;
   margin-top: 2px;
 }
 
 .quadro__contador {
+  flex: none; /* nunca espremido nem empurrado para baixo do titulo */
   background: var(--superficie-3);
   border-radius: 999px;
   padding: 1px 8px;
@@ -74,6 +88,8 @@
 }
 
 .quadro__cartoes {
+  /* Os elementos `absolute` dos cartoes ficam presos a coluna (ver .conteudo). */
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--e2);

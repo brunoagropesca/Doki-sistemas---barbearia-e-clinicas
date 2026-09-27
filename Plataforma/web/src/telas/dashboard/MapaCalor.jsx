@@ -119,10 +119,10 @@ export function MapaCalor({ calor, detalhado = false, metricaInicial = 'atendime
               ))}
               <span className="mc-hora mc-hora--total">Total</span>
 
-              {ORDEM.map((d) => (
+              {ORDEM.map((d, di) => (
                 <div key={d} className="mc-linha" role="row">
                   <span className="mc-dia">{DIA_CURTO[d]}</span>
-                  {horas.map((h) => {
+                  {horas.map((h, hi) => {
                     const v = dados[d][h];
                     const g = degrau(v, maximo);
                     const ehPico = pico && pico.dia === d && pico.hora === h;
@@ -133,7 +133,8 @@ export function MapaCalor({ calor, detalhado = false, metricaInicial = 'atendime
                         tabIndex={0}
                         aria-label={`${DIA[d]} ${hh(h)}: ${m.formatar(v)}`}
                         className={`mc-cel${g === null ? ' mc-cel--vazia' : ''}${ehPico ? ' mc-cel--pico' : ''}`}
-                        style={g === null ? undefined : { background: RAMPA[g] }}
+                        // --o: distancia do canto (dia + hora): o mapa acende numa onda diagonal.
+                        style={{ ...(g === null ? {} : { background: RAMPA[g] }), '--o': di + hi }}
                         onPointerEnter={(e) => mostrar(e, dica(d, h, v), ref.current)}
                         onFocus={(e) => mostrar(e, dica(d, h, v), ref.current)}
                         onPointerLeave={esconder}

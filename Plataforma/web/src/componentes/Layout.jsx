@@ -277,8 +277,8 @@ export function Layout() {
                     >
                       <Icone nome={item.icone} className="menu__icone" />
                       <span className="menu__rotulo">{item.rotulo}</span>
+                      {/* `key`: recriado a cada numero novo, para o salto (animacoes.css) tocar. */}
                       {item.contador === 'conversas' && naFila > 0 && (
-                        {/* `key`: recriado a cada numero novo, para o salto (animacoes.css) tocar. */}
                         <span key={naFila} className="menu__badge" aria-label={`${naFila} na fila`}>
                           {naFila > 99 ? '99+' : naFila}
                         </span>

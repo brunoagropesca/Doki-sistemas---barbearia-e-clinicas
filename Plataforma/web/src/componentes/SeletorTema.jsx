@@ -1,22 +1,38 @@
 import { useRef, useState } from 'react';
 import { Icone } from './Icone.jsx';
-import { TEMAS, definirTema, proximoTema, useTema } from '../lib/tema.js';
+import {
+  TEMAS,
+  cancelarPrevia,
+  definirTema,
+  fixarValor,
+  indiceMaisPerto,
+  previsualizarValor,
+  proximoTema,
+  useTema
+} from '../lib/tema.js';
 
 /**
  * Modo de visualizacao no rodape do menu (acima do "Recolher menu").
  *
- * Aberto: uma barra com os tres icones e um botao que desliza — arrasta ate o
- * modo, ou clica direto no icone. Solto no meio do caminho, encaixa no mais
- * perto. Pelo teclado, setas.
+ * Aberto: uma barra com os tres icones e um botao que desliza.
+ *   - CLIQUE num icone: o botao desliza ate ele e a pagina funde para o modo.
+ *   - SEGURAR E ARRASTAR: a pagina muda de cor acompanhando a mao; soltou no
+ *     meio do caminho, aquele tom intermediario fica (ver lib/tema.js).
+ *   - Teclado: setas vao de modo em modo.
  * Recolhido: nao cabe a barra; o icone do modo atual troca para o proximo a
  * cada clique (claro → medio → full black → claro).
  */
+
+/** Andou mais que isso com o botao apertado: e arraste, nao clique. */
+const LIMIAR_ARRASTE_PX = 4;
+
 export function SeletorTema({ recolhido }) {
-  const tema = useTema();
-  const indice = TEMAS.findIndex((t) => t.chave === tema);
+  const valor = useTema();
+  const indice = indiceMaisPerto(valor);
   const atual = TEMAS[indice];
   const trilho = useRef(null);
-  // Durante o arraste o botao segue o dedo (posicao continua, 0 a 2).
+  const inicio = useRef(null); // { x } de onde o dedo desceu
+  // Arrastando: a posicao continua (0 a 2) que o botao e a pagina seguem.
   const [arraste, setArraste] = useState(null);
 
   function posicaoDoPonteiro(e) {
@@ -28,14 +44,35 @@ export function SeletorTema({ recolhido }) {
   function aoPressionar(e) {
     if (e.button !== 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    setArraste(posicaoDoPonteiro(e));
+    inicio.current = { x: e.clientX };
   }
+
   function aoMover(e) {
-    if (arraste !== null) setArraste(posicaoDoPonteiro(e));
+    if (!inicio.current) return;
+    // So vira arraste depois de andar um pouco: um clique com a mao tremendo
+    // continua sendo clique (com a animacao de encaixe).
+    if (arraste === null && Math.abs(e.clientX - inicio.current.x) < LIMIAR_ARRASTE_PX) return;
+    const pos = posicaoDoPonteiro(e);
+    setArraste(pos);
+    previsualizarValor(pos);
   }
+
   function aoSoltar(e) {
-    if (arraste === null) return;
+    if (!inicio.current) return;
+    inicio.current = null;
+    if (arraste !== null) {
+      // Soltou no meio: o tom daquele ponto fica.
+      fixarValor(posicaoDoPonteiro(e));
+      setArraste(null);
+      return;
+    }
+    // Clique: vai para o modo do icone clicado, com a animacao.
     definirTema(TEMAS[Math.round(posicaoDoPonteiro(e))].chave);
+  }
+
+  function aoCancelar() {
+    inicio.current = null;
+    if (arraste !== null) cancelarPrevia();
     setArraste(null);
   }
 
@@ -51,7 +88,7 @@ export function SeletorTema({ recolhido }) {
   }
 
   if (recolhido) {
-    const proximo = TEMAS.find((t) => t.chave === proximoTema(tema));
+    const proximo = TEMAS.find((t) => t.chave === proximoTema(valor));
     return (
       <button
         type="button"
@@ -65,7 +102,9 @@ export function SeletorTema({ recolhido }) {
     );
   }
 
-  const posicao = arraste ?? indice;
+  const posicao = arraste ?? valor;
+  const entre = Math.abs(posicao - Math.round(posicao)) > 0.001;
+  const vizinho = TEMAS[Math.round(posicao) === Math.floor(posicao) ? Math.ceil(posicao) : Math.floor(posicao)];
   return (
     <div
       ref={trilho}
@@ -75,12 +114,13 @@ export function SeletorTema({ recolhido }) {
       aria-label="Modo de visualização"
       aria-valuemin={0}
       aria-valuemax={TEMAS.length - 1}
-      aria-valuenow={indice}
-      aria-valuetext={atual.rotulo}
+      aria-valuenow={+posicao.toFixed(2)}
+      aria-valuetext={entre ? `Entre ${TEMAS[Math.floor(posicao)].rotulo} e ${TEMAS[Math.ceil(posicao)].rotulo}` : atual.rotulo}
+      title={entre ? `Tom entre ${TEMAS[Math.round(posicao)].rotulo} e ${vizinho.rotulo}` : undefined}
       onPointerDown={aoPressionar}
       onPointerMove={aoMover}
       onPointerUp={aoSoltar}
-      onPointerCancel={() => setArraste(null)}
+      onPointerCancel={aoCancelar}
       onKeyDown={aoTeclar}
       style={{ '--tema-pos': posicao }}
     >

@@ -9,6 +9,8 @@ import { registrarServiceWorker } from './lib/appInstalado.js';
 // Antes de desenhar: aplica o modo de visualizacao escolhido (sem piscar).
 import './lib/tema.js';
 import './estilos/global.css';
+// Depois do CSS das telas: as animacoes de entrada valem por cima (ver o topo do arquivo).
+import './estilos/animacoes.css';
 // Por ultimo: os ajustes de celular valem por cima de qualquer tela.
 import './estilos/celular.css';
 

@@ -45,7 +45,8 @@ export const COLUNAS = [
   {
     chave: 'aguardando',
     titulo: 'Aguardando confirmacao',
-    descricao: 'A proposta esta de pe, faltando o cliente fechar.',
+    // Tambem o horario ja marcado para OUTRO dia: no proprio dia, a OS toma o lugar.
+    descricao: 'Proposta de pe, ou horario ja marcado para outro dia.',
     tipo: 'conversa',
     // Uma OS 'pendente' e exatamente isto: pedido feito, nao confirmado.
     statusOS: ['pendente'],

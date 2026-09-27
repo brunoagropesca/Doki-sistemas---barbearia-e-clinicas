@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
@@ -21,6 +21,8 @@ import { useAuth } from '../lib/autenticacao.jsx';
 import { EscolherFoto } from './equipe/EscolherFoto.jsx';
 import { Busca, Chips, FotoPessoa, MenuAcoes, normalizar, resumoJornada } from './equipe/ListaEquipe.jsx';
 import { useFuncoes } from '../lib/funcoes.jsx';
+import { Interruptor } from './conexoes/Interruptor.jsx';
+import './Conexoes.css';
 import './Equipe.css';
 
 /**
@@ -163,6 +165,23 @@ const FILTROS_SITUACAO = [
   { chave: 'todos', rotulo: 'Todos' }
 ];
 
+/**
+ * Reage ao "Cadastrar" do cabecalho — so aos cliques feitos DEPOIS de a lista
+ * aparecer. O contador nao volta a zero; sem guardar o numero da montagem,
+ * trocar de aba (Barbeiros <-> Atendentes) remontava a lista, ela via o
+ * contador maior que zero e reabria o popup de cadastro sozinha.
+ */
+function usePedidoNovo(pedidoNovo, abrir) {
+  const visto = useRef(pedidoNovo);
+  useEffect(() => {
+    if (pedidoNovo === visto.current) return;
+    visto.current = pedidoNovo;
+    abrir();
+    // `abrir` e recriada a cada render; so o numero importa.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedidoNovo]);
+}
+
 function Profissionais({ consulta, pedidoNovo }) {
   const queryClient = useQueryClient();
   const [fichaAberta, setFichaAberta] = useState(null); // id, ou 'novo'
@@ -170,9 +189,7 @@ function Profissionais({ consulta, pedidoNovo }) {
   const [situacao, setSituacao] = useState('ativos');
   const [funcao, setFuncao] = useState('');
 
-  useEffect(() => {
-    if (pedidoNovo) setFichaAberta('novo');
-  }, [pedidoNovo]);
+  usePedidoNovo(pedidoNovo, () => setFichaAberta('novo'));
 
   const excluir = useMutation({
     mutationFn: (id) => api.delete(`/api/profissionais/${id}`),
@@ -754,9 +771,7 @@ function Pessoas({ consulta, pedidoNovo }) {
   const [presenca, setPresenca] = useState('todos');
   const [cargo, setCargo] = useState('');
 
-  useEffect(() => {
-    if (pedidoNovo) setModal({ tipo: 'novo' });
-  }, [pedidoNovo]);
+  usePedidoNovo(pedidoNovo, () => setModal({ tipo: 'novo' }));
 
   const todos = consulta.data?.atendentes ?? [];
 
@@ -1334,7 +1349,7 @@ function ModalAtendente({ pessoa, aoFechar, aoSalvar }) {
       titulo={editando ? `Editar ${pessoa.nome}` : 'Cadastrar atendente'}
       aberto
       aoFechar={aoFechar}
-      largura={520}
+      largura={680}
       rodape={
         <>
           <Botao variante="secundario" onClick={aoFechar}>
@@ -1348,48 +1363,49 @@ function ModalAtendente({ pessoa, aoFechar, aoSalvar }) {
     >
       {salvar.isError && salvar.error.codigo !== 'VALIDACAO' && <Aviso tom="perigo">{salvar.error.message}</Aviso>}
 
-      <Campo rotulo="Nome" obrigatorio erro={erros.nome}>
-        <Entrada value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-      </Campo>
-      <Campo rotulo="Usuario para entrar" obrigatorio erro={erros.username}>
-        <Entrada value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
-      </Campo>
-      <Campo rotulo="E-mail" erro={erros.email}>
-        <Entrada type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-      </Campo>
-      {editando && (
-        <Campo rotulo="Telefone" erro={erros.telefone}>
-          <Entrada value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
+      {/* Duas colunas (uma no celular): o formulario inteiro cabe na tela, sem
+          rolar. Dicas curtas; a de "trocar senha derruba a sessao" so aparece
+          quando alguem de fato digita uma senha nova. */}
+      <div className="eq-form">
+        <Campo rotulo="Nome" obrigatorio erro={erros.nome}>
+          <Entrada value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
         </Campo>
-      )}
-      <Campo
-        rotulo={editando ? 'Nova senha' : 'Senha provisoria'}
-        obrigatorio={!editando}
-        erro={erros.senha ?? erros.novaSenha}
-        dica={
-          editando
-            ? 'Deixe em branco para manter a atual. Se trocar, a pessoa sai do sistema e entra com a nova.'
-            : 'A pessoa troca depois de entrar.'
-        }
-      >
-        <Entrada type="text" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} />
-      </Campo>
-      <Campo
-        rotulo="Cargo"
-        dica={souEu ? 'Voce nao pode trocar o proprio cargo.' : 'Atendente ve conversas e agenda; admin configura o sistema.'}
-      >
-        <Selecao value={form.cargo} disabled={souEu} onChange={(e) => setForm({ ...form, cargo: e.target.value })}>
-          <option value="atendente">Atendente</option>
-          <option value="admin">Administrador</option>
-          {(eu?.cargo === 'owner' || form.cargo === 'owner') && <option value="owner">Dono</option>}
-        </Selecao>
-      </Campo>
-      {editando && (
-        <>
+        <Campo rotulo="Usuário para entrar" obrigatorio erro={erros.username}>
+          <Entrada value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
+        </Campo>
+        <Campo rotulo="E-mail" erro={erros.email}>
+          <Entrada type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        </Campo>
+        {editando ? (
+          <Campo rotulo="Telefone" erro={erros.telefone}>
+            <Entrada value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
+          </Campo>
+        ) : (
+          <Campo rotulo="Senha provisória" obrigatorio erro={erros.senha} dica="A pessoa troca depois de entrar.">
+            <Entrada type="text" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} />
+          </Campo>
+        )}
+        {editando && (
           <Campo
-            rotulo="Atende ate (conversas ao mesmo tempo)"
+            rotulo="Nova senha"
+            erro={erros.senha ?? erros.novaSenha}
+            dica={form.senha ? 'Ao salvar, a pessoa sai do sistema e entra com a nova.' : 'Em branco, fica a atual.'}
+          >
+            <Entrada type="text" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} />
+          </Campo>
+        )}
+        <Campo rotulo="Cargo" dica={souEu ? 'Você não pode trocar o próprio cargo.' : 'Admin também configura o sistema.'}>
+          <Selecao value={form.cargo} disabled={souEu} onChange={(e) => setForm({ ...form, cargo: e.target.value })}>
+            <option value="atendente">Atendente</option>
+            <option value="admin">Administrador</option>
+            {(eu?.cargo === 'owner' || form.cargo === 'owner') && <option value="owner">Dono</option>}
+          </Selecao>
+        </Campo>
+        {editando && (
+          <Campo
+            rotulo="Atende até (ao mesmo tempo)"
             erro={erros.capacidadeSimultanea}
-            dica="Quem esta no limite e pulado pela distribuicao automatica."
+            dica="No limite, a distribuição pula a pessoa."
           >
             <Entrada
               type="number"
@@ -1399,21 +1415,18 @@ function ModalAtendente({ pessoa, aoFechar, aoSalvar }) {
               onChange={(e) => setForm({ ...form, capacidadeSimultanea: e.target.value })}
             />
           </Campo>
-          {!souEu && (
-            <label className="opcao">
-              <input
-                type="checkbox"
-                checked={form.ativo}
-                onChange={(e) => setForm({ ...form, ativo: e.target.checked })}
-              />
-              <span>
-                <strong>Conta ativa</strong>
-                <div className="texto-fraco">Desmarcado, a pessoa sai do sistema na hora e nao consegue entrar.</div>
-              </span>
-            </label>
-          )}
-        </>
-      )}
+        )}
+        {editando && !souEu && (
+          <div className="eq-form__interruptor">
+            <Interruptor
+              rotulo="Conta ativa"
+              descricao={form.ativo ? 'Pode entrar no sistema.' : 'Ao salvar, sai na hora e não entra mais.'}
+              ligado={form.ativo}
+              aoAlternar={(ativo) => setForm({ ...form, ativo })}
+            />
+          </div>
+        )}
+      </div>
     </Modal>
   );
 }

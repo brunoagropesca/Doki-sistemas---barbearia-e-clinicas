@@ -687,11 +687,32 @@
 .fio__mic:active:not(:disabled) { transform: scale(0.94); }
 .fio__mic:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* Erro do microfone: flutua ACIMA do compositor (position absolute em relacao
+   a `.compositor`). Na mesma linha do campo, o texto longo esmagava o campo de
+   digitacao ate sumir no celular. */
 .fio__mic-erro {
-  color: var(--perigo);
-  font-size: 12px;
-  align-self: center;
+  position: absolute;
+  left: var(--e3);
+  right: var(--e3);
+  bottom: calc(100% + var(--e2));
+  z-index: 5;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e3);
+  padding: 10px 12px;
+  border: 1px solid rgba(234, 33, 67, 0.4);
+  border-radius: var(--raio);
+  background: var(--painel-solido, #0e1430);
+  box-shadow: var(--sombra-g);
+  color: var(--tom-perigo, #ff6b82);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  animation: anim-surgir var(--anim-rapida, 180ms) ease-out backwards;
 }
+.fio__mic-erro-fechar { flex: none; opacity: 0.7; }
 
 /*
  * A barra que substitui o campo de texto enquanto se grava. Mesma altura e

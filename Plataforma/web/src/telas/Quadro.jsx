@@ -69,7 +69,7 @@ export function Quadro() {
   }
 
   return (
-    <div className="coluna">
+    <div className="coluna quadro-tela">
       <header className="linha linha--entre">
         <div>
           <h1>Quadro de atendimento</h1>

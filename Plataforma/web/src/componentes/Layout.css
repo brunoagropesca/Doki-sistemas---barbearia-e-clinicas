@@ -360,6 +360,11 @@ a.menu__empresa.active { background: none; }
   /* Cada tela rola aqui dentro, nunca a pagina. */
   min-height: 0;
   overflow-y: auto;
+  /* Contem os `position: absolute` das telas. Sem um ancestral posicionado,
+     eles se posicionavam pela PAGINA e esticavam o documento (os textos so
+     para leitor de tela dos cartoes do Quadro criavam ~900 px de rolagem na
+     janela inteira, no modo demonstracao). */
+  position: relative;
   padding: var(--e5);
   padding-top: max(var(--e5), env(safe-area-inset-top, 0px));
   padding-bottom: max(var(--e5), env(safe-area-inset-bottom, 0px));

@@ -6,6 +6,7 @@ import { Aviso, Botao, Carregando, Entrada } from '../componentes/ui.jsx';
 import { Icone } from '../componentes/Icone.jsx';
 import { BarraParte, BarrasH, ColunasEmpilhadas, Legenda, Medidor, duracao, numero, porcento, reais, reaisCurto } from './dashboard/Graficos.jsx';
 import { MapaCalor } from './dashboard/MapaCalor.jsx';
+import { AnimarDashboard, useAnimarDashboard, useContagem, usePreferenciaAnimar } from './dashboard/animacao.js';
 import './dashboard/Dashboard.css';
 
 /**
@@ -57,6 +58,8 @@ const diasEntre = (a, b) => Math.round(Math.abs(Date.parse(`${b}T12:00:00Z`) - D
 
 export function Dashboard() {
   const [params, setParams] = useSearchParams();
+  // A pagina "se monta" ao entrar (ver dashboard/animacao.js); o botao do topo desliga.
+  const [animar, alternarAnimar] = usePreferenciaAnimar();
   const aba = ABAS.some((a) => a.id === params.get('aba')) ? params.get('aba') : 'geral';
   // "custom" sem data no endereco (link cortado) volta para o padrao.
   const periodo = params.get('periodo') === 'custom' && !params.get('de') ? '30' : params.get('periodo') ?? '30';
@@ -124,7 +127,8 @@ export function Dashboard() {
   }
 
   return (
-    <div className="coluna dash">
+    <AnimarDashboard.Provider value={animar}>
+    <div className={`coluna dash${animar ? ' dash--animar' : ''}`}>
       <header className="dash-topo linha">
         <div>
           <h1>Dashboard</h1>
@@ -140,6 +144,17 @@ export function Dashboard() {
               : 'Tudo o que acontece no seu negócio.'}
           </p>
         </div>
+        <div className="linha dash-topo__acoes">
+        <button
+          type="button"
+          className={`dash-animar${animar ? ' dash-animar--ligado' : ''}`}
+          aria-pressed={animar}
+          onClick={alternarAnimar}
+          title={animar ? 'Desligar as animações de entrada do Dashboard' : 'Ligar as animações de entrada do Dashboard'}
+        >
+          <span className="dash-animar__trilho" aria-hidden="true"><span /></span>
+          Animações
+        </button>
         <Botao
           variante="secundario"
           className="dash-exportar"
@@ -150,6 +165,7 @@ export function Dashboard() {
         >
           <Icone nome="planilha" /> Exportar Excel
         </Botao>
+        </div>
       </header>
       {erroExportar && (
         <Aviso tom="perigo" aoFechar={() => setErroExportar(null)}>
@@ -221,6 +237,7 @@ export function Dashboard() {
         </div>
       )}
     </div>
+    </AnimarDashboard.Provider>
   );
 }
 
@@ -233,16 +250,16 @@ const horas = (n) => (n ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 1
 function Resumo({ r, a, semBase }) {
   return (
     <section className="dash-kpis" aria-label="Números principais">
-      <Kpi semBase={semBase} destaque rotulo="Faturamento" valor={reais(r.faturamentoCentavos)} atual={r.faturamentoCentavos} anterior={a.faturamentoCentavos}
+      <Kpi semBase={semBase} destaque indice={0} formatar={(n) => reais(Math.round(n))} rotulo="Faturamento" valor={reais(r.faturamentoCentavos)} atual={r.faturamentoCentavos} anterior={a.faturamentoCentavos}
         detalhe={`${reaisCurto(r.servicosCentavos)} serviços · ${reaisCurto(r.produtosCentavos)} produtos`} />
-      <Kpi semBase={semBase} rotulo="Atendimentos" valor={numero(r.atendimentos)} atual={r.atendimentos} anterior={a.atendimentos} detalhe={`${horas(r.horasTrabalhadas)} h de serviço`} />
-      <Kpi semBase={semBase} rotulo="Ticket médio" valor={reais(r.ticketMedioCentavos)} atual={r.ticketMedioCentavos} anterior={a.ticketMedioCentavos} detalhe="por atendimento" />
-      <Kpi semBase={semBase} rotulo="Clientes atendidos" valor={numero(r.clientesAtendidos)} atual={r.clientesAtendidos} anterior={a.clientesAtendidos} detalhe={`${r.clientesNovos} na 1ª visita`} />
-      <Kpi semBase={semBase} rotulo="Novos contatos" valor={numero(r.novosContatos)} atual={r.novosContatos} anterior={a.novosContatos} detalhe={`${numero(r.conversas)} conversas`} />
-      <Kpi semBase={semBase} rotulo="Produtos vendidos" valor={numero(r.itensVendidos)} atual={r.itensVendidos} anterior={a.itensVendidos} detalhe={reais(r.produtosCentavos)} />
-      <Kpi semBase={semBase} rotulo="Faltas" valor={`${porcento(r.taxaFalta)}`} atual={r.taxaFalta} anterior={a.taxaFalta} menorEMelhor pontos
+      <Kpi semBase={semBase} indice={1} formatar={(n) => numero(Math.round(n))} rotulo="Atendimentos" valor={numero(r.atendimentos)} atual={r.atendimentos} anterior={a.atendimentos} detalhe={`${horas(r.horasTrabalhadas)} h de serviço`} />
+      <Kpi semBase={semBase} indice={2} formatar={(n) => reais(Math.round(n))} rotulo="Ticket médio" valor={reais(r.ticketMedioCentavos)} atual={r.ticketMedioCentavos} anterior={a.ticketMedioCentavos} detalhe="por atendimento" />
+      <Kpi semBase={semBase} indice={3} formatar={(n) => numero(Math.round(n))} rotulo="Clientes atendidos" valor={numero(r.clientesAtendidos)} atual={r.clientesAtendidos} anterior={a.clientesAtendidos} detalhe={`${r.clientesNovos} na 1ª visita`} />
+      <Kpi semBase={semBase} indice={4} formatar={(n) => numero(Math.round(n))} rotulo="Novos contatos" valor={numero(r.novosContatos)} atual={r.novosContatos} anterior={a.novosContatos} detalhe={`${numero(r.conversas)} conversas`} />
+      <Kpi semBase={semBase} indice={5} formatar={(n) => numero(Math.round(n))} rotulo="Produtos vendidos" valor={numero(r.itensVendidos)} atual={r.itensVendidos} anterior={a.itensVendidos} detalhe={reais(r.produtosCentavos)} />
+      <Kpi semBase={semBase} indice={6} formatar={(n) => porcento(Math.round(n * 10) / 10)} rotulo="Faltas" valor={`${porcento(r.taxaFalta)}`} atual={r.taxaFalta} anterior={a.taxaFalta} menorEMelhor pontos
         detalhe={`${r.faltas} faltas · ${r.cancelados} cancelados`} />
-      <Kpi semBase={semBase} rotulo="Descontos dados" valor={reais(r.descontosCentavos)} atual={r.descontosCentavos} anterior={a.descontosCentavos} menorEMelhor detalhe="nos serviços" />
+      <Kpi semBase={semBase} indice={7} formatar={(n) => reais(Math.round(n))} rotulo="Descontos dados" valor={reais(r.descontosCentavos)} atual={r.descontosCentavos} anterior={a.descontosCentavos} menorEMelhor detalhe="nos serviços" />
     </section>
   );
 }
@@ -251,7 +268,11 @@ function Resumo({ r, a, semBase }) {
  * Bloco de numero: rotulo, valor, variacao contra o periodo anterior (seta +
  * texto, nunca so a cor) e um detalhe. `menorEMelhor`: falta subir e ruim.
  */
-function Kpi({ rotulo, valor, atual, anterior, detalhe, destaque, menorEMelhor, pontos, semBase }) {
+function Kpi({ rotulo, valor, atual, anterior, detalhe, destaque, menorEMelhor, pontos, semBase, formatar, indice = 0 }) {
+  // Com as animacoes, o numero conta ate o valor (em cascata com o cartao).
+  const animar = useAnimarDashboard();
+  const contado = useContagem(atual, animar && Boolean(formatar), { atrasoMs: 150 + indice * 70 });
+  const mostrado = animar && formatar ? formatar(contado) : valor;
   let variacao = null;
   // O periodo anterior e de antes do sistema ter dados: qualquer porcentagem
   // seria enganosa ("+7.000%"). Diz isso em vez de calcular.
@@ -270,7 +291,7 @@ function Kpi({ rotulo, valor, atual, anterior, detalhe, destaque, menorEMelhor, 
   return (
     <div className={`kpi${destaque ? ' kpi--destaque' : ''}`}>
       <span className="kpi__rotulo">{rotulo}</span>
-      <strong className="kpi__valor">{valor}</strong>
+      <strong className="kpi__valor">{mostrado}</strong>
       <span className="kpi__rodape">
         {variacao && (
           <span

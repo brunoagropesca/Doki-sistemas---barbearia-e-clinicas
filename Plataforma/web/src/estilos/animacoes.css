@@ -10,9 +10,10 @@
  *     (tempo real, a cada 20 s) nada remonta, entao nada "pisca" de novo;
  *   - em listas, so os primeiros itens entram em cascata — os demais
  *     aparecem juntos, para uma lista longa nao demorar a ficar pronta;
- *   - `both` termina em `transform: none`: depois da entrada o elemento
- *     volta a ser normal (um transform que sobrasse mudaria onde os popups
- *     `position: fixed` de dentro dele se posicionam);
+ *   - `backwards` (e nao `both`): terminada a entrada, a animacao SOME e o
+ *     elemento fica sem transform nenhum. Com `both` sobrava uma matriz
+ *     identidade, e isso muda onde os popups `position: fixed` de dentro dele
+ *     se posicionam (listas de selecao, paineis laterais);
  *   - quem pediu ao sistema operacional para reduzir movimento nao ve nada
  *     disso (bloco no fim do arquivo).
  *
@@ -53,13 +54,13 @@
 
 /* ── Troca de tela: o conteudo novo sobe de leve ── */
 .conteudo > * {
-  animation: anim-surgir var(--anim-media) var(--anim-assentar) both;
+  animation: anim-surgir var(--anim-media) var(--anim-assentar) backwards;
 }
 
 /* ── Cartoes e metricas: em cascata, os primeiros 8 ── */
 .metrica,
 .cartao {
-  animation: anim-surgir var(--anim-media) var(--anim-assentar) both;
+  animation: anim-surgir var(--anim-media) var(--anim-assentar) backwards;
 }
 .grade > :nth-child(2) { animation-delay: 40ms; }
 .grade > :nth-child(3) { animation-delay: 80ms; }
@@ -72,7 +73,7 @@
 /* ── Linhas de tabela e lista de conversas: os 10 primeiros em cascata ── */
 .tabela tbody tr,
 .conversa {
-  animation: anim-surgir-lado var(--anim-media) var(--anim-assentar) both;
+  animation: anim-surgir-lado var(--anim-media) var(--anim-assentar) backwards;
 }
 .tabela tbody tr:nth-child(2), .conversa:nth-child(2) { animation-delay: 25ms; }
 .tabela tbody tr:nth-child(3), .conversa:nth-child(3) { animation-delay: 50ms; }
@@ -89,20 +90,20 @@
    animam (o fim do fio, onde o olho esta). Depois, cada mensagem nova e a
    ultima quando entra — e so ela anima. */
 .msg:nth-last-child(-n + 5) .msg__balao {
-  animation: anim-balao var(--anim-media) var(--anim-saltar) both;
+  animation: anim-balao var(--anim-media) var(--anim-saltar) backwards;
 }
 .msg--cliente .msg__balao { transform-origin: bottom left; }
 .msg--nossa .msg__balao { transform-origin: bottom right; }
 
 /* ── Quadro de atendimento: cartoes entram (menos o que ja pisca) ── */
 .cartao-q:not(.cartao-q--atencao) {
-  animation: anim-surgir var(--anim-media) var(--anim-assentar) both;
+  animation: anim-surgir var(--anim-media) var(--anim-assentar) backwards;
 }
 
 /* ── Estados vazios e carregando: aparecem suaves, sem "estalo" ── */
 .vazio,
 .carregando {
-  animation: anim-aparecer var(--anim-media) ease-out both;
+  animation: anim-aparecer var(--anim-media) ease-out backwards;
 }
 
 /* ── Botoes: afundam um pouco ao clicar (resposta imediata ao toque) ── */
@@ -117,9 +118,9 @@
    (o elemento e recriado a cada numero novo — ver Layout.jsx) */
 .menu__badge {
   /* O pulsar de sempre (Layout.css) continua, depois do salto. */
-  animation: anim-saltar 420ms var(--anim-saltar) both, pulsar 2s ease-in-out 420ms infinite;
+  animation: anim-saltar 420ms var(--anim-saltar) backwards, pulsar 2s ease-in-out 420ms infinite;
 }
-.aba__badge { animation: anim-saltar 420ms var(--anim-saltar) both; }
+.aba__badge { animation: anim-saltar 420ms var(--anim-saltar) backwards; }
 
 /* ── Troca de tema (claro / medio / full black): a pagina inteira funde de um
    para o outro. Feito pelo navegador (View Transitions): uma foto antes, uma
