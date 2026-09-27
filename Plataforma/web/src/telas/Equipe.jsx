@@ -1184,6 +1184,26 @@ function Privacidade() {
         </div>
       </Cartao>
 
+      {/* A recepcao organiza os horarios de todos: sem esta opcao, a
+          privacidade acima recortava tambem a agenda e ela via 0 horarios. */}
+      <Cartao titulo="Agenda">
+        <label className="opcao">
+          <input
+            type="checkbox"
+            checked={Boolean(config.agendaCompletaParaEquipe)}
+            disabled={!podeEditar || salvar.isPending}
+            onChange={(e) => salvar.mutate({ agendaCompletaParaEquipe: e.target.checked })}
+          />
+          <span>
+            <strong>Toda a equipe vê a agenda completa</strong>
+            <div className="texto-fraco">
+              Para quem organiza a recepção. As conversas continuam com a regra acima, e o faturamento continua visível
+              só para quem já via.
+            </div>
+          </span>
+        </label>
+      </Cartao>
+
       {/* A "assinatura": o nome de quem respondeu no topo da mensagem que o
           cliente recebe. So muda o WhatsApp dele — no livechat o autor ja
           aparece em cima de cada balao. */}

@@ -53,10 +53,37 @@ export class SemPermissao extends AppError {
   }
 }
 
+/**
+ * Recursos femininos, pela PRIMEIRA palavra (sem acento): assim
+ * "Mensagem da campanha" sai "encontrada". A atendente lia "Conversa nao
+ * encontrado." — erro de portugues na cara de quem usa o sistema o dia todo.
+ */
+const FEMININOS = new Set([
+  'conversa', 'mensagem', 'notificacao', 'campanha', 'conexao', 'sessao', 'resposta',
+  'etiqueta', 'empresa', 'licenca', 'ordem', 'categoria', 'venda', 'funcao'
+]);
+
+/** Os nomes de recurso vem sem acento do codigo; aqui ganham o acento de verdade. */
+const ACENTOS = {
+  notificacao: 'notificação', conexao: 'conexão', sessao: 'sessão', licenca: 'licença', funcao: 'função',
+  usuario: 'usuário', servico: 'serviço', rapida: 'rápida'
+};
+
+const semAcento = (t) => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+
+/** "Servico" -> "Serviço", mantendo a maiuscula de cada palavra. */
+const acentuar = (recurso) =>
+  recurso.replace(/\p{L}+/gu, (palavra) => {
+    const certo = ACENTOS[semAcento(palavra)];
+    if (!certo) return palavra;
+    return palavra[0] === palavra[0].toUpperCase() ? certo[0].toUpperCase() + certo.slice(1) : certo;
+  });
+
 /** 404 — o registro nao existe, ou nao pertence a esta empresa. */
 export class NaoEncontrado extends AppError {
   constructor(recurso = 'Registro') {
-    super(`${recurso} nao encontrado.`, { status: 404, code: 'NAO_ENCONTRADO' });
+    const feminino = FEMININOS.has(semAcento(String(recurso).split(/\s+/)[0]));
+    super(`${acentuar(String(recurso))} não encontrad${feminino ? 'a' : 'o'}.`, { status: 404, code: 'NAO_ENCONTRADO' });
   }
 }
 

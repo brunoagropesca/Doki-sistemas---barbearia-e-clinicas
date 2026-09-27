@@ -81,7 +81,8 @@ export async function obter(tenantId) {
     db.query.tenants.findFirst({ where: eq(tenants.id, tenantId) }),
     lerBase(tenantId)
   ]);
-  if (!tenant) throw new NaoEncontrado('Empresa nao encontrada.');
+  // So o NOME do recurso: a classe monta a frase ("Empresa não encontrada.").
+  if (!tenant) throw new NaoEncontrado('Empresa');
   return { nome: tenant.nome, segmento: tenant.segmento, ...base };
 }
 

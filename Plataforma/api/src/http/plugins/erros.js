@@ -60,7 +60,7 @@ export function registrarTratamentoDeErros(app) {
       return res.status(409).send({
         erro: {
           codigo: 'CONFLITO',
-          mensagem: 'Ja existe um registro com esses dados.'
+          mensagem: 'Já existe um registro com esses dados.'
         }
       });
     }

@@ -19,7 +19,7 @@ import { calcularHorariosLivres, podeAgendar } from './disponibilidade.js';
 import { planejarSequencia } from './sequencia.js';
 import * as repo from './agenda.repo.js';
 import * as leadsRepo from '../leads/leads.repo.js';
-import { escopoDe } from '../equipe/equipe.config.js';
+import { escopoDaAgenda, escopoDe } from '../equipe/equipe.config.js';
 import { escolherAtendente } from '../equipe/distribuidor.js';
 import * as conversasRepo from '../conversas/conversas.repo.js';
 import { registrarDesfecho } from '../historico/historico.service.js';
@@ -106,7 +106,8 @@ export async function listar(tenantId, filtros = {}, usuario) {
   const dataFinal = filtros.dataFim || dataInicial;
 
   const linhas = await repo.listar(tenantId, {
-    escopo: await escopoDe(tenantId, usuario),
+    // Recorte da agenda (a recepcao pode ver todos; ver escopoDaAgenda).
+    escopo: await escopoDaAgenda(tenantId, usuario),
     inicioEm: inicioDoDia(dataInicial, fuso),
     fimEm: fimDoDia(dataFinal, fuso),
     professionalId: filtros.professionalId,
@@ -149,7 +150,7 @@ export async function obter(tenantId, id, usuario) {
  */
 async function garantirVisivel(tenantId, linha, usuario) {
   if (!usuario) return;
-  const escopo = await escopoDe(tenantId, usuario);
+  const escopo = await escopoDaAgenda(tenantId, usuario);
   if (escopo.tudo) return;
 
   const a = linha.agendamento;
@@ -970,6 +971,25 @@ export async function encerrarPorConversa(tenantId, conversationId, dados = {}, 
   }
 
   return { vinculadas: linhas.length, concluidas };
+}
+
+/**
+ * O resumo da Atena chega DEPOIS de a conversa ser finalizada (ela escreve em
+ * segundo plano, para o botao Finalizar nao esperar a IA). Aqui ele entra nas
+ * OS da sessao — so nas que ainda nao tem resumo: um escrito por gente, ou
+ * congelado antes, nunca e sobrescrito.
+ */
+export async function anexarResumoNasOs(tenantId, conversationId, texto) {
+  const resumo = texto?.trim();
+  if (!resumo) return 0;
+  const linhas = await repo.vinculadasAConversa(tenantId, conversationId);
+  let anexadas = 0;
+  for (const a of linhas) {
+    if (a.resumoAtendimento) continue;
+    await repo.atualizar(tenantId, a.id, { resumoAtendimento: resumo, resumoEm: new Date() });
+    anexadas += 1;
+  }
+  return anexadas;
 }
 
 /**

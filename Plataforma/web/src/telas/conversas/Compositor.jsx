@@ -67,7 +67,18 @@ function saudacao() {
   return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
 }
 
-const primeiroNome = (nome) => String(nome ?? '').trim().split(/\s+/)[0] ?? '';
+/**
+ * Primeiro nome — ou vazio quando o "nome" e so um marcador do sistema.
+ *
+ * Cliente sem nome salvo aparece como "Contato WhatsApp", e "Bom dia, {nome}!"
+ * saia "Bom dia, Contato!". Marcador nao e nome: devolvemos vazio e quem usa
+ * decide o que fazer (ver `preencherVariaveis`).
+ */
+const primeiroNome = (nome) => {
+  const texto = String(nome ?? '').trim();
+  if (!texto || /^(contato|cliente|lead)\b/i.test(texto)) return '';
+  return texto.split(/\s+/)[0];
+};
 
 /**
  * Cores dos cartoes de resposta rapida. Fica LONGE de laranja e verde-agua de
@@ -78,8 +89,15 @@ const PALETA_CARTOES = ['#7f66ff', '#3b82f6', '#ec4899', '#22c55e', '#ef4444', '
 
 /** Troca as variaveis da resposta rapida pelos dados desta conversa. */
 export function preencherVariaveis(texto, { cliente, atendente }) {
-  return texto
-    .replace(/\{nome\}/gi, primeiroNome(cliente) || 'tudo bem')
+  const nome = primeiroNome(cliente);
+  let preenchido = texto
+    // Sem nome de verdade, some o {nome} E a virgula antes dele:
+    // "Bom dia, {nome}!" vira "Bom dia!" (e nao "Bom dia, tudo bem!").
+    .replace(/,?\s*\{nome\}/gi, (trecho) => (nome ? trecho.replace(/\{nome\}/i, nome) : ''));
+  // {nome} abrindo a frase ("{nome}, seu horario...") deixaria ", seu horario":
+  // tira a virgula solta e volta a maiuscula.
+  if (!nome) preenchido = preenchido.replace(/^\s*,\s*(.)/, (_, letra) => letra.toUpperCase());
+  return preenchido
     .replace(/\{atendente\}/gi, primeiroNome(atendente))
     .replace(/\{saudacao\}/gi, saudacao());
 }

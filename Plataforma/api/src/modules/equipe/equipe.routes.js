@@ -61,7 +61,8 @@ const configuracaoSchema = z
     distribuirSomenteOnline: z.boolean().optional(),
     distribuirParaGerencia: z.boolean().optional(),
     assinaturaAtendente: z.boolean().optional(),
-    assinaturaSofia: z.boolean().optional()
+    assinaturaSofia: z.boolean().optional(),
+    agendaCompletaParaEquipe: z.boolean().optional()
   })
   .refine((d) => Object.keys(d).length > 0, 'Envie pelo menos um campo.');
 

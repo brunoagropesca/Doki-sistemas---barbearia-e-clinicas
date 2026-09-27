@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
-import { Aviso, Botao, Carregando, FotoLead, Status, Vazio } from '../componentes/ui.jsx';
+import { Aviso, Botao, Campo, Carregando, FotoLead, Modal, Status, Vazio } from '../componentes/ui.jsx';
 import { TextoWhatsapp } from '../lib/TextoWhatsapp.jsx';
 import { BalaoAudio } from './conversas/BalaoAudio.jsx';
 import { Compositor, IconeAnexo, tamanhoLegivel } from './conversas/Compositor.jsx';
@@ -325,6 +325,7 @@ function gravarRascunho(usuarioId, id, texto) {
 
 function Fio({ conversationId, aoVoltar, aoMudar, veioDeLista = false }) {
   const queryClient = useQueryClient();
+  const navegar = useNavigate();
   const { usuario, podeAcessar } = useAuth();
   const [texto, setTextoBruto] = useState(() => lerRascunho(usuario?.id, conversationId));
   // Aceita valor ou funcao, como o setState normal: todo o codigo que ja chama
@@ -337,6 +338,10 @@ function Fio({ conversationId, aoVoltar, aoMudar, veioDeLista = false }) {
     });
   const [perfilAberto, setPerfilAberto] = useState(false);
   const [transferindo, setTransferindo] = useState(false);
+  // "Finalizar" pede confirmacao: o botao fica ao lado de outros, e encerrar
+  // tira o atendimento da lista — um clique errado nao pode fazer isso sozinho.
+  const [confirmandoFim, setConfirmandoFim] = useState(false);
+  const [resumoFim, setResumoFim] = useState('');
   const fimRef = useRef(null);
 
   const dados = useQuery({
@@ -518,8 +523,7 @@ function Fio({ conversationId, aoVoltar, aoMudar, veioDeLista = false }) {
           <Botao
             variante="fantasma"
             tamanho="sm"
-            carregando={acao.isPending && acao.variables?.rota === 'finalizar'}
-            onClick={() => acao.mutate({ rota: 'finalizar' })}
+            onClick={() => setConfirmandoFim(true)}
             title="Encerra o atendimento. Se ninguem escreveu resumo, a Atena escreve."
           >
             Finalizar
@@ -542,7 +546,25 @@ function Fio({ conversationId, aoVoltar, aoMudar, veioDeLista = false }) {
         )}
       </div>
 
-      {acao.isError && <Aviso tom="perigo">{acao.error.message}</Aviso>}
+      {acao.isError && (
+        <Aviso tom="perigo">
+          {acao.error.message}
+          {/* "Reabrir" recusado porque o cliente ja abriu outra conversa: leva
+              direto para ela, em vez de a atendente ter de procurar na lista. */}
+          {acao.error.detalhes?.conversaAtualId && (
+            <>
+              {' '}
+              <Botao
+                variante="secundario"
+                tamanho="sm"
+                onClick={() => navegar(`/conversas?id=${acao.error.detalhes.conversaAtualId}`)}
+              >
+                Abrir a conversa atual
+              </Botao>
+            </>
+          )}
+        </Aviso>
+      )}
 
       {/* Dono da conversa, mas ainda sem ter escrito: explica o que falta, porque
           "e minha" e "estou atendendo" parecem a mesma coisa e nao sao. */}
@@ -610,6 +632,48 @@ function Fio({ conversationId, aoVoltar, aoMudar, veioDeLista = false }) {
 
       {/* Fica a direita do fio, entrando por deslizamento. */}
       {perfilAberto && <PainelLead conversa={conversa} aoFechar={() => setPerfilAberto(false)} />}
+
+      <Modal
+        titulo="Finalizar atendimento"
+        aberto={confirmandoFim}
+        aoFechar={() => setConfirmandoFim(false)}
+        rodape={
+          <>
+            <Botao variante="fantasma" onClick={() => setConfirmandoFim(false)}>
+              Cancelar
+            </Botao>
+            <Botao
+              carregando={acao.isPending && acao.variables?.rota === 'finalizar'}
+              onClick={() => {
+                const resumo = resumoFim.trim();
+                acao.mutate(
+                  { rota: 'finalizar', corpo: resumo ? { resumo } : {} },
+                  {
+                    onSuccess: () => {
+                      setConfirmandoFim(false);
+                      setResumoFim('');
+                    }
+                  }
+                );
+              }}
+            >
+              Finalizar
+            </Botao>
+          </>
+        }
+      >
+        <p>O atendimento sai da sua lista. Se o cliente escrever de novo, uma conversa nova começa.</p>
+        <Campo rotulo="Resumo (opcional)">
+          <textarea
+            className="entrada entrada--area"
+            rows={3}
+            placeholder="Em branco, a Atena escreve o resumo em segundo plano."
+            value={resumoFim}
+            onChange={(e) => setResumoFim(e.target.value)}
+          />
+        </Campo>
+        {acao.isError && acao.variables?.rota === 'finalizar' && <Aviso tom="perigo">{acao.error.message}</Aviso>}
+      </Modal>
 
       {transferindo && (
         <Transferir

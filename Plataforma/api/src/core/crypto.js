@@ -8,8 +8,46 @@ import {
 } from 'node:crypto';
 import { promisify } from 'node:util';
 import { env } from '../config/env.js';
+import { ServicoIndisponivel } from './errors.js';
 
-const scrypt = promisify(scryptCb);
+const scryptLivre = promisify(scryptCb);
+
+/**
+ * No maximo 2 scrypt ao mesmo tempo.
+ *
+ * Cada calculo pede ~64 MB de uma vez (e o que torna o scrypt caro para quem
+ * ataca). Varios logins/cadastros juntos pediam 64 MB cada, em paralelo, e com
+ * a memoria da maquina apertada o OpenSSL falhava ("malloc failure") — visto na
+ * suite de testes, e que num pico de logins de verdade aconteceria igual.
+ * Com a fila o pico fica em ~128 MB; quem chega depois so espera a vez (cada
+ * calculo leva ~100 ms). O custo de seguranca nao muda.
+ */
+const MAX_SCRYPT_SIMULTANEOS = 2;
+let scryptRodando = 0;
+let scryptPico = 0;
+const scryptEsperando = [];
+
+/** So para os testes: quantos scrypt chegaram a rodar juntos (e zera). */
+export function _picoScrypt() {
+  const pico = scryptPico;
+  scryptPico = 0;
+  return pico;
+}
+
+async function scrypt(...args) {
+  if (scryptRodando >= MAX_SCRYPT_SIMULTANEOS) await new Promise((vez) => scryptEsperando.push(vez));
+  scryptRodando++;
+  scryptPico = Math.max(scryptPico, scryptRodando);
+  try {
+    return await scryptLivre(...args);
+  } finally {
+    scryptRodando--;
+    scryptEsperando.shift()?.();
+  }
+}
+
+/** A falha foi falta de memoria (passageira), e nao hash invalido? */
+const faltouMemoria = (err) => /malloc|memory|memoria/i.test(String(err?.message ?? ''));
 
 /**
  * Criptografia da aplicacao.
@@ -84,17 +122,34 @@ export async function conferirSenha(senha, hashGuardado) {
   const sal = Buffer.from(salHex, 'hex');
   const esperado = Buffer.from(hashHex, 'hex');
 
-  try {
-    const derivada = await scrypt(senha.normalize('NFKC'), sal, esperado.length, {
+  const calcular = () =>
+    scrypt(senha.normalize('NFKC'), sal, esperado.length, {
       N: Number(n),
       r: Number(r),
       p: Number(p),
       maxmem: 128 * Number(n) * Number(r) * 2
     });
-    return derivada.length === esperado.length && timingSafeEqual(derivada, esperado);
-  } catch {
-    return false;
+
+  let derivada;
+  try {
+    derivada = await calcular();
+  } catch (err) {
+    // Hash com parametros quebrados: nao confere, como antes.
+    if (!faltouMemoria(err)) return false;
+    /**
+     * Faltou memoria: isso NAO e senha errada. Antes caia no `return false` e
+     * a pessoa lia "Usuario ou senha incorretos" com a senha certa. Tentamos de
+     * novo uma vez; se faltar de novo, avisamos que foi o servidor.
+     */
+    await new Promise((ok) => setTimeout(ok, 150));
+    try {
+      derivada = await calcular();
+    } catch (err2) {
+      if (!faltouMemoria(err2)) return false;
+      throw new ServicoIndisponivel('Não consegui conferir a senha agora. Tente de novo em alguns segundos.');
+    }
   }
+  return derivada.length === esperado.length && timingSafeEqual(derivada, esperado);
 }
 
 /** True quando o hash foi feito com parametros mais fracos que os atuais. */

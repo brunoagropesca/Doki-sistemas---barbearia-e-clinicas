@@ -184,6 +184,36 @@ describe('transferencia', () => {
     const depois = await app.inject({ method: 'GET', url: `/api/conversas/${id}`, headers: ana.cabecalho });
     assert.equal(depois.statusCode, 404);
   });
+
+  /**
+   * Bug reproduzido: a transferencia nao criava aviso nenhum — a conversa
+   * aparecia em silencio na lista de quem recebeu — e os avisos antigos dela
+   * continuavam na tela de quem cuidava antes.
+   */
+  it('quem recebe e avisado, com o nome de quem passou e o motivo; os avisos antigos saem', async () => {
+    const notif = await import('../src/modules/notificacoes/notificacoes.repo.js');
+    const { id } = await novaConversa();
+    await assumir(ana, id);
+    await notif.criar(ctx.tenantId, { userIds: [ana.usuario.id], conversationId: id, leadNome: 'x', motivo: 'Cliente pediu uma pessoa', urgente: true });
+
+    const r = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${id}/transferir`,
+      headers: ana.cabecalho,
+      payload: { paraUserId: bruno.usuario.id, motivo: 'Cliente quer o degradê do Bruno' }
+    });
+    assert.equal(r.statusCode, 200, r.body);
+
+    const avisosDe = async (quem) =>
+      (await app.inject({ method: 'GET', url: '/api/notificacoes', headers: quem.cabecalho })).json().notificacoes.filter((n) => n.conversationId === id);
+
+    const doBruno = await avisosDe(bruno);
+    assert.equal(doBruno.length, 1);
+    assert.equal(doBruno[0].motivo, 'Transferida por Ana Atendente: Cliente quer o degradê do Bruno');
+    assert.equal(doBruno[0].urgente, false);
+
+    assert.equal((await avisosDe(ana)).length, 0, 'o aviso antigo da Ana saiu da tela dela');
+  });
 });
 
 describe('agenda: o recorte vale para os horarios', () => {
@@ -497,5 +527,123 @@ describe('nao lidas sao de quem atende', () => {
     assert.ok((await naoLidas(id)) > 0);
     assert.equal((await lida(dono, id)).statusCode, 200);
     assert.equal(await naoLidas(id), 0);
+  });
+});
+
+/**
+ * Bug reproduzido: o cliente frustrado gera um aviso urgente; a conversa e
+ * finalizada (ou devolvida para a IA) e o aviso continuava na tela — "Atender"
+ * dava erro 422 e so entao sumia.
+ */
+describe('avisos somem quando o atendimento acaba', () => {
+  async function conversaComAvisoUrgente() {
+    const notif = await import('../src/modules/notificacoes/notificacoes.repo.js');
+    const { id } = await novaConversa();
+    assert.equal((await assumir(ana, id)).statusCode, 200);
+    await notif.criar(ctx.tenantId, {
+      userIds: [ana.usuario.id, bruno.usuario.id],
+      conversationId: id,
+      leadNome: 'Cliente frustrado',
+      motivo: 'Cliente frustrado: reclamação sobre serviço',
+      urgente: true
+    });
+    return id;
+  }
+
+  const abertosDaConversa = async (id) => {
+    const notif = await import('../src/modules/notificacoes/notificacoes.repo.js');
+    let total = 0;
+    for (const quem of [ana, bruno]) total += (await notif.abertasDe(ctx.tenantId, quem.usuario.id)).filter((n) => n.conversationId === id).length;
+    return total;
+  };
+
+  it('finalizar fecha os avisos da conversa para todos', async () => {
+    const id = await conversaComAvisoUrgente();
+    assert.equal(await abertosDaConversa(id), 2);
+
+    const r = await app.inject({ method: 'POST', url: `/api/conversas/${id}/finalizar`, headers: ana.cabecalho, payload: { resumo: 'Resolvido com retoque.' } });
+    assert.equal(r.statusCode, 200, r.body);
+    assert.equal(await abertosDaConversa(id), 0);
+  });
+
+  it('devolver para a IA tambem fecha', async () => {
+    const id = await conversaComAvisoUrgente();
+    assert.equal(await abertosDaConversa(id), 2);
+
+    const r = await app.inject({ method: 'POST', url: `/api/conversas/${id}/devolver`, headers: ana.cabecalho });
+    assert.equal(r.statusCode, 200, r.body);
+    assert.equal(await abertosDaConversa(id), 0);
+  });
+});
+
+/**
+ * Bug reproduzido: com a privacidade das conversas ligada, a agenda usava o
+ * mesmo recorte — a recepcionista, que organiza os horarios, viu 0 de 3.
+ * Agora ha uma opcao (desligada por padrao) para a equipe ver a agenda inteira.
+ */
+describe('agenda completa para a recepcao (opcao)', () => {
+  const DIA = somarDias(SEGUNDA, 7); // dia so deste bloco
+  const idsDoDia = [];
+
+  const agendaDe = async (quem) =>
+    (await app.inject({ method: 'GET', url: `/api/agenda?data=${DIA}`, headers: quem.cabecalho })).json().agendamentos.filter((a) => idsDoDia.includes(a.id));
+  const faturamentoDe = async (quem) =>
+    (await app.inject({ method: 'GET', url: `/api/agenda/metricas?data=${DIA}`, headers: quem.cabecalho })).json().total;
+
+  before(async () => {
+    assert.equal((await configurar({ privacidade: 'dono', agendaCompletaParaEquipe: false })).statusCode, 200);
+    ctx.recepcionista = await criarUsuario('Rita Recepcao', 'rita.recepcao');
+
+    // 3 horarios de um profissional, marcados pelo dono (nada deles e da Rita).
+    const { servicos } = (await app.inject({ method: 'GET', url: '/api/servicos', headers: dono.cabecalho })).json();
+    const servico = servicos.find((s) => s.profissionais.length > 0);
+    const { itens } = (await app.inject({ method: 'GET', url: '/api/leads?limite=3', headers: dono.cabecalho })).json();
+    for (const hora of ['09:00', '10:00', '11:00']) {
+      const r = await app.inject({
+        method: 'POST',
+        url: '/api/agenda',
+        headers: dono.cabecalho,
+        payload: { leadId: itens[0].id, serviceId: servico.id, professionalId: servico.profissionais[0].id, data: DIA, hora }
+      });
+      assert.equal(r.statusCode, 201, r.body);
+      idsDoDia.push(r.json().agendamento.id);
+    }
+  });
+
+  after(async () => {
+    await configurar({ agendaCompletaParaEquipe: false });
+  });
+
+  it('vem desligada: a recepcionista ve 0 de 3, e nao abre pelo id', async () => {
+    const { configuracao } = (await app.inject({ method: 'GET', url: '/api/equipe/configuracao', headers: dono.cabecalho })).json();
+    assert.equal(configuracao.agendaCompletaParaEquipe, false);
+
+    assert.equal((await agendaDe(ctx.recepcionista)).length, 0);
+    const abrir = await app.inject({ method: 'GET', url: `/api/agenda/${idsDoDia[0]}`, headers: ctx.recepcionista.cabecalho });
+    assert.equal(abrir.statusCode, 404);
+  });
+
+  it('ligada: ve 3 de 3 e abre cada um; o faturamento dela nao muda', async () => {
+    const antes = await faturamentoDe(ctx.recepcionista);
+    assert.equal((await configurar({ agendaCompletaParaEquipe: true })).statusCode, 200);
+
+    assert.equal((await agendaDe(ctx.recepcionista)).length, 3);
+    const abrir = await app.inject({ method: 'GET', url: `/api/agenda/${idsDoDia[0]}`, headers: ctx.recepcionista.cabecalho });
+    assert.equal(abrir.statusCode, 200, abrir.body);
+
+    assert.equal(await faturamentoDe(ctx.recepcionista), antes, 'o dinheiro continua no recorte dela');
+    assert.ok((await faturamentoDe(dono)) >= 3, 'o dono continua vendo tudo');
+  });
+
+  it('as conversas continuam com a regra de privacidade', async () => {
+    const { id } = await novaConversa();
+    assert.equal((await assumir(ana, id)).statusCode, 200);
+    const r = await app.inject({ method: 'GET', url: `/api/conversas/${id}`, headers: ctx.recepcionista.cabecalho });
+    assert.equal(r.statusCode, 404, 'a opcao abre so a agenda');
+  });
+
+  it('so o dono liga a opcao', async () => {
+    const r = await app.inject({ method: 'PUT', url: '/api/equipe/configuracao', headers: ctx.recepcionista.cabecalho, payload: { agendaCompletaParaEquipe: true } });
+    assert.equal(r.statusCode, 403);
   });
 });

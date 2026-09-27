@@ -63,7 +63,11 @@ const PADRAO = {
   // Assinatura: o nome de quem respondeu no topo da mensagem que chega ao
   // cliente. Desligada por padrao — ligar muda o que o cliente ve.
   assinaturaAtendente: false,
-  assinaturaSofia: false
+  assinaturaSofia: false,
+  // A recepcao organiza os horarios de todos, mas a privacidade das conversas
+  // recortava a agenda junto: a recepcionista via 0 de 3 horarios do dia.
+  // Desligada por padrao — ligar muda o que a equipe ve, e isso e do dono.
+  agendaCompletaParaEquipe: false
 };
 
 /** Chave em `settings` de cada campo. */
@@ -74,7 +78,8 @@ const CHAVES = {
   distribuirSomenteOnline: 'distribuicao_somente_online',
   distribuirParaGerencia: 'distribuicao_inclui_gerencia',
   assinaturaAtendente: 'assinatura_atendente',
-  assinaturaSofia: 'assinatura_sofia'
+  assinaturaSofia: 'assinatura_sofia',
+  agendaCompletaParaEquipe: 'agenda_completa_equipe'
 };
 
 async function ler(tenantId, chave, padrao) {
@@ -181,6 +186,19 @@ export function nomeDeAssinatura(nomeDoPerfil) {
 /** Atalho de leitura: esta pessoa acompanha a equipe inteira? */
 export async function veTudo(tenantId, usuario) {
   return (await escopoDe(tenantId, usuario)).tudo;
+}
+
+/**
+ * O recorte da AGENDA (listar e abrir horarios).
+ *
+ * Igual ao das conversas, a menos que a empresa ligue "Toda a equipe ve a
+ * agenda completa". So a agenda abre: conversas continuam com a regra de
+ * privacidade, e o faturamento (metricas) continua no recorte de cada um.
+ */
+export async function escopoDaAgenda(tenantId, usuario) {
+  const { agendaCompletaParaEquipe } = await obterConfiguracao(tenantId);
+  if (agendaCompletaParaEquipe) return { tudo: true };
+  return escopoDe(tenantId, usuario);
 }
 
 /** Quem recebeu a ultima conversa pelo rodizio. Veja `proximoDoRodizio`. */

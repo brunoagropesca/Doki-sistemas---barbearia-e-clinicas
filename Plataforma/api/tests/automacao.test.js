@@ -168,6 +168,8 @@ describe('resumo automatico ao finalizar', () => {
     const conv = await import('../src/modules/conversas/conversas.service.js');
     const falso = provedorFalso([{ texto }]);
     await conv.finalizar(tenantId, id, {}, { ...ctx.usuario }, { provedores: falso.provedores });
+    // O resumo da Atena agora chega em segundo plano, depois da resposta.
+    await conv.aguardarResumos();
     return { falso, conversa: await conv.obter(tenantId, id) };
   };
 
@@ -228,6 +230,59 @@ describe('resumo automatico ao finalizar', () => {
 
     await conv.finalizar(tenantId, id, {}, { ...ctx.usuario }, { provedores: falso.provedores });
     assert.equal((await conv.obter(tenantId, id)).status, 'finalizada');
+    // A falha acontece em segundo plano e nao pode estourar em lugar nenhum.
+    await conv.aguardarResumos();
+    assert.equal((await conv.obter(tenantId, id)).resumo, null, 'sem resumo, como antes');
+  });
+
+  /**
+   * Bug reproduzido: o servidor ESPERAVA a IA escrever o resumo antes de
+   * responder — 6 a 10 s de tela parada a cada "Finalizar".
+   */
+  describe('sem esperar a IA', () => {
+    /** Uma IA lenta: responde depois de `ms`. */
+    const iaLenta = (texto, ms) => ({
+      provedores: [{
+        impl: {
+          nome: 'lenta',
+          async gerar({ modelo }) {
+            await new Promise((ok) => setTimeout(ok, ms));
+            return { texto, chamadasDeFerramenta: [], tokens: { entrada: 10, saida: 5 }, modelo };
+          }
+        },
+        apiKey: 'x',
+        modelos: ['lenta-1']
+      }]
+    });
+
+    it('finalizar responde na hora; o resumo aparece depois', async () => {
+      const conv = await import('../src/modules/conversas/conversas.service.js');
+      const { id } = await novaConversa();
+
+      const inicio = Date.now();
+      await conv.finalizar(tenantId, id, {}, { ...ctx.usuario }, iaLenta('Cliente quis saber o preço do corte.', 1500));
+      const demorou = Date.now() - inicio;
+
+      assert.ok(demorou < 1000, `finalizar esperou a IA (${demorou} ms)`);
+      const logo = await conv.obter(tenantId, id);
+      assert.equal(logo.status, 'finalizada');
+      assert.equal(logo.resumo, null, 'a IA ainda esta escrevendo');
+
+      await conv.aguardarResumos();
+      assert.match((await conv.obter(tenantId, id)).resumo, /preço do corte/);
+    });
+
+    it('se alguem grava um resumo enquanto a IA escreve, o da pessoa vale', async () => {
+      const conv = await import('../src/modules/conversas/conversas.service.js');
+      const repo = await import('../src/modules/conversas/conversas.repo.js');
+      const { id } = await novaConversa();
+
+      await conv.finalizar(tenantId, id, {}, { ...ctx.usuario }, iaLenta('Resumo da IA.', 500));
+      await repo.atualizar(tenantId, id, { resumo: 'Resumo que a atendente escreveu.' });
+
+      await conv.aguardarResumos();
+      assert.equal((await conv.obter(tenantId, id)).resumo, 'Resumo que a atendente escreveu.');
+    });
   });
 });
 

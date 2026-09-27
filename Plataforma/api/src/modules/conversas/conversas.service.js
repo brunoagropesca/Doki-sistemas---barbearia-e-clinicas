@@ -22,7 +22,7 @@ import { escolherAtendente } from '../equipe/distribuidor.js';
 import { atenaPermite } from '../../ai/permissoes.js';
 import { gerarResumoFinal } from '../../ai/resumo.js';
 import * as repo from './conversas.repo.js';
-import { fecharDaConversa as fecharNotificacoes } from '../notificacoes/notificacoes.repo.js';
+import { criar as criarNotificacoes, fecharDaConversa as fecharNotificacoes } from '../notificacoes/notificacoes.repo.js';
 
 const log = comContexto({ modulo: 'conversas' });
 
@@ -402,6 +402,9 @@ export async function devolverParaIa(tenantId, id, usuario) {
     assignedUserId: temHorario ? linha.conversa.assignedUserId : null,
     assumidaEm: null
   });
+  // A conversa voltou para a Sofia: nao ha mais quem "Atender". Sem isto o
+  // aviso ficava na tela e o botao dava erro 422 antes de sumir.
+  await fecharNotificacoes(tenantId, id);
   return obter(tenantId, id);
 }
 
@@ -610,6 +613,18 @@ export async function transferir(tenantId, id, { paraUserId, motivo }, usuario) 
     metadados: { tipo: 'transferencia', de: usuario.id, para: destino.id }
   });
 
+  // Quem recebe precisa SABER que recebeu: sem aviso, a conversa aparecia em
+  // silencio na lista dele. E os avisos antigos desta conversa (para quem
+  // cuidava antes) saem da tela — ela nao e mais problema deles.
+  await fecharNotificacoes(tenantId, id);
+  await criarNotificacoes(tenantId, {
+    userIds: [destino.id],
+    conversationId: id,
+    leadNome: linha.leadNome,
+    motivo: `Transferida por ${usuario.nome ?? 'um colega'}${motivo ? `: ${motivo}` : ''}`,
+    urgente: false
+  });
+
   return obter(tenantId, id);
 }
 
@@ -778,7 +793,8 @@ async function prepararAnexo({ dataUrl, nome }, legenda) {
  * Encerra a conversa.
  *
  * Se ninguem escreveu resumo e a Atena tem permissao para isso, ela escreve um
- * antes de fechar. O resumo escrito por um atendente sempre tem preferencia:
+ * DEPOIS de fechar, em segundo plano (`agendarResumo`) — o atendente nao fica
+ * esperando a IA. O resumo escrito por um atendente sempre tem preferencia:
  * so gastamos uma chamada de IA quando nao ha nada digitado.
  *
  * @param {object} [opcoes]
@@ -796,21 +812,10 @@ export async function finalizar(tenantId, id, { resumo } = {}, usuario, opcoes =
     throw new SemPermissao('Esta conversa esta com outro atendente.');
   }
 
-  let resumoFinal = resumo?.trim() || linha.conversa.resumo || null;
-  let resumoDaIa = false;
-
-  if (!resumoFinal && (await atenaPermite(tenantId, 'resumo'))) {
-    const recentes = await repo.listarMensagens(tenantId, id, { limite: 40 });
-    resumoFinal = await gerarResumoFinal({
-      tenantId,
-      conversationId: id,
-      leadNome: linha.leadNome,
-      // O banco devolve do mais novo ao mais velho; o resumo le em ordem.
-      mensagens: recentes.map((r) => r.mensagem).reverse(),
-      provedores: opcoes.provedores ?? null
-    });
-    resumoDaIa = Boolean(resumoFinal);
-  }
+  const resumoFinal = resumo?.trim() || linha.conversa.resumo || null;
+  // A Atena escreve o resumo DEPOIS, em segundo plano (ver `agendarResumo`):
+  // esperar a IA aqui deixava a tela parada 6 a 10 s a cada "Finalizar".
+  const resumoPelaIa = !resumoFinal && (await atenaPermite(tenantId, 'resumo'));
 
   await repo.atualizar(tenantId, id, {
     status: 'finalizada',
@@ -832,8 +837,59 @@ export async function finalizar(tenantId, id, { resumo } = {}, usuario, opcoes =
     { usuario, concluirPassados: opcoes.concluirPassados ?? true }
   );
 
-  log.info({ tenantId, conversationId: id, userId: usuario.id, os, resumoDaIa }, 'Conversa finalizada');
+  // Sem await: a resposta ao atendente nao espera a IA.
+  if (resumoPelaIa) agendarResumo(tenantId, id, linha.leadNome, opcoes.provedores ?? null);
+
+  // Atendimento encerrado: os avisos dele (ex.: cliente frustrado) saem da
+  // tela de todos. Antes ficavam presos, e "Atender" dava erro 422.
+  await fecharNotificacoes(tenantId, id);
+
+  log.info({ tenantId, conversationId: id, userId: usuario.id, os, resumoPelaIa }, 'Conversa finalizada');
   return obter(tenantId, id);
+}
+
+/** Resumos sendo escritos agora (para os testes esperarem). */
+const resumosEmAndamento = new Set();
+
+/** Espera os resumos em segundo plano terminarem. Usado pelos testes. */
+export function aguardarResumos() {
+  return Promise.all([...resumosEmAndamento]);
+}
+
+/**
+ * A Atena escreve o resumo de uma conversa ja finalizada.
+ *
+ * Nunca lanca: falhar so significa ficar sem resumo, como ja era quando a IA
+ * estava fora do ar. E nunca sobrescreve: se nesse meio tempo alguem gravou
+ * um resumo (a atendente, por exemplo), o dela vale.
+ */
+function agendarResumo(tenantId, id, leadNome, provedores) {
+  const trabalho = (async () => {
+    try {
+      const recentes = await repo.listarMensagens(tenantId, id, { limite: 40 });
+      const texto = await gerarResumoFinal({
+        tenantId,
+        conversationId: id,
+        leadNome,
+        // O banco devolve do mais novo ao mais velho; o resumo le em ordem.
+        mensagens: recentes.map((r) => r.mensagem).reverse(),
+        provedores
+      });
+      if (!texto) return;
+
+      const atual = await repo.buscarPorId(tenantId, id);
+      if (!atual || atual.conversa.resumo) return;
+
+      await repo.atualizar(tenantId, id, { resumo: texto });
+      await agenda.anexarResumoNasOs(tenantId, id, texto);
+      log.info({ tenantId, conversationId: id }, 'Resumo da Atena gravado depois de finalizar');
+    } catch (err) {
+      log.warn({ err, tenantId, conversationId: id }, 'A Atena nao conseguiu escrever o resumo');
+    }
+  })();
+
+  resumosEmAndamento.add(trabalho);
+  trabalho.finally(() => resumosEmAndamento.delete(trabalho));
 }
 
 /**
@@ -920,6 +976,17 @@ export async function reabrir(tenantId, id, usuario) {
   const linha = await garantirVisivel(tenantId, await repo.buscarPorId(tenantId, id), usuario);
   if (linha.conversa.status !== 'finalizada') {
     throw new RegraDeNegocio('Esta conversa nao esta finalizada.');
+  }
+
+  // O cliente ja voltou a escrever: abriu uma conversa NOVA no mesmo numero.
+  // Reabrir a antiga bateria no indice de "uma conversa aberta por cliente" e a
+  // atendente leria "Ja existe um registro com esses dados." sem entender nada.
+  // Dizemos o que houve e qual e a conversa certa (a tela oferece abri-la).
+  const atual = await repo.buscarAbertaDoLead(tenantId, linha.conversa.leadId, linha.conversa.channelInstanceId);
+  if (atual) {
+    throw new Conflito('Este cliente já voltou a escrever e tem uma conversa aberta. Continue por ela.', {
+      conversaAtualId: atual.id
+    });
   }
 
   await repo.atualizar(tenantId, id, {

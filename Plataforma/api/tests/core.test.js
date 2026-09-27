@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { cifrar, conferirSenha, decifrar, gerarHashSenha, gerarTokenSessao, hashToken } from '../src/core/crypto.js';
+import { _picoScrypt, cifrar, conferirSenha, decifrar, gerarHashSenha, gerarTokenSessao, hashToken } from '../src/core/crypto.js';
 import { dataNoFuso, fimDoDia, inicioDoDia, instanteDeLocal, somarDias, formatarBR } from '../src/core/datetime.js';
 import { formatarTelefone, normalizarTelefone, variantesDeBusca } from '../src/core/phone.js';
 import { formatarBRL, paraCentavos, somarCentavos } from '../src/core/money.js';
@@ -35,6 +35,19 @@ describe('crypto — senhas', () => {
   it('nao quebra com hash corrompido', async () => {
     assert.equal(await conferirSenha('qualquer', 'lixo-que-nao-e-hash'), false);
     assert.equal(await conferirSenha('qualquer', null), false);
+  });
+
+  /**
+   * Varios scrypt juntos (64 MB cada) derrubavam o OpenSSL por falta de
+   * memoria, e a falha virava "senha incorreta" — a causa das quedas
+   * aleatorias da suite, e um risco real num pico de logins.
+   */
+  it('muitos logins ao mesmo tempo: todos conferem, com no maximo 2 calculos de cada vez', async () => {
+    const hash = await gerarHashSenha('senha-do-pico-123');
+    _picoScrypt();
+    const resultados = await Promise.all(Array.from({ length: 8 }, () => conferirSenha('senha-do-pico-123', hash)));
+    assert.deepEqual(resultados, Array(8).fill(true));
+    assert.equal(_picoScrypt(), 2, 'a fila segura o pico de memoria');
   });
 });
 

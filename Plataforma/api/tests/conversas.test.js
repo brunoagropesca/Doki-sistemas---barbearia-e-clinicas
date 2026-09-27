@@ -556,6 +556,37 @@ describe('finalizar e reabrir', () => {
     });
     assert.equal(responder.statusCode, 201);
   });
+
+  /**
+   * Bug reproduzido: o cliente voltou a escrever (abriu uma conversa NOVA) e
+   * "Reabrir" na antiga mostrava "Ja existe um registro com esses dados."
+   */
+  it('reabrir quando o cliente ja voltou a escrever: explica e aponta a conversa atual', async () => {
+    const service = await import('../src/modules/conversas/conversas.service.js');
+    const antiga = await abrirConversaCom('Quero marcar');
+    await app.inject({ method: 'POST', url: `/api/conversas/${antiga}/assumir`, headers: cabRecepcao });
+    const fim = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${antiga}/finalizar`,
+      headers: cabRecepcao,
+      payload: { resumo: 'Marcou corte.' }
+    });
+    assert.equal(fim.statusCode, 200, fim.body);
+
+    // O mesmo cliente escreve de novo, pelo mesmo numero: conversa nova.
+    const c = fim.json().conversa;
+    const nova = await service.encontrarOuAbrir(ctx.tenantId, { leadId: c.leadId, canal: 'whatsapp', channelInstanceId: c.channelInstanceId });
+    await service.registrarRecebida(ctx.tenantId, nova, { conteudo: 'Oi de novo!' });
+    assert.notEqual(nova, antiga);
+
+    const r = await app.inject({ method: 'POST', url: `/api/conversas/${antiga}/reabrir`, headers: cabRecepcao });
+    assert.equal(r.statusCode, 409, r.body);
+    assert.equal(r.json().erro.mensagem, 'Este cliente já voltou a escrever e tem uma conversa aberta. Continue por ela.');
+    assert.equal(r.json().erro.detalhes.conversaAtualId, nova);
+
+    const depois = await app.inject({ method: 'GET', url: `/api/conversas/${antiga}`, headers: cabDono });
+    assert.equal(depois.json().conversa.status, 'finalizada', 'a antiga continua finalizada');
+  });
 });
 
 describe('metricas da mesa', () => {
