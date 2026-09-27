@@ -167,6 +167,14 @@ O gerador (`api/src/modules/demonstracao/gerador.js`) ainda simulava o desenho a
 - Testes novos em `demonstracao.test.js` (bloco "segue os parâmetros atuais do sistema"). Suíte: **925/925**.
 - Demonstrações já geradas continuam no formato antigo: usar **"Gerar de novo"**.
 
+### 15. Dados de teste no banco de DEV (via API, não seed) — 26/09/2026
+O banco de dev estava zerado (0 profissionais/serviços/produtos). Populado com um cenário realista, pela própria API (login como dono em `http://127.0.0.1:3333`, mesmas validações/auditoria da tela — script descartável, não ficou no repo):
+- **10 profissionais**, funções e jornadas variadas (dias e faixas de horário diferentes, alguns só meio período): Carlos Mendes, Rafael Lima, André Souza, Bruno Ferreira, Ricardo Moura (barbeiros/infantil), Juliana Rocha, Fernanda Dias (cabelo/química), Patrícia Gomes (manicure), Débora Freitas (sobrancelha), Tatiane Nunes (estética).
+- **15 serviços** em 8 categorias (Cabelo, Barba, Combo, Química, Sobrancelha, Estética, Infantil, Unhas), com distribuição bem variada de profissionais por serviço (de 1 especialista solo — Design de Sobrancelha, Luzes, Limpeza de Pele, Manicure, Dia do Noivo — até 5 no Corte Social/Barba Tradicional), alguns com preço/duração próprios por profissional.
+- **14 produtos** de barbearia (pomadas, ceras, óleo/balm de barba, shampoos, tônico, perfume, kit presente), com estoque e estoque mínimo variados (1 propositalmente abaixo do mínimo: Máscara de Hidratação).
+- **Base de conhecimento da empresa** preenchida por completo (sobre, endereço, contato, pagamento/Pix, horário de funcionamento, políticas, 4 perguntas de FAQ, extras).
+- Conferido pela própria API: 10/15/14 e base de conhecimento presente. Não mexeu em código nem em teste; suíte não precisou rodar de novo.
+
 ## Pendências / próximos passos
 
 - **Testar de verdade no WhatsApp** as mudanças dos itens 8 e 9 (mesmos roteiros da Débora e do Lyu) e olhar os bastidores no Simulador — conferir se a Sofia oferece 2–3 horários (e não a lista inteira) e se passa a data "como o cliente falou".
