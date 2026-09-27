@@ -39,7 +39,7 @@
   padding: var(--e3) var(--e4);
   border: 1px dashed var(--borda-forte);
   border-radius: var(--raio);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--tinta, 255, 255, 255), 0.03);
 }
 .licenca__codigo strong { font-size: 20px; letter-spacing: 0.08em; }
 
@@ -77,10 +77,10 @@
 .licenca-contato__item {
   display: flex; align-items: center; gap: var(--e3); min-width: 0;
   padding: 10px var(--e3) 10px 10px; border: 1px solid var(--borda); border-radius: var(--raio-g, 14px);
-  background: rgba(255, 255, 255, 0.03); color: var(--texto); text-decoration: none;
+  background: rgba(var(--tinta, 255, 255, 255), 0.03); color: var(--texto); text-decoration: none;
   transition: background 0.15s, border-color 0.15s, transform 0.15s;
 }
-.licenca-contato__item:hover { background: rgba(255, 255, 255, 0.06); transform: translateY(-1px); }
+.licenca-contato__item:hover { background: rgba(var(--tinta, 255, 255, 255), 0.06); transform: translateY(-1px); }
 .licenca-contato__item--whatsapp:hover { border-color: rgba(37, 211, 102, 0.55); }
 .licenca-contato__item--instagram:hover { border-color: rgba(214, 41, 118, 0.55); }
 .licenca-contato__item--email:hover { border-color: rgba(234, 67, 53, 0.55); }

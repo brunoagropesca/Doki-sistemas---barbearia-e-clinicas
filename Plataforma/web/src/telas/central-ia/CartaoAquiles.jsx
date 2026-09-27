@@ -110,6 +110,16 @@ export function CartaoAquiles({ agente, provedores }) {
         </div>
       </div>
 
+      {/* Mesmo quadro dos outros agentes, para ficar claro que nao ha o que
+          ligar: o Aquiles nao consulta nem altera nada, so escreve o texto. */}
+      <fieldset className="ci-permissoes">
+        <legend>FERRAMENTAS &amp; PERMISSÕES DO AQUILES (TOOLS)</legend>
+        <p className="texto-fraco ci-permissoes__nota">
+          Nenhuma. O Aquiles não consulta a agenda nem altera dados: recebe o histórico do cliente já pronto e devolve
+          só o texto, que ainda passa pela revisão de uma pessoa.
+        </p>
+      </fieldset>
+
       {salvar.isError && <Aviso tom="perigo">{salvar.error.message}</Aviso>}
       {salvar.isSuccess && <Aviso tom="sucesso">Aquiles salvo.</Aviso>}
       {!agente.ativo && <Aviso tom="alerta">Com o Aquiles desligado, as campanhas não conseguem gerar mensagens.</Aviso>}

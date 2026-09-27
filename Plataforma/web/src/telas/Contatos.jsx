@@ -21,6 +21,7 @@ import {
 import { AssistenteAgendar } from './agenda/AssistenteAgendar.jsx';
 import { guardarPublico } from '../lib/publicoDeCampanha.js';
 import { useFuncoes } from '../lib/funcoes.jsx';
+import { useEnviarMensagem } from './contatos/IniciarConversa.jsx';
 import './contatos/contatos.css';
 
 /**
@@ -99,11 +100,8 @@ export function Contatos() {
     onError: (err) => setRecado({ tom: 'perigo', texto: err.message })
   });
 
-  const abrirConversa = useMutation({
-    mutationFn: (leadId) => api.post('/api/conversas/abrir', { leadId }),
-    onSuccess: (r) => navegar(`/conversas?id=${r.conversa.id}`),
-    onError: (err) => setRecado({ tom: 'perigo', texto: err.message })
-  });
+  // Com atendimento aberto vai direto a ele; sem, pergunta antes (popup).
+  const envio = useEnviarMensagem({ aoErro: (texto) => setRecado({ tom: 'perigo', texto }) });
 
   const lote = useMutation({
     mutationFn: (acao) => api.post('/api/leads/lote', { ids: marcados, ...acao }),
@@ -276,8 +274,8 @@ export function Contatos() {
                     <Botao
                       variante="fantasma"
                       tamanho="sm"
-                      carregando={abrirConversa.isPending && abrirConversa.variables === c.id}
-                      onClick={() => abrirConversa.mutate(c.id)}
+                      carregando={envio.carregando(c.id)}
+                      onClick={() => envio.enviar(c)}
                     >
                       Enviar mensagem
                     </Botao>
@@ -301,6 +299,8 @@ export function Contatos() {
           </Tabela>
         )}
       </Cartao>
+
+      {envio.popup}
 
       <ModalNovoContato
         aberto={modalAberto}

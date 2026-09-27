@@ -34,7 +34,15 @@ const salvarAgenteSchema = z.object({
   config: z
     .object({
       exemplos: z.array(z.string().max(2000)).max(20).optional(),
-      herdarSofia: z.boolean().optional()
+      herdarSofia: z.boolean().optional(),
+      // Sofia: pedido de avaliacao no Google ao finalizar (automacao/avaliacaoGoogle.js).
+      avaliacaoGoogle: z
+        .object({
+          ativo: z.boolean(),
+          link: z.string().trim().max(500).default(''),
+          mensagem: z.string().trim().max(600).default('')
+        })
+        .optional()
     })
     .optional(),
   ativo: z.boolean().optional()
@@ -159,6 +167,8 @@ export async function rotasIa(app) {
     return {
       agentes: await service.listarAgentes(req.tenantId),
       permissoesAtena: service.gruposDaAtena(),
+      // Os interruptores da Sofia (e o que ela tem sempre, so para mostrar).
+      permissoesSofia: service.gruposDaSofia(),
       tons: service.tonsDisponiveis()
     };
   });

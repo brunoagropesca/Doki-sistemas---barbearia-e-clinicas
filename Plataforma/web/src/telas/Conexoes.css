@@ -19,7 +19,7 @@
   padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap;
   color: var(--sucesso); background: var(--sucesso-suave); border: 1px solid rgba(7, 202, 107, 0.25);
 }
-.cx-motor--fora { color: #ff6b82; background: var(--perigo-suave); border-color: rgba(234, 33, 67, 0.25); }
+.cx-motor--fora { color: var(--tom-perigo, #ff6b82); background: var(--perigo-suave); border-color: rgba(234, 33, 67, 0.25); }
 
 /* Bolinha de estado */
 .cx-ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--texto-fraco); flex: none; }
@@ -40,8 +40,8 @@
   white-space: nowrap;
 }
 .cx-tag--ok { color: var(--sucesso); background: var(--sucesso-suave); border-color: rgba(7, 202, 107, 0.25); }
-.cx-tag--fora { color: #ff6b82; background: var(--perigo-suave); border-color: rgba(234, 33, 67, 0.25); }
-.cx-tag--dev { color: #b79cff; background: rgba(124, 58, 237, 0.18); border-color: rgba(124, 58, 237, 0.35); align-self: center; }
+.cx-tag--fora { color: var(--tom-perigo, #ff6b82); background: var(--perigo-suave); border-color: rgba(234, 33, 67, 0.25); }
+.cx-tag--dev { color: var(--tom-roxo, #b79cff); background: rgba(124, 58, 237, 0.18); border-color: rgba(124, 58, 237, 0.35); align-self: center; }
 
 /* ─── Abas + "em breve" ─── */
 .cx-barra {
@@ -112,7 +112,7 @@
 .cx-conexao--perigo { border-top-color: var(--perigo); }
 .cx-conexao__topo {
   display: flex; align-items: center; gap: var(--e3);
-  padding: var(--e4) var(--e5); border-bottom: 1px solid var(--borda); background: rgba(255, 255, 255, 0.02);
+  padding: var(--e4) var(--e5); border-bottom: 1px solid var(--borda); background: rgba(var(--tinta, 255, 255, 255), 0.02);
 }
 .cx-conexao__marca {
   position: relative; flex: none; display: grid; place-items: center; width: 42px; height: 42px;
@@ -131,7 +131,7 @@
 }
 .cx-desligado__icone {
   display: grid; place-items: center; width: 64px; height: 64px; margin-bottom: var(--e2);
-  border-radius: 18px; color: #7eb0ff; background: var(--primaria-suave);
+  border-radius: 18px; color: var(--tom-azul, #7eb0ff); background: var(--primaria-suave);
   border: 1px dashed rgba(24, 86, 255, 0.45);
 }
 .cx-desligado__icone svg { width: 30px; height: 30px; }
@@ -165,7 +165,7 @@
 .cx-salvo { font-size: 12.5px; color: var(--sucesso); }
 .cx-mensagem { display: flex; flex-direction: column; gap: var(--e1); margin-top: var(--e3); }
 .cx-contador { font-size: 12px; color: var(--texto-fraco); }
-.cx-contador--erro { color: #ff6b82; }
+.cx-contador--erro { color: var(--tom-perigo, #ff6b82); }
 
 /* Interruptor */
 .cx-interruptor { display: flex; flex-direction: column; gap: 4px; }
@@ -173,7 +173,7 @@
 .cx-interruptor__rotulo { flex: 1; font-weight: 700; font-size: 13px; cursor: pointer; }
 .cx-interruptor__estado { font-size: 11px; color: var(--texto-fraco); }
 .cx-interruptor__descricao { font-size: 12px; color: var(--texto-fraco); }
-.cx-interruptor__erro { font-size: 12px; color: #ff6b82; }
+.cx-interruptor__erro { font-size: 12px; color: var(--tom-perigo, #ff6b82); }
 .cx-trilho {
   position: relative; flex: none; width: 40px; height: 22px; padding: 0; cursor: pointer;
   background: var(--superficie-3); border: 1px solid var(--borda-forte); border-radius: 999px;
@@ -240,7 +240,7 @@
 .cx-log__texto { overflow-wrap: anywhere; }
 .cx-log--sucesso .cx-log__nivel, .cx-log--sucesso .cx-log__texto { color: var(--sucesso); }
 .cx-log--aviso .cx-log__nivel, .cx-log--aviso .cx-log__texto { color: var(--alerta); }
-.cx-log--erro .cx-log__nivel, .cx-log--erro .cx-log__texto { color: #ff6b82; }
+.cx-log--erro .cx-log__nivel, .cx-log--erro .cx-log__texto { color: var(--tom-perigo, #ff6b82); }
 .cx-log--info .cx-log__nivel { color: var(--info); }
 
 /* ─── Telas estreitas ─── */

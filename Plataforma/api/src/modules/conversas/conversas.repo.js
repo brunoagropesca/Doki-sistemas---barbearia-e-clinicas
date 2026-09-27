@@ -175,6 +175,23 @@ export async function ultimaMensagemHumanaEm(tenantId, conversationId) {
  * Conversa aberta de um lead NUMA CONEXAO (W1, W2...), se houver.
  * `channelInstanceId` nulo procura as conversas sem conexao gravada.
  */
+/**
+ * A conversa aberta do cliente por QUALQUER conexao — para quem chega pela
+ * ficha do cliente, que nao sabe por qual numero ele escreveu. (A busca de
+ * baixo, por conexao, e a do WhatsApp: ali a conexao importa.)
+ */
+export function buscarQualquerAbertaDoLead(tenantId, leadId) {
+  return db.query.conversations.findFirst({
+    where: and(
+      eq(conversations.tenantId, tenantId),
+      eq(conversations.leadId, leadId),
+      ne(conversations.status, 'finalizada'),
+      isNull(conversations.deletedAt)
+    ),
+    orderBy: desc(conversations.ultimaMensagemEm)
+  });
+}
+
 export function buscarAbertaDoLead(tenantId, leadId, channelInstanceId = null) {
   return db.query.conversations.findFirst({
     where: and(
@@ -603,9 +620,58 @@ export async function marcarEntregasSemResultado({ desde, ate, erroEnvio }) {
   return r.rowsAffected ?? 0;
 }
 
-export async function gravarEntrega(tenantId, mensagemId, { entregueEm, erroEnvio, externalId }) {
+/**
+ * Grava o resultado da entrega. Com `conversationId`, avisa as telas: a
+ * entrega pode terminar em segundo plano, depois de o atendente ter recebido
+ * a resposta do envio (ver entrega.service.js).
+ */
+export async function gravarEntrega(tenantId, mensagemId, { entregueEm, erroEnvio, externalId }, conversationId = null) {
   await db
     .update(messages)
     .set({ entregueEm: entregueEm ?? null, erroEnvio: erroEnvio ?? null, ...(externalId ? { externalId } : {}) })
     .where(and(eq(messages.tenantId, tenantId), eq(messages.id, mensagemId), isNull(messages.entregueEm)));
+  if (conversationId) emitir(EVENTOS.CONVERSA, { tenantId, id: conversationId });
+}
+
+/**
+ * Em que ponto da entrega a mensagem esta ('fila' | 'aguardando_conexao' |
+ * 'subindo' | 'enviando'), em `metadados.entregaFase`. E o que permite, num
+ * reinicio, separar "com certeza nao saiu" de "pode ter chegado".
+ * Tambem limpa um erro anterior: numa nova tentativa, o balao volta a
+ * "enviando" em vez de continuar dizendo "nao entregue".
+ */
+export async function marcarFaseEntrega(tenantId, conversationId, mensagemId, fase) {
+  await db
+    .update(messages)
+    .set({
+      erroEnvio: null,
+      metadados: sql`json_set(coalesce(${messages.metadados}, '{}'), '$.entregaFase', ${fase})`
+    })
+    .where(and(eq(messages.tenantId, tenantId), eq(messages.id, mensagemId), isNull(messages.entregueEm)));
+  emitir(EVENTOS.CONVERSA, { tenantId, id: conversationId });
+}
+
+/** Respostas de atendente sem resultado de entrega, com a fase e o estado da conversa. */
+export async function listarEntregasSemResultado({ desde, ate }) {
+  return db
+    .select({
+      id: messages.id,
+      tenantId: messages.tenantId,
+      conversationId: messages.conversationId,
+      metadados: messages.metadados,
+      createdAt: messages.createdAt,
+      conversaStatus: conversations.status
+    })
+    .from(messages)
+    .innerJoin(conversations, eq(conversations.id, messages.conversationId))
+    .where(
+      and(
+        eq(messages.direcao, 'saida'),
+        eq(messages.autorTipo, 'humano'),
+        isNull(messages.entregueEm),
+        isNull(messages.erroEnvio),
+        gte(messages.createdAt, desde),
+        lt(messages.createdAt, ate)
+      )
+    );
 }

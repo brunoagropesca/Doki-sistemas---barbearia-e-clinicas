@@ -84,13 +84,13 @@
 .demo__topo > div { display: flex; flex-direction: column; gap: 2px; }
 .demo__topo strong { font-size: 15px; }
 .demo__topo span { font-size: 12.5px; }
-.demo__selo { padding: 3px 10px; border-radius: 999px; background: rgba(124, 58, 237, 0.25); color: #d4c5ff; font-size: 12px; font-weight: 700; }
+.demo__selo { padding: 3px 10px; border-radius: 999px; background: rgba(124, 58, 237, 0.25); color: var(--tom-roxo, #d4c5ff); font-size: 12px; font-weight: 700; }
 .demo__numeros { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: var(--e2); margin: 0; }
-.demo__numeros div { padding: 8px var(--e3); border-radius: var(--raio); background: rgba(255, 255, 255, 0.04); }
+.demo__numeros div { padding: 8px var(--e3); border-radius: var(--raio); background: rgba(var(--tinta, 255, 255, 255), 0.04); }
 .demo__numeros dt { font-size: 11.5px; color: var(--texto-suave); }
 .demo__numeros dd { margin: 0; font-size: 18px; font-weight: 700; }
 .demo__acoes { display: flex; gap: var(--e2); flex-wrap: wrap; }
 .demo__gerando { display: flex; flex-direction: column; gap: var(--e2); }
-.demo__barra { display: block; height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.demo__barra { display: block; height: 8px; border-radius: 999px; background: rgba(var(--tinta, 255, 255, 255), 0.08); overflow: hidden; }
 .demo__barra span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--primaria), #7c3aed); transition: width 0.4s; }
 .demo__confirmar { display: flex; flex-direction: column; gap: var(--e3); padding: var(--e3) var(--e4); border-radius: var(--raio); background: var(--perigo-suave); border: 1px solid rgba(234, 33, 67, 0.35); }

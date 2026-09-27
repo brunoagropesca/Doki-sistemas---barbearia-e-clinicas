@@ -53,6 +53,19 @@ const logDoSocket = pino(
  */
 const PRAZO_UPLOAD_POR_SERVIDOR_MS = 10_000;
 
+/** Prazo total de um envio com midia (subir + repassar). Texto: 30 s. */
+const PRAZO_ENVIO_MIDIA_MS = 60_000;
+
+/**
+ * Marca um erro de envio em que a mensagem com CERTEZA nao saiu (conexao
+ * fora, midia que nao terminou de subir). A entrega pode tentar de novo sem
+ * risco de o cliente receber duas vezes. Sem a marca, o erro e ambiguo.
+ */
+function naoSaiu(err) {
+  err.naoSaiu = true;
+  return err;
+}
+
 /**
  * Adaptador do WhatsApp via Baileys.
  *
@@ -106,7 +119,7 @@ export function atrasoDeReconexao(tentativa) {
  * criptografia de uma mensagem de verdade do WhatsApp — e `transcrever` evita
  * chamar a API de transcricao de verdade.
  */
-export const ganchosDeTeste = { fabrica: null, agendar: null, baixarMidia: null, transcrever: null };
+export const ganchosDeTeste = { fabrica: null, agendar: null, baixarMidia: null, transcrever: null, prazoMidiaMs: null };
 
 /** Pasta onde ficam as credenciais. Equivalem a estar logado na conta. */
 function caminhoDeAuth(tenantId, instanciaChave) {
@@ -499,7 +512,15 @@ async function aoFecharConexao(registro, state, lastDisconnect) {
     qrCode: null,
     qrExpiraEm: null
   });
-  evento(tenantId, instanciaChave, 'aviso', `Conexão caiu. Tentativa ${n} de reconexão em ${Math.round(atraso / 1000)}s.`);
+  // O motivo que o WhatsApp deu vai junto: e ele que diz se foi a rede, o
+  // servidor deles ou outro aparelho na mesma conta (fica no diario permanente).
+  const porque = [motivo, detalhe].filter(Boolean).join(': ');
+  evento(
+    tenantId,
+    instanciaChave,
+    'aviso',
+    `Conexão caiu${porque ? ` (${porque})` : ''}. Tentativa ${n} de reconexão em ${Math.round(atraso / 1000)}s.`
+  );
   log.warn({ id, motivo, tentativa: n }, 'Conexao caiu; reconectando');
 
   agendarReconexao(tenantId, instanciaChave, atraso);
@@ -556,11 +577,11 @@ function conteudoDeMidia({ tipo, bytes, mimetype, nomeArquivo, legenda }) {
  * verdade mostraria. E enfeite: se o aviso de presenca falhar, a mensagem sai
  * do mesmo jeito.
  */
-export async function enviar({ tenantId, instanciaChave = 'W1', destino, texto, audio, midia, digitandoMs = 0 }) {
+export async function enviar({ tenantId, instanciaChave = 'W1', destino, texto, audio, midia, digitandoMs = 0, aoFase }) {
   const conexao = conexoes.get(chaveDe(tenantId, instanciaChave));
 
   if (!conexao?.aberta) {
-    throw new Error(`A conexão "${instanciaChave}" do WhatsApp não está conectada.`);
+    throw naoSaiu(new Error(`A conexão "${instanciaChave}" do WhatsApp não está conectada.`));
   }
 
   const numero = normalizarTelefone(destino);
@@ -583,18 +604,59 @@ export async function enviar({ tenantId, instanciaChave = 'W1', destino, texto, 
       ? conteudoDeMidia(midia)
       : { text: texto };
 
-  // Sem prazo, uma conexao "meio morta" deixaria o atendente esperando para
-  // sempre. Se estourar, a mensagem PODE ter saido: o texto diz para conferir
-  // no celular antes de reenviar (senao o cliente recebe duas vezes).
+  // Midia em duas fases: SUBIR o arquivo ao servidor de midia do WhatsApp (a
+  // parte demorada) e so depois REPASSAR a mensagem ao cliente. Embrulhamos o
+  // upload do proprio Baileys para saber a fronteira: falha antes dela = a
+  // mensagem com certeza NAO saiu, e pode ser tentada de novo sem risco de o
+  // cliente receber duas vezes (ver entrega.service.js). O socket de teste nao
+  // tem `waUploadToServer`: ai a fase vira "enviando" direto, como o texto.
   const temMidia = Boolean(audio || midia);
+  const separaUpload = temMidia && typeof conexao.sock.waUploadToServer === 'function';
+  let subiu = false;
+  let desistiu = false;
+
+  try {
+    await aoFase?.(separaUpload ? 'subindo' : 'enviando');
+  } catch (err) {
+    // Sem registrar a fase nao saimos: nada foi enviado ainda.
+    throw naoSaiu(err);
+  }
+
+  const opcoes = temMidia
+    ? {
+        mediaUploadTimeoutMs: PRAZO_UPLOAD_POR_SERVIDOR_MS,
+        ...(separaUpload
+          ? {
+              upload: async (...args) => {
+                const resultado = await conexao.sock.waUploadToServer(...args);
+                // O prazo ja estourou e a entrega vai tentar de novo: a
+                // mensagem NAO pode sair agora (seria enviada duas vezes).
+                if (desistiu) throw new Error('Envio abandonado depois do prazo.');
+                // Gravado ANTES de repassar: se o servidor cair daqui em
+                // diante, ninguem reenvia sozinho uma mensagem que pode ter chegado.
+                await aoFase?.('enviando');
+                subiu = true;
+                return resultado;
+              }
+            }
+          : {})
+      }
+    : undefined;
+
+  // Sem prazo, uma conexao "meio morta" deixaria o atendente esperando para
+  // sempre. Se estourar DEPOIS de subir a midia, a mensagem PODE ter saido: o
+  // texto diz para conferir no celular antes de reenviar.
   const inicio = Date.now();
   let r;
   try {
-    r = await comPrazo(
-      conexao.sock.sendMessage(jid, conteudo, temMidia ? { mediaUploadTimeoutMs: PRAZO_UPLOAD_POR_SERVIDOR_MS } : undefined),
-      30_000
-    );
+    r = await comPrazo(conexao.sock.sendMessage(jid, conteudo, opcoes), temMidia ? (ganchosDeTeste.prazoMidiaMs ?? PRAZO_ENVIO_MIDIA_MS) : 30_000);
   } catch (err) {
+    desistiu = true;
+    // Caiu antes de a midia terminar de subir: nada chegou ao cliente.
+    if (separaUpload && !subiu) {
+      const motivo = /a tempo/.test(err.message) ? 'o envio da mídia demorou demais' : err.message;
+      throw naoSaiu(new Error(`A mídia não chegou a subir para o WhatsApp (${motivo}).`));
+    }
     if (/a tempo/.test(err.message)) {
       throw new Error('O WhatsApp não confirmou o envio. Confira no celular se a mensagem saiu antes de reenviar.');
     }
@@ -606,6 +668,9 @@ export async function enviar({ tenantId, instanciaChave = 'W1', destino, texto, 
     const ms = Date.now() - inicio;
     const nivel = ms > 5_000 ? 'warn' : 'debug';
     log[nivel]({ ms, tipo: audio ? 'audio' : midia?.tipo }, `Midia enviada ao WhatsApp em ${(ms / 1000).toFixed(1)} s`);
+    if (ms > 5_000) {
+      evento(tenantId, instanciaChave, 'aviso', `Envio de ${audio ? 'áudio' : midia?.tipo ?? 'mídia'} lento: ${(ms / 1000).toFixed(1)} s.`, 'envio');
+    }
   }
   return { idExterno: r?.key?.id ?? null };
 }

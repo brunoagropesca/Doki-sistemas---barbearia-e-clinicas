@@ -97,6 +97,61 @@ export const GRUPOS_ATENA = {
 
 export const CHAVES_GRUPOS_ATENA = Object.keys(GRUPOS_ATENA);
 
+/**
+ * Grupos de permissao da SOFIA.
+ *
+ * A Sofia ganhou ferramentas proprias (consultar a agenda direto, marcar,
+ * ler a base de conhecimento), mas elas obedeciam aos interruptores DA ATENA:
+ * desligar "Criar agendamento" na Atena desligava a reserva da Sofia sem a
+ * tela dizer nada, e desligar a Atena tirava da Sofia ate as consultas que
+ * nem passam por ela. Agora cada agente tem os interruptores do que ELE usa.
+ *
+ * `grupoAtena`: a ferramenta da Sofia e o MESMO codigo da Atena (mesmas
+ * travas de escopo e conflito); este e o grupo que monta essa ferramenta.
+ */
+export const GRUPOS_SOFIA = {
+  horarios: {
+    rotulo: 'Consultar horários livres',
+    descricao: 'Ver na agenda os horários vagos de um ou de vários serviços, direto e sem acionar a Atena.',
+    ferramentas: ['consultar_horarios', 'consultar_varios_servicos'],
+    grupoAtena: 'horarios'
+  },
+  agendamentos: {
+    rotulo: 'Ver agendamentos do cliente',
+    descricao: 'Consultar os horários que o cliente da conversa já tem marcados.',
+    ferramentas: ['consultar_agendamentos_do_cliente'],
+    grupoAtena: 'historico'
+  },
+  reservar: {
+    rotulo: 'Marcar horário',
+    descricao: 'Marcar o horário que o cliente escolheu — só um que a consulta de horários mostrou nesta conversa.',
+    ferramentas: ['reservar_horario'],
+    grupoAtena: 'criar'
+  },
+  atena: {
+    rotulo: 'Pedir à Atena (remarcar e cancelar)',
+    descricao: 'Delegar à Atena o que mexe em horário já marcado. Só funciona com a Atena ligada.',
+    ferramentas: ['consultar_atena']
+  },
+  informacoes: {
+    rotulo: 'Consultar a base de conhecimento',
+    descricao: 'Ler regras da casa, perguntas frequentes e outras informações cadastradas.',
+    ferramentas: ['consultar_informacoes']
+  }
+};
+
+export const CHAVES_GRUPOS_SOFIA = Object.keys(GRUPOS_SOFIA);
+
+/**
+ * O que a Sofia tem SEMPRE, sem interruptor — so para a tela mostrar.
+ * Passar para uma pessoa e a saida de seguranca de todo atendimento; e o
+ * preco do catalogo e informacao publica (esta na parede da loja).
+ */
+export const FIXAS_SOFIA = [
+  { chave: 'transferir', rotulo: 'Passar para um atendente', descricao: 'Sempre ligada: é a saída de segurança quando ela não sabe ou o cliente pede uma pessoa.' },
+  { chave: 'catalogo', rotulo: 'Preços do catálogo', descricao: 'Sempre ligada: serviços e preços são informação pública e vão com ela em toda conversa.' }
+];
+
 /** Tons de voz oferecidos para a Sofia. */
 export const TONS = {
   acolhedor: 'Acolhedor & Empático',
@@ -112,7 +167,9 @@ export const AGENTES_PADRAO = {
     tom: 'acolhedor',
     temperaturaMilesimos: 700,
     maxTokens: 800,
-    ferramentas: [],
+    // Grupos da Sofia (GRUPOS_SOFIA), todos ligados de fabrica. Quem ja usava
+    // o sistema antes deles existirem: ver `permissoesDaSofia` em ia.service.js.
+    ferramentas: CHAVES_GRUPOS_SOFIA,
     systemPrompt:
       'Você é a Sofia, atendente virtual humanizada, empática e prestativa de uma clínica/barbearia premium. ' +
       'Seu objetivo é encantar o cliente no WhatsApp, tirar dúvidas e conduzir ao agendamento de horário, ' +

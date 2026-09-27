@@ -390,19 +390,33 @@ describe('a Sofia reserva direto o que foi ofertado', () => {
     assert.equal((await agendamentosDoLead()).length, antes + 2);
   });
 
-  it('permissao "criar" desligada: erro amigavel, nada gravado', async () => {
+  /**
+   * "Marcar horario" e interruptor DA SOFIA (antes era o "criar" da Atena,
+   * sem a tela dizer). Desligado, a ferramenta nem e oferecida — e se o modelo
+   * tentar assim mesmo, nada e gravado.
+   */
+  it('interruptor "Marcar horario" da Sofia desligado: nem e oferecido, nada gravado', async () => {
     const { obterAgente, salvarAgente } = await import('../src/modules/ia/ia.service.js');
-    const permissoes = (await obterAgente(tenantId, 'atena')).ferramentas;
-    await salvarAgente(tenantId, 'atena', { ferramentas: permissoes.filter((g) => g !== 'criar') });
+    const antesSofia = await obterAgente(tenantId, 'atendente');
+    const linhaAntes = (await ctx.db.select().from(ctx.s.agentProfiles)).find((a) => a.chave === 'atendente' && a.tenantId === tenantId);
+    await salvarAgente(tenantId, 'atendente', { ferramentas: antesSofia.ferramentas.filter((g) => g !== 'reservar') });
     try {
       const antes = (await agendamentosDoLead()).length;
       const consulta = await consultarCarlos();
+      assert.ok(!consulta.chamadas[0].ferramentas.includes('reservar_horario'), 'a Sofia nem recebe a ferramenta');
+      assert.match(consulta.chamadas[0].systemPrompt, /MARCAR: você não marca/, 'e o prompt diz o caminho: uma pessoa');
+
       const hora = consulta.r.detalhes.consultas[0].resultado.horariosLivres.at(-2);
-      const r = await reservar({ servicos: ['Corte Social'], profissional: 'Carlos', data: SEGUNDA, hora });
-      assert.match(r.r.detalhes.consultas.find((c) => c.nome === 'reservar_horario').resultado.erro, /desligado nas permissões/);
-      assert.equal((await agendamentosDoLead()).length, antes);
+      await reservar({ servicos: ['Corte Social'], profissional: 'Carlos', data: SEGUNDA, hora });
+      assert.equal((await agendamentosDoLead()).length, antes, 'nada marcado');
     } finally {
-      await salvarAgente(tenantId, 'atena', { ferramentas: permissoes });
+      // Volta EXATAMENTE como estava: os testes seguintes conferem a Sofia de
+      // quem nunca mexeu nos interruptores dela (derivados da Atena).
+      if (linhaAntes) {
+        await ctx.db.update(ctx.s.agentProfiles).set({ ferramentas: linhaAntes.ferramentas, config: linhaAntes.config }).where(eq(ctx.s.agentProfiles.id, linhaAntes.id));
+      } else {
+        await ctx.db.delete(ctx.s.agentProfiles).where(eq(ctx.s.agentProfiles.chave, 'atendente'));
+      }
     }
   });
 
@@ -829,5 +843,130 @@ describe('permissoes configuradas na tela', () => {
     assert.ok(corpo.permissoesAtena.every((p) => p.chave && p.rotulo && p.descricao));
     assert.ok(corpo.tons.some((t) => t.chave === 'acolhedor'));
     assert.deepEqual(corpo.agentes.slice(0, 2).map((a) => a.chave), ['atendente', 'atena'], 'frente primeiro, bastidores depois');
+  });
+});
+
+/**
+ * Interruptores POR AGENTE.
+ *
+ * A Sofia ganhou ferramentas proprias, mas elas obedeciam aos interruptores
+ * da Atena (sem a tela dizer). Agora cada agente tem os dele: os da Sofia
+ * valem para a Sofia; a Atena desligada so tira dela o "pedir a Atena".
+ * Quem nunca mexeu nos interruptores da Sofia continua como estava (derivado
+ * da Atena) — os testes acima cobrem esse caso.
+ */
+describe('cada agente com os interruptores do que ele usa', () => {
+  const ia = () => import('../src/modules/ia/ia.service.js');
+  const ferramentasDaSofiaAgora = async (texto = 'tem horario?') => {
+    const falso = provedorFalso([{ texto: 'Oi!' }]);
+    await responder({
+      tenantId, conversationId: null, leadId: ctx.lead1.id, leadNome: 'Marcos',
+      texto, simulacao: true, modoOverride: 'ia', provedores: falso.provedores
+    });
+    return { ferramentas: falso.chamadas[0].ferramentas.sort(), prompt: falso.chamadas[0].systemPrompt };
+  };
+
+  /** Roda `fn` e devolve Sofia e Atena EXATAMENTE como estavam. */
+  async function comAgentesRestaurados(fn) {
+    const antes = (await ctx.db.select().from(ctx.s.agentProfiles)).filter((a) => a.tenantId === tenantId);
+    try {
+      await fn();
+    } finally {
+      await ctx.db.delete(ctx.s.agentProfiles).where(eq(ctx.s.agentProfiles.tenantId, tenantId));
+      if (antes.length) await ctx.db.insert(ctx.s.agentProfiles).values(antes);
+    }
+  }
+
+  it('a listagem traz os interruptores da Sofia e o que ela tem sempre', async () => {
+    const corpo = (await app.inject({ method: 'GET', url: '/api/ia/agentes', headers: cab })).json();
+    assert.deepEqual(corpo.permissoesSofia.grupos.map((g) => g.chave), ['horarios', 'agendamentos', 'reservar', 'atena', 'informacoes']);
+    assert.ok(corpo.permissoesSofia.grupos.every((g) => g.rotulo && g.descricao));
+    assert.deepEqual(corpo.permissoesSofia.fixas.map((f) => f.chave), ['transferir', 'catalogo']);
+  });
+
+  it('interruptores da Sofia valem por si: com a Atena desligada ela so perde o "pedir a Atena"', async () => {
+    await comAgentesRestaurados(async () => {
+      const { salvarAgente } = await ia();
+      await salvarAgente(tenantId, 'atendente', { ferramentas: ['horarios', 'agendamentos', 'reservar', 'atena', 'informacoes'] });
+      await salvarAgente(tenantId, 'atena', { ativo: false });
+
+      const { ferramentas } = await ferramentasDaSofiaAgora();
+      assert.deepEqual(ferramentas, [
+        'consultar_agendamentos_do_cliente',
+        'consultar_horarios',
+        'consultar_varios_servicos',
+        'reservar_horario',
+        'transferir_para_humano'
+      ]);
+    });
+  });
+
+  it('o "criar" desligado NA ATENA nao tira a reserva da Sofia (sao interruptores de agentes diferentes)', async () => {
+    await comAgentesRestaurados(async () => {
+      const { salvarAgente } = await ia();
+      await salvarAgente(tenantId, 'atendente', { ferramentas: ['horarios', 'reservar'] });
+      await salvarAgente(tenantId, 'atena', { ferramentas: ['catalogo'] });
+
+      const { ferramentas } = await ferramentasDaSofiaAgora();
+      assert.ok(ferramentas.includes('reservar_horario'));
+      assert.ok(ferramentas.includes('consultar_horarios'));
+    });
+  });
+
+  it('sem "Consultar horarios": nem consulta nem reserva, e o prompt manda para uma pessoa', async () => {
+    await comAgentesRestaurados(async () => {
+      const { salvarAgente } = await ia();
+      await salvarAgente(tenantId, 'atendente', { ferramentas: ['agendamentos', 'reservar', 'atena'] });
+
+      const { ferramentas, prompt } = await ferramentasDaSofiaAgora();
+      assert.ok(!ferramentas.includes('consultar_horarios') && !ferramentas.includes('consultar_varios_servicos'));
+      assert.ok(!ferramentas.includes('reservar_horario'), 'reservar so marca o que a consulta ofereceu');
+      assert.match(prompt, /Horários livres você NÃO consegue ver: para marcar, use transferir_para_humano/);
+      assert.match(prompt, /REMARCAR ou CANCELAR: consultar_atena/);
+    });
+  });
+
+  it('sem "Pedir a Atena": remarcar e cancelar vao para uma pessoa', async () => {
+    await comAgentesRestaurados(async () => {
+      const { salvarAgente } = await ia();
+      await salvarAgente(tenantId, 'atendente', { ferramentas: ['horarios', 'agendamentos', 'reservar'] });
+
+      const { ferramentas, prompt } = await ferramentasDaSofiaAgora();
+      assert.ok(!ferramentas.includes('consultar_atena'));
+      assert.match(prompt, /MARCAR: reservar_horario/);
+      assert.match(prompt, /REMARCAR ou CANCELAR: use transferir_para_humano/);
+    });
+  });
+
+  it('tudo desligado: sobra so "passar para um atendente", e o preco continua (catalogo)', async () => {
+    await comAgentesRestaurados(async () => {
+      const { salvarAgente } = await ia();
+      await salvarAgente(tenantId, 'atendente', { ferramentas: [] });
+
+      const { ferramentas, prompt } = await ferramentasDaSofiaAgora('quanto custa?');
+      assert.deepEqual(ferramentas, ['transferir_para_humano']);
+      assert.match(prompt, /agenda está DESATIVADA\. Preços: use o CATALOGO abaixo/);
+    });
+  });
+
+  it('o interruptor DEV "Agente de agenda" desligado continua tirando toda a agenda da Sofia', async () => {
+    const { definirFuncao } = await import('../src/modules/funcoes/funcoes.js');
+    await comAgentesRestaurados(async () => {
+      const { salvarAgente } = await ia();
+      await salvarAgente(tenantId, 'atendente', { ferramentas: ['horarios', 'agendamentos', 'reservar', 'atena', 'informacoes'] });
+      await definirFuncao(tenantId, 'agente_atena', false);
+      try {
+        const { ferramentas } = await ferramentasDaSofiaAgora();
+        assert.deepEqual(ferramentas, ['transferir_para_humano'], 'trava de plataforma: a Sofia nao mexe na agenda');
+      } finally {
+        await definirFuncao(tenantId, 'agente_atena', true);
+      }
+    });
+  });
+
+  it('permissao da Sofia que nao existe e recusada', async () => {
+    const r = await app.inject({ method: 'PUT', url: '/api/ia/agentes/atendente', headers: cab, payload: { ferramentas: ['horarios', 'apagar_tudo'] } });
+    assert.equal(r.statusCode, 422);
+    assert.match(r.json().erro.mensagem, /apagar_tudo/);
   });
 });

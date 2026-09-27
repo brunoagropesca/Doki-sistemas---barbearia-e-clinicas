@@ -6,6 +6,8 @@ import { ProvedorAuth } from './lib/autenticacao.jsx';
 import { ProvedorTextos } from './lib/textos.jsx';
 import { App } from './App.jsx';
 import { registrarServiceWorker } from './lib/appInstalado.js';
+// Antes de desenhar: aplica o modo de visualizacao escolhido (sem piscar).
+import './lib/tema.js';
 import './estilos/global.css';
 // Por ultimo: os ajustes de celular valem por cima de qualquer tela.
 import './estilos/celular.css';

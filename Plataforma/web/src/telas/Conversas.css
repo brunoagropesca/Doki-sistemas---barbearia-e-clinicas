@@ -11,7 +11,7 @@
 .mesa__lista {
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--vidro, rgba(var(--tinta, 255, 255, 255), 0.04));
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
   border: 1px solid var(--borda);
@@ -26,7 +26,7 @@
   padding: var(--e2);
   border-bottom: 1px solid var(--borda);
   overflow-x: auto;
-  background: rgba(0,0,0,0.1);
+  background: var(--afundado, rgba(0,0,0,0.1));
 }
 .mesa__filtro {
   padding: 5px 11px;
@@ -45,7 +45,7 @@
 .mesa__filtro:hover { background: var(--superficie-2); color: var(--texto); }
 .mesa__filtro--ativo {
   background: var(--primaria-suave);
-  color: #7eb0ff;
+  color: var(--tom-azul, #7eb0ff);
   border: 1px solid rgba(24,86,255,0.3);
 }
 
@@ -101,10 +101,10 @@
   overflow-x: hidden;
   /* Barra fina e discreta: a nativa comia ~15px de uma coluna ja estreita. */
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+  scrollbar-color: rgba(var(--tinta, 255, 255, 255), 0.14) transparent;
 }
 .mesa__itens::-webkit-scrollbar { width: 6px; }
-.mesa__itens::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 999px; }
+.mesa__itens::-webkit-scrollbar-thumb { background: rgba(var(--tinta, 255, 255, 255), 0.14); border-radius: 999px; }
 .mesa__itens::-webkit-scrollbar-track { background: transparent; }
 
 .conversa {
@@ -112,7 +112,7 @@
   width: 100%;
   padding: var(--e3) var(--e4);
   border: none;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(var(--tinta, 255, 255, 255), 0.04);
   background: none;
   text-align: left;
   cursor: pointer;
@@ -120,7 +120,7 @@
   color: var(--texto);
   transition: background 0.15s;
 }
-.conversa:hover { background: rgba(255,255,255,0.04); }
+.conversa:hover { background: rgba(var(--tinta, 255, 255, 255), 0.04); }
 .conversa--ativa {
   background: linear-gradient(135deg, rgba(24,86,255,0.15), rgba(24,86,255,0.06));
   border-left: 2px solid var(--primaria);
@@ -194,7 +194,7 @@
 
 /* ─── FIO DA CONVERSA ───────────────────────────────────── */
 .mesa__fio {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--vidro, rgba(var(--tinta, 255, 255, 255), 0.03));
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
   border: 1px solid var(--borda);
@@ -241,7 +241,7 @@
   gap: var(--e3);
   padding: var(--e3) var(--e4);
   border-bottom: 1px solid var(--borda);
-  background: rgba(255,255,255,0.02);
+  background: rgba(var(--tinta, 255, 255, 255), 0.02);
 }
 .fio__voltar {
   display: none;
@@ -270,7 +270,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--e3);
-  background: rgba(0,0,0,0.15);
+  background: var(--afundado, rgba(0,0,0,0.15));
 }
 
 /* Scrollbar estilizada */
@@ -289,7 +289,7 @@
   box-shadow: var(--sombra);
 }
 .msg--cliente .msg__balao {
-  background: rgba(255,255,255,0.07);
+  background: var(--vidro, rgba(var(--tinta, 255, 255, 255), 0.07));
   backdrop-filter: var(--blur-leve);
   -webkit-backdrop-filter: var(--blur-leve);
   border: 1px solid var(--borda);
@@ -309,6 +309,24 @@
 
 /* Tique discreto de "Entregue": herda o tamanho e a opacidade da hora. */
 .msg__entregue { white-space: nowrap; }
+/* Resposta ainda saindo: relogio girando; esperando a conexao, em alerta. */
+.msg__saindo { white-space: nowrap; }
+.msg__saindo--espera { color: #ffe39a; font-weight: 600; } /* no balao azul, em qualquer tema */
+.msg__saindo-relogio {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 4px;
+  vertical-align: -1px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: msg-girar 0.9s linear infinite;
+}
+@keyframes msg-girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .msg__saindo-relogio { animation: none; }
+}
 
 /* Anexos (foto, video, documento) dentro do balao. */
 .msg__anexo { display: flex; flex-direction: column; gap: var(--e2); }
@@ -329,7 +347,7 @@
   min-width: 220px;
   padding: var(--e2) var(--e3);
   border-radius: 10px;
-  background: rgba(0,0,0,0.18);
+  background: var(--afundado, rgba(0,0,0,0.18));
   color: inherit;
   text-decoration: none;
   transition: background 0.12s;
@@ -418,8 +436,8 @@
     to right,
     currentColor 0%,
     currentColor var(--progresso, 0%),
-    rgba(255, 255, 255, 0.22) var(--progresso, 0%),
-    rgba(255, 255, 255, 0.22) 100%
+    rgba(var(--tinta, 255, 255, 255), 0.22) var(--progresso, 0%),
+    rgba(var(--tinta, 255, 255, 255), 0.22) 100%
   );
 }
 .audio__barra:disabled { cursor: default; opacity: 0.5; }
@@ -528,7 +546,7 @@
   font-weight: 600;
   overflow-wrap: anywhere;
 }
-.msg__falha-icone { flex-shrink: 0; margin-top: 1px; color: #ffb3bd; }
+.msg__falha-icone { flex-shrink: 0; margin-top: 1px; color: var(--tom-perigo, #ffb3bd); }
 .msg__falha-acoes { margin-top: var(--e2); }
 .msg__falha-status { overflow-wrap: anywhere; }
 .msg__falha-status:not(:empty):not(:first-child) { margin-top: var(--e2); }
@@ -559,8 +577,8 @@
   gap: 6px;
   max-width: 360px;
   width: 100%;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--vidro, rgba(var(--tinta, 255, 255, 255), 0.04));
+  border: 1px solid rgba(var(--tinta, 255, 255, 255), 0.08);
   border-radius: var(--raio-g);
   padding: var(--e3) var(--e4);
   backdrop-filter: saturate(140%) blur(10px);
@@ -575,8 +593,8 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(var(--tinta, 255, 255, 255), 0.08);
+  border: 1px solid rgba(var(--tinta, 255, 255, 255), 0.12);
   font-size: 10px;
   color: var(--texto-fraco);
   flex-shrink: 0;
@@ -619,7 +637,7 @@
   padding: var(--e3) var(--e4);
   padding-bottom: max(var(--e3), env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--borda);
-  background: rgba(255,255,255,0.02);
+  background: rgba(var(--tinta, 255, 255, 255), 0.02);
 }
 .fio__campo {
   flex: 1;
@@ -627,7 +645,7 @@
   font-family: var(--fonte);
   font-size: 14px;
   color: var(--texto);
-  background: rgba(255,255,255,0.06);
+  background: var(--vidro, rgba(var(--tinta, 255, 255, 255), 0.06));
   backdrop-filter: var(--blur-leve);
   -webkit-backdrop-filter: var(--blur-leve);
   border: 1px solid var(--borda-forte);
@@ -659,13 +677,13 @@
   place-items: center;
   border-radius: 50%;
   border: 1px solid var(--borda-forte);
-  background: rgba(255,255,255,0.06);
+  background: rgba(var(--tinta, 255, 255, 255), 0.06);
   color: var(--texto);
   font-size: 16px;
   cursor: pointer;
   transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
 }
-.fio__mic:hover:not(:disabled) { background: rgba(255,255,255,0.1); border-color: var(--primaria); }
+.fio__mic:hover:not(:disabled) { background: rgba(var(--tinta, 255, 255, 255), 0.1); border-color: var(--primaria); }
 .fio__mic:active:not(:disabled) { transform: scale(0.94); }
 .fio__mic:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -700,12 +718,12 @@
   place-items: center;
   border-radius: 50%;
   border: none;
-  background: rgba(255,255,255,0.08);
+  background: rgba(var(--tinta, 255, 255, 255), 0.08);
   color: var(--texto-suave);
   cursor: pointer;
   font-size: 12px;
 }
-.fio__gravando-cancelar:hover { background: rgba(255,255,255,0.15); color: var(--texto); }
+.fio__gravando-cancelar:hover { background: rgba(var(--tinta, 255, 255, 255), 0.15); color: var(--texto); }
 
 /* O ponto que pulsa: e o que diz "isto esta acontecendo agora", sem depender so da cor de fundo. */
 .fio__gravando-ponto {
@@ -764,7 +782,7 @@
   color: var(--texto-suave);
   font-size: 13px;
   border-top: 1px solid var(--borda);
-  background: rgba(0,0,0,0.1);
+  background: var(--afundado, rgba(0,0,0,0.1));
 }
 
 /* ================================================================
@@ -823,7 +841,7 @@
   flex-direction: column;
   min-height: 0;
   border-left: 1px solid var(--borda);
-  background: rgba(0, 0, 0, 0.18);
+  background: var(--afundado, rgba(0, 0, 0, 0.18));
   animation: painel-entra 180ms ease-out;
 }
 
@@ -849,7 +867,7 @@
 }
 
 .painel__fechar {
-  background: rgba(255,255,255,0.06);
+  background: rgba(var(--tinta, 255, 255, 255), 0.06);
   border: 1px solid var(--borda);
   border-radius: 8px;
   color: var(--texto-fraco);
@@ -1010,7 +1028,7 @@
 .perfil {
   position: relative;
   border-bottom: 1px solid var(--borda);
-  background: rgba(0, 0, 0, 0.12);
+  background: var(--afundado, rgba(0, 0, 0, 0.12));
 }
 
 .perfil__botao {
@@ -1026,7 +1044,7 @@
   text-align: left;
   cursor: pointer;
 }
-.perfil__botao:hover { background: rgba(255, 255, 255, 0.04); }
+.perfil__botao:hover { background: rgba(var(--tinta, 255, 255, 255), 0.04); }
 
 .perfil__nome {
   display: flex;
@@ -1062,7 +1080,7 @@
   padding: var(--e1);
   /* Opaco de proposito: o menu fica POR CIMA da lista, e qualquer transparencia
      deixaria o texto dos cartoes aparecer por baixo das opcoes. */
-  background: #0b1024;
+  background: var(--painel-fundo, #0b1024);
   border: 1px solid var(--borda-forte);
   border-radius: var(--raio);
   box-shadow: var(--sombra-g);

@@ -23,8 +23,9 @@ import { sincronizarHistorico } from './modules/historico/historico.service.js';
 import { iniciarBackupAutomatico } from './modules/dados/backups.js';
 import { enviarMensagem } from './channels/gateway.js';
 import { retomarInterrompidas as retomarCampanhasInterrompidas } from './modules/campanhas/campanhas.service.js';
-import { marcarEntregasInterrompidas } from './modules/conversas/entrega.service.js';
+import { entregarMensagem, marcarEntregasInterrompidas } from './modules/conversas/entrega.service.js';
 import { gravarFalhaFatal, quedaRecente } from './core/falhas.js';
+import { anotar, anotarAgora, comoTerminouOAnterior } from './core/diario.js';
 
 /**
  * Ponto de entrada.
@@ -39,6 +40,14 @@ import { gravarFalhaFatal, quedaRecente } from './core/falhas.js';
  */
 
 async function principal() {
+  // Diario permanente (data/logs/conexoes.log): cada subida fica marcada, e se
+  // a anterior nunca registrou a descida, ela terminou de forma abrupta
+  // (janela fechada, reinicio do --watch, queda) — o que explica, depois, uma
+  // mensagem "interrompida" ou a conexao do WhatsApp caindo naquela hora.
+  const anterior = comoTerminouOAnterior();
+  if (anterior === 'abrupto') anotar('SERVIDOR aviso: o processo anterior terminou sem desligar normalmente');
+  anotar(`SERVIDOR iniciado · pid ${process.pid} · node ${process.version}`);
+
   // Migrations no boot: garante que o banco esta na versao que este codigo
   // espera. Evita a classe de bug "funciona na minha maquina" causada por
   // alguem ter esquecido de rodar a migration.
@@ -51,8 +60,11 @@ async function principal() {
 
   // Respostas de atendente que estavam SAINDO quando o servidor caiu: sem
   // isto ficavam sem "entregue" e sem "falhou" — pareciam enviadas para sempre,
-  // sem botao Reenviar. Agora aparecem como nao entregues.
-  const interrompidas = await marcarEntregasInterrompidas().catch((err) => {
+  // sem botao Reenviar. As que com certeza nao tinham saido (na fila, subindo
+  // a midia) e sao recentes voltam para a fila la embaixo, quando o WhatsApp
+  // ja estiver instalado; as demais aparecem como nao entregues.
+  const retomar = [];
+  const interrompidas = await marcarEntregasInterrompidas({ aoRetomar: (p) => retomar.push(p) }).catch((err) => {
     logger.warn({ err }, 'Falha ao marcar entregas interrompidas');
     return 0;
   });
@@ -89,6 +101,15 @@ async function principal() {
   reconectarInstanciasSalvas().catch((err) => {
     logger.warn({ err }, 'Falha ao reconectar canais salvos');
   });
+
+  // As interrompidas antes de sair: a entrega espera a conexao que acabou de
+  // ser pedida acima e envia. Sem await: nao segura a subida.
+  for (const p of retomar) {
+    entregarMensagem(p.tenantId, p.conversationId, p.id).catch((err) =>
+      logger.warn({ err, mensagemId: p.id }, 'Nao foi possivel retomar a entrega interrompida')
+    );
+  }
+  if (retomar.length > 0) ver('sistema', `${retomar.length} resposta(s) interrompida(s) antes de sair voltaram para a fila`);
 
   /**
    * Testa os modelos do Gemini em segundo plano.
@@ -143,6 +164,7 @@ async function principal() {
     desligando = true;
 
     logger.info({ sinal }, 'Desligando...');
+    anotarAgora(`SERVIDOR encerrado · ${sinal}${codigoDeSaida ? ` · codigo ${codigoDeSaida}` : ''}`);
     ver('sistema', 'desligando com seguranca...', sinal);
 
     // Rede de seguranca: se algo travar, cai na marra depois de 10s em vez

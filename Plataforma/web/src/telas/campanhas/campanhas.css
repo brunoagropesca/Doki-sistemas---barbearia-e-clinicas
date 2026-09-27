@@ -20,7 +20,7 @@
 /* Enviando: listras que andam + um brilho que corre a barra. */
 .progresso--ativo .progresso__barra {
   background-image:
-    linear-gradient(135deg, rgba(255,255,255,0.22) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.22) 50%, rgba(255,255,255,0.22) 75%, transparent 75%, transparent),
+    linear-gradient(135deg, rgba(var(--tinta, 255, 255, 255), 0.22) 25%, transparent 25%, transparent 50%, rgba(var(--tinta, 255, 255, 255), 0.22) 50%, rgba(var(--tinta, 255, 255, 255), 0.22) 75%, transparent 75%, transparent),
     linear-gradient(90deg, var(--primaria), var(--info));
   background-size: 16px 16px, 100% 100%;
   animation: progresso-listras 0.9s linear infinite;
@@ -35,7 +35,7 @@
 .progresso--gerando .progresso__barra { background: linear-gradient(90deg, #8b5cf6, var(--info)); }
 .progresso--gerando.progresso--ativo .progresso__barra {
   background-image:
-    linear-gradient(135deg, rgba(255,255,255,0.2) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.2) 75%, transparent 75%, transparent),
+    linear-gradient(135deg, rgba(var(--tinta, 255, 255, 255), 0.2) 25%, transparent 25%, transparent 50%, rgba(var(--tinta, 255, 255, 255), 0.2) 50%, rgba(var(--tinta, 255, 255, 255), 0.2) 75%, transparent 75%, transparent),
     linear-gradient(90deg, #8b5cf6, var(--info));
   box-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
 }
@@ -76,10 +76,10 @@
 .camp-controle svg { width: 14px; height: 14px; }
 .camp-controle--iniciar:not(:disabled) { color: var(--sucesso); border-color: rgba(7, 202, 107, 0.35); }
 .camp-controle--pausar:not(:disabled) { color: var(--alerta); border-color: rgba(232, 149, 88, 0.35); }
-.camp-controle--parar:not(:disabled) { color: #ff6b82; border-color: rgba(234, 33, 67, 0.35); }
+.camp-controle--parar:not(:disabled) { color: var(--tom-perigo, #ff6b82); border-color: rgba(234, 33, 67, 0.35); }
 .camp-resultado { display: flex; flex-direction: column; gap: 1px; font-size: 12px; color: var(--texto-fraco); white-space: nowrap; }
 .camp-resultado b { font-family: var(--fonte-mono); font-size: 13px; color: var(--texto); font-weight: 700; }
-.camp-resultado--falha, .camp-resultado--falha b { color: #ff6b82; }
+.camp-resultado--falha, .camp-resultado--falha b { color: var(--tom-perigo, #ff6b82); }
 
 /* ─── ASSISTENTE ─────────────────────────────────────────── */
 .assist { display: flex; flex-direction: column; gap: var(--e4); }
@@ -113,7 +113,7 @@
 .assist__rodape {
   position: sticky; bottom: 0; z-index: 20; margin-top: var(--e2);
   display: flex; justify-content: space-between; align-items: center; gap: var(--e3); flex-wrap: wrap;
-  padding: var(--e3) var(--e4); background: rgba(5, 8, 20, 0.88); backdrop-filter: var(--blur);
+  padding: var(--e3) var(--e4); background: rgba(var(--painel-rgb, 5, 8, 20), 0.88); backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
   border: 1px solid var(--borda); border-radius: var(--raio-g);
 }

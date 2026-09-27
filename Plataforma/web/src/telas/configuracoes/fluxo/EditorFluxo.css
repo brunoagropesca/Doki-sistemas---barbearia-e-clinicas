@@ -41,7 +41,7 @@
 }
 .fluxo__selo--salvo { color: var(--sucesso); background: var(--sucesso-suave); border-color: rgba(7,202,107,0.3); }
 .fluxo__selo--pendente { color: var(--alerta); background: var(--alerta-suave); border-color: rgba(232,149,88,0.3); }
-.fluxo__selo--erro { color: #ff8a9c; background: var(--perigo-suave); border-color: rgba(234,33,67,0.35); }
+.fluxo__selo--erro { color: var(--tom-perigo, #ff8a9c); background: var(--perigo-suave); border-color: rgba(234,33,67,0.35); }
 .fluxo__selo--aviso { color: var(--alerta); background: var(--alerta-suave); border-color: rgba(232,149,88,0.3); }
 
 .fluxo__corpo {
@@ -59,7 +59,7 @@
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
   overflow: hidden;
-  background: #070b1a;
+  background: var(--painel-fundo, #070b1a);
   /* Permite medir a LARGURA DO CANVAS (nao a da janela) nas regras abaixo:
      com o menu lateral recolhido ele cresce, e o minimapa volta. */
   container-type: inline-size;
@@ -76,7 +76,7 @@
   flex-direction: column;
   border: 1px solid var(--borda);
   border-radius: var(--raio-g);
-  background: rgba(255,255,255,0.03);
+  background: rgba(var(--tinta, 255, 255, 255), 0.03);
   overflow: hidden;
 }
 
@@ -90,7 +90,7 @@
   padding: 5px 12px;
   border: 1px solid var(--borda);
   border-radius: 999px;
-  background: rgba(12, 16, 34, 0.85);
+  background: rgba(var(--painel-rgb, 12, 16, 34), 0.85);
   color: var(--texto-fraco);
   font-size: 12px;
   white-space: nowrap;
@@ -110,7 +110,7 @@
   border-radius: var(--raio);
   background: rgba(40, 14, 24, 0.95);
   border: 1px solid rgba(234,33,67,0.45);
-  color: #ffc2cc;
+  color: var(--tom-perigo, #ffc2cc);
   font-size: 13px;
   box-shadow: var(--sombra-g);
 }
@@ -119,13 +119,13 @@
  * React Flow no tema do sistema
  * ---------------------------------------------------------------- */
 .fluxo .react-flow {
-  --xy-background-color: #070b1a;
-  --xy-edge-stroke: rgba(240,244,255,0.35);
-  --xy-edge-stroke-selected: #7eb0ff;
-  --xy-connectionline-stroke: #7eb0ff;
-  --xy-minimap-background-color: rgba(12,16,34,0.95);
-  --xy-controls-button-background-color: rgba(20,25,48,0.95);
-  --xy-controls-button-background-color-hover: rgba(40,48,86,0.95);
+  --xy-background-color: var(--painel-fundo, #070b1a);
+  --xy-edge-stroke: rgba(var(--texto-rgb, 240, 244, 255), 0.35);
+  --xy-edge-stroke-selected: var(--tom-azul, #7eb0ff);
+  --xy-connectionline-stroke: var(--tom-azul, #7eb0ff);
+  --xy-minimap-background-color: rgba(var(--painel-rgb, 12, 16, 34), 0.95);
+  --xy-controls-button-background-color: rgba(var(--painel-rgb, 20, 25, 48), 0.95);
+  --xy-controls-button-background-color-hover: rgba(var(--painel-realce-rgb, 40, 48, 86), 0.95);
   --xy-controls-button-color: var(--texto);
   --xy-controls-button-border-color: var(--borda-forte);
   font-family: var(--fonte);
@@ -137,7 +137,7 @@
 .fluxo .react-flow__connection-path { stroke-width: 2.5; stroke-dasharray: 6 5; }
 
 .aresta { stroke-width: 2; transition: stroke 0.12s, stroke-width 0.12s; }
-.aresta--ativa { stroke: #7eb0ff !important; stroke-width: 3; }
+.aresta--ativa { stroke: var(--tom-azul, #7eb0ff) !important; stroke-width: 3; }
 .aresta__remover {
   position: absolute;
   width: 24px;
@@ -147,7 +147,7 @@
   border-radius: 50%;
   border: 1px solid rgba(234,33,67,0.6);
   background: #2a0f19;
-  color: #ff8a9c;
+  color: var(--tom-perigo, #ff8a9c);
   font-size: 15px;
   line-height: 1;
   cursor: pointer;
@@ -160,15 +160,15 @@
  * ---------------------------------------------------------------- */
 .no {
   width: 280px;
-  background: #121831;
-  border: 1.5px solid rgba(255,255,255,0.12);
+  background: var(--painel-solido, #121831);
+  border: 1.5px solid rgba(var(--tinta, 255, 255, 255), 0.12);
   border-radius: 14px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.45);
   font-size: 13px;
   color: var(--texto);
   transition: border-color 0.12s, box-shadow 0.12s, opacity 0.12s;
 }
-.no:hover { border-color: rgba(255,255,255,0.22); }
+.no:hover { border-color: rgba(var(--tinta, 255, 255, 255), 0.22); }
 .no--selecionado { border-color: var(--cor-no); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cor-no) 30%, transparent), 0 10px 30px rgba(0,0,0,0.45); }
 .no--inicio { border-color: color-mix(in srgb, var(--cor-no) 70%, transparent); }
 .no--aviso { border-color: rgba(232,149,88,0.7); }
@@ -180,7 +180,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 10px 8px 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  border-bottom: 1px solid rgba(var(--tinta, 255, 255, 255), 0.07);
 }
 .no__icone {
   width: 32px;
@@ -192,7 +192,7 @@
   font-size: 16px;
   background: color-mix(in srgb, var(--cor-no) 22%, transparent);
   border: 1px solid color-mix(in srgb, var(--cor-no) 55%, transparent);
-  color: #fff;
+  color: var(--tom-texto, #fff);
 }
 .no__titulo { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .no__titulo strong { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -203,10 +203,10 @@
   border-radius: 999px;
   font-size: 10.5px;
   font-weight: 700;
-  background: rgba(255,255,255,0.08);
+  background: rgba(var(--tinta, 255, 255, 255), 0.08);
   color: var(--texto-suave);
 }
-.no__selo--inicio { background: color-mix(in srgb, var(--cor-no) 25%, transparent); color: #b9d0ff; }
+.no__selo--inicio { background: color-mix(in srgb, var(--cor-no) 25%, transparent); color: var(--tom-azul, #b9d0ff); }
 
 .no__acoes { position: relative; }
 .no__mais {
@@ -220,7 +220,7 @@
   line-height: 1;
   cursor: pointer;
 }
-.no__mais:hover { background: rgba(255,255,255,0.1); color: var(--texto); }
+.no__mais:hover { background: rgba(var(--tinta, 255, 255, 255), 0.1); color: var(--texto); }
 .no__menu {
   position: absolute;
   top: calc(100% + 4px);
@@ -230,7 +230,7 @@
   padding: 4px;
   display: flex;
   flex-direction: column;
-  background: #171e3b;
+  background: var(--painel-realce, #171e3b);
   border: 1px solid var(--borda-forte);
   border-radius: var(--raio);
   box-shadow: var(--sombra-g);
@@ -246,8 +246,8 @@
   text-align: left;
   cursor: pointer;
 }
-.no__menu button:hover { background: rgba(255,255,255,0.08); }
-.no__menu .no__menu-perigo { color: #ff8a9c; }
+.no__menu button:hover { background: rgba(var(--tinta, 255, 255, 255), 0.08); }
+.no__menu .no__menu-perigo { color: var(--tom-perigo, #ff8a9c); }
 
 .no__mensagem {
   margin: 0;
@@ -271,9 +271,9 @@
   gap: 8px;
   min-height: 34px;
   padding: 0 16px 0 12px;
-  border-top: 1px solid rgba(255,255,255,0.05);
+  border-top: 1px solid rgba(var(--tinta, 255, 255, 255), 0.05);
 }
-.no__opcao--seguir { border-top: 1px solid rgba(255,255,255,0.07); justify-content: flex-end; color: var(--texto-fraco); font-size: 12px; }
+.no__opcao--seguir { border-top: 1px solid rgba(var(--tinta, 255, 255, 255), 0.07); justify-content: flex-end; color: var(--texto-fraco); font-size: 12px; }
 .no__opcao-num {
   width: 20px;
   height: 20px;
@@ -281,7 +281,7 @@
   display: grid;
   place-items: center;
   border-radius: 6px;
-  background: rgba(255,255,255,0.08);
+  background: rgba(var(--tinta, 255, 255, 255), 0.08);
   font-size: 11px;
   font-weight: 700;
   color: var(--texto-suave);
@@ -291,7 +291,7 @@
 
 .no__fim {
   padding: 8px 12px 10px;
-  border-top: 1px solid rgba(255,255,255,0.07);
+  border-top: 1px solid rgba(var(--tinta, 255, 255, 255), 0.07);
   font-size: 11.5px;
   color: var(--texto-fraco);
   text-align: right;
@@ -304,8 +304,8 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 2px solid #121831;
-  background: rgba(240,244,255,0.45);
+  border: 2px solid var(--painel-solido, #121831);
+  background: rgba(var(--texto-rgb, 240, 244, 255), 0.45);
   transition: transform 0.1s, background 0.1s;
 }
 .fluxo .react-flow__handle.no__saida { right: -8px; background: color-mix(in srgb, var(--cor-no) 60%, #ffffff 10%); }
@@ -319,7 +319,7 @@
   width: calc(100% - 16px);
   margin: 2px 8px 8px;
   padding: 6px;
-  border: 1px dashed rgba(255,255,255,0.18);
+  border: 1px dashed rgba(var(--tinta, 255, 255, 255), 0.18);
   border-radius: 8px;
   background: transparent;
   color: var(--texto-suave);
@@ -327,7 +327,7 @@
   font-size: 12px;
   cursor: pointer;
 }
-.no__adicionar:hover { border-color: var(--cor-no); color: var(--texto); background: rgba(255,255,255,0.04); }
+.no__adicionar:hover { border-color: var(--cor-no); color: var(--texto); background: rgba(var(--tinta, 255, 255, 255), 0.04); }
 
 .no__problemas {
   display: flex;
@@ -339,9 +339,9 @@
   font-size: 11.5px;
   line-height: 1.35;
   background: var(--alerta-suave);
-  color: #f5c49b;
+  color: var(--tom-laranja, #f5c49b);
 }
-.no__problemas--erro { background: var(--perigo-suave); color: #ffb1bd; }
+.no__problemas--erro { background: var(--perigo-suave); color: var(--tom-perigo, #ffb1bd); }
 .no__problemas-mais { margin-left: auto; font-weight: 700; }
 
 /* ----------------------------------------------------------------
@@ -354,7 +354,7 @@
   max-height: calc(100vh - 16px);
   overflow-y: auto;
   padding: 6px;
-  background: #151b37;
+  background: var(--painel-realce, #151b37);
   border: 1px solid var(--borda-forte);
   border-radius: var(--raio-g);
   box-shadow: var(--sombra-g);
@@ -376,7 +376,7 @@
   text-align: left;
   cursor: pointer;
 }
-.seletor__item:hover, .seletor__item:focus-visible { background: rgba(255,255,255,0.07); outline: none; }
+.seletor__item:hover, .seletor__item:focus-visible { background: rgba(var(--tinta, 255, 255, 255), 0.07); outline: none; }
 .seletor__item span:last-child { display: flex; flex-direction: column; min-width: 0; }
 .seletor__item strong { font-size: 13.5px; }
 .seletor__item small { font-size: 11.5px; color: var(--texto-fraco); line-height: 1.35; }
@@ -400,12 +400,12 @@
   flex-shrink: 0;
   border: 1px solid var(--borda);
   border-radius: 8px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(var(--tinta, 255, 255, 255), 0.04);
   color: var(--texto);
   font-size: 18px;
   cursor: pointer;
 }
-.painel__fechar:hover { background: rgba(255,255,255,0.1); }
+.painel__fechar:hover { background: rgba(var(--tinta, 255, 255, 255), 0.1); }
 .painel__corpo {
   flex: 1;
   min-height: 0;
@@ -432,7 +432,7 @@
   padding: var(--e2);
   border: 1px solid var(--borda);
   border-radius: var(--raio);
-  background: rgba(255,255,255,0.03);
+  background: rgba(var(--tinta, 255, 255, 255), 0.03);
 }
 .painel__opcao .no__opcao-num { margin-top: 10px; }
 .painel__opcao-campos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -442,14 +442,14 @@
   height: 22px;
   border: 1px solid var(--borda);
   border-radius: 6px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(var(--tinta, 255, 255, 255), 0.04);
   color: var(--texto-suave);
   font-size: 10px;
   cursor: pointer;
 }
-.painel__opcao-botoes button:hover:not(:disabled) { background: rgba(255,255,255,0.1); color: var(--texto); }
+.painel__opcao-botoes button:hover:not(:disabled) { background: rgba(var(--tinta, 255, 255, 255), 0.1); color: var(--texto); }
 .painel__opcao-botoes button:disabled { opacity: 0.3; cursor: not-allowed; }
-.painel__opcao-botoes button.perigo:hover { background: var(--perigo-suave); color: #ff8a9c; }
+.painel__opcao-botoes button.perigo:hover { background: var(--perigo-suave); color: var(--tom-perigo, #ff8a9c); }
 .painel__destino { font-size: 12.5px; }
 .painel__adicionar {
   padding: 8px;
@@ -483,7 +483,7 @@
 }
 .painel-fluxo__aba:hover { color: var(--texto); }
 .painel-fluxo__aba--ativa { color: var(--texto); border-bottom-color: var(--primaria); }
-.painel-fluxo__aba--erro { color: #ff8a9c; }
+.painel-fluxo__aba--erro { color: var(--tom-perigo, #ff8a9c); }
 
 .problemas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .problema {
@@ -500,8 +500,8 @@
   cursor: pointer;
 }
 .problema:disabled { cursor: default; }
-.problema--erro { background: var(--perigo-suave); border-color: rgba(234,33,67,0.3); color: #ffc2cc; }
-.problema--aviso { background: var(--alerta-suave); border-color: rgba(232,149,88,0.3); color: #f5c49b; }
+.problema--erro { background: var(--perigo-suave); border-color: rgba(234,33,67,0.3); color: var(--tom-perigo, #ffc2cc); }
+.problema--aviso { background: var(--alerta-suave); border-color: rgba(232,149,88,0.3); color: var(--tom-laranja, #f5c49b); }
 .problema:hover:not(:disabled) { filter: brightness(1.2); }
 
 /* ----------------------------------------------------------------
@@ -515,7 +515,7 @@
   border-radius: var(--raio);
   background:
     radial-gradient(circle at 20% 10%, rgba(24,86,255,0.08), transparent 50%),
-    #0b1122;
+    var(--painel-fundo, #0b1122);
   border: 1px solid var(--borda);
 }
 .whats--conversa { flex: 1; min-height: 220px; overflow-y: auto; }
@@ -525,7 +525,7 @@
   padding: 7px 10px;
   border-radius: 10px;
   border-top-left-radius: 3px;
-  background: #1c2440;
+  background: var(--painel-realce, #1c2440);
   font-size: 13px;
   line-height: 1.45;
   white-space: pre-wrap;
@@ -543,7 +543,7 @@
   max-width: 95%;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.06);
+  background: rgba(var(--tinta, 255, 255, 255), 0.06);
   color: var(--texto-fraco);
   font-size: 11.5px;
   text-align: center;
@@ -556,7 +556,7 @@
   padding: 4px 10px;
   border: 1px solid var(--borda-forte);
   border-radius: 999px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(var(--tinta, 255, 255, 255), 0.04);
   color: var(--texto-suave);
   font: inherit;
   font-size: 12px;
@@ -564,7 +564,7 @@
 }
 .teste__reiniciar:disabled { opacity: 0.4; cursor: default; }
 .teste__atalhos { display: flex; gap: 6px; flex-wrap: wrap; }
-.teste__atalhos button:hover, .teste__reiniciar:hover:not(:disabled) { background: rgba(255,255,255,0.1); color: var(--texto); }
+.teste__atalhos button:hover, .teste__reiniciar:hover:not(:disabled) { background: rgba(var(--tinta, 255, 255, 255), 0.1); color: var(--texto); }
 .teste__envio { display: flex; gap: var(--e2); }
 .teste__enviar {
   width: 40px;

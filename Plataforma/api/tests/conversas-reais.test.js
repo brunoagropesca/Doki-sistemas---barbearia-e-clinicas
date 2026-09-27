@@ -111,7 +111,8 @@ describe('Débora: "quero todos os 3"', () => {
 
     const resultado = r.trace.ferramentas[0].resultado;
     assert.equal(resultado.sucesso, true, JSON.stringify(resultado));
-    assert.match(resultado.dia, /^segunda-feira/, 'a data volta por extenso para a Sofia repassar');
+    // Aos domingos a segunda e "amanha, segunda-feira, ..." — os dois valem.
+    assert.match(resultado.dia, /^(amanhã, )?segunda-feira/, 'a data volta por extenso para a Sofia repassar');
     assert.deepEqual(
       resultado.agendamentos.map((a) => [a.servico, a.hora]),
       [['Corte Social', '14:00'], ['Barba Terapia', '14:30'], ['Pezinho', '15:00']]

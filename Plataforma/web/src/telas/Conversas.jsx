@@ -454,7 +454,9 @@ function Fio({ conversationId, aoVoltar, aoMudar, veioDeLista = false }) {
   // Se a mensagem ja aparece como entregue na conversa (por exemplo depois de
   // um "Reenviar" bem-sucedido), o aviso some sozinho: ele seria mentira.
   const enviada = mensagens.find((m) => m.id === responder.data?.id);
-  const entregaFalhou = entrega?.entregue === false && !enviada?.entregueEm;
+  // `pendente`: a entrega continua em segundo plano (conexao voltando); o
+  // proprio balao mostra o andamento, entao nao e falha.
+  const entregaFalhou = entrega?.entregue === false && !entrega.pendente && !enviada?.entregueEm;
 
   return (
     <div className={`fio-area${perfilAberto ? ' fio-area--com-painel' : ''}`}>
@@ -693,6 +695,14 @@ function Fio({ conversationId, aoVoltar, aoMudar, veioDeLista = false }) {
   );
 }
 
+/** O andamento de uma resposta que ainda esta saindo (`metadados.entregaFase`). */
+const TEXTO_DA_FASE = {
+  fila: 'Enviando…',
+  aguardando_conexao: 'Aguardando a conexão voltar…',
+  subindo: 'Enviando a mídia…',
+  enviando: 'Enviando…'
+};
+
 function Mensagem({ mensagem: m, conversationId, aoMudar }) {
   // Aviso do sistema (transferencia) nao e fala de ninguem: fica centralizado.
   if (m.autorTipo === 'sistema') {
@@ -723,6 +733,10 @@ function Mensagem({ mensagem: m, conversationId, aoMudar }) {
   // Tique discreto so quando o servidor confirmou a entrega de uma resposta de
   // atendente. Sem confirmacao (mensagens antigas) nao afirmamos nada.
   const entregue = !doCliente && m.autorTipo === 'humano' && Boolean(m.entregueEm) && !falhou;
+  // Ainda saindo: a entrega grava a fase (fila, esperando a conexao voltar,
+  // subindo a foto...). So com fase: mensagem antiga sem ela nao afirmamos nada.
+  const fase = !doCliente && m.autorTipo === 'humano' && !m.entregueEm && !falhou ? m.metadados?.entregaFase : null;
+  const saindo = fase ? (TEXTO_DA_FASE[fase] ?? 'Enviando…') : null;
 
   return (
     <div className={`msg ${doCliente ? 'msg--cliente' : 'msg--nossa'}`}>
@@ -754,6 +768,13 @@ function Mensagem({ mensagem: m, conversationId, aoMudar }) {
               {' · '}
               <span aria-hidden="true">✓ </span>
               Entregue
+            </span>
+          )}
+          {saindo && (
+            <span className={`msg__saindo${fase === 'aguardando_conexao' ? ' msg__saindo--espera' : ''}`} role="status">
+              {' · '}
+              <span className="msg__saindo-relogio" aria-hidden="true" />
+              {saindo}
             </span>
           )}
         </div>
@@ -826,12 +847,16 @@ function FalhaDeEnvio({ mensagem: m, conversationId, aoMudar }) {
 
   const entrega = reenviar.data?.entrega;
   // Mesmo criterio do envio normal: so `entregue === false` explicito e falha.
-  const aindaFalhou = reenviar.isSuccess && entrega?.entregue === false;
-  const reenviouOk = reenviar.isSuccess && !aindaFalhou;
+  // `pendente`: a nova tentativa segue em segundo plano (o balao mostra o andamento).
+  const reenviando = reenviar.isSuccess && entrega?.pendente === true;
+  const aindaFalhou = reenviar.isSuccess && entrega?.entregue === false && !reenviando;
+  const reenviouOk = reenviar.isSuccess && !aindaFalhou && !reenviando;
 
   let resultado = '';
   if (reenviar.isError) {
     resultado = `Não foi possível reenviar: ${reenviar.error.message}`;
+  } else if (reenviando) {
+    resultado = 'Reenviando: o andamento aparece no balão.';
   } else if (aindaFalhou) {
     resultado = entrega.erro ? `Ainda não chegou ao cliente: ${entrega.erro}` : 'Ainda não chegou ao cliente.';
   } else if (reenviouOk) {

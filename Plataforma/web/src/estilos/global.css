@@ -29,18 +29,18 @@
 
   /* Superfícies glass — dark base */
   --fundo:            #050814;
-  --superficie:       rgba(255, 255, 255, 0.05);
-  --superficie-2:     rgba(255, 255, 255, 0.08);
-  --superficie-3:     rgba(255, 255, 255, 0.12);
-  --borda:            rgba(255, 255, 255, 0.08);
-  --borda-forte:      rgba(255, 255, 255, 0.15);
+  --superficie:       rgba(var(--tinta, 255, 255, 255), 0.05);
+  --superficie-2:     rgba(var(--tinta, 255, 255, 255), 0.08);
+  --superficie-3:     rgba(var(--tinta, 255, 255, 255), 0.12);
+  --borda:            rgba(var(--tinta, 255, 255, 255), 0.08);
+  --borda-forte:      rgba(var(--tinta, 255, 255, 255), 0.15);
   --blur:             saturate(180%) blur(20px);
   --blur-leve:        saturate(160%) blur(12px);
 
   /* Texto */
   --texto:            #F0F4FF;
-  --texto-suave:      rgba(240, 244, 255, 0.65);
-  --texto-fraco:      rgba(240, 244, 255, 0.38);
+  --texto-suave:      rgba(var(--texto-rgb, 240, 244, 255), 0.65);
+  --texto-fraco:      rgba(var(--texto-rgb, 240, 244, 255), 0.38);
 
   /* Espaçamento */
   --e1: 4px;
@@ -67,6 +67,84 @@
   --largura-menu-icones: 68px;
 }
 
+/* ─── TEMAS ──────────────────────────────────────────── */
+/*
+ * Tres modos de visualizacao, escolhidos no menu (lib/tema.js grava o
+ * `data-tema` no <html>). O MEDIO e o :root acima, sem nada por cima.
+ *
+ * As telas usam `var(--token, cor-original)`: o Medio nao define o token e
+ * fica exatamente como sempre foi; Claro e Full black so trocam os tokens.
+ *   --tinta          cor dos veus/bordas translucidos (branco no escuro)
+ *   --texto-rgb      o texto, para as variacoes com transparencia
+ *   --painel-*       paineis solidos e flutuantes (menus, modais)
+ *   --vidro          fundo dos paineis de vidro (cartoes, listas, campos)
+ *   --afundado       areas rebaixadas (no escuro, um veu preto)
+ *   --tom-*          textos coloridos claros, pensados para fundo escuro
+ */
+:root[data-tema="claro"] {
+  color-scheme: light;
+
+  --sucesso:          #05A35A;
+  --alerta:           #C9661F;
+  --perigo:           #D91A3C;
+  --info:             #0284C7;
+
+  --fundo:            #EEF1F7;
+  --tinta:            15, 23, 42;
+  /* No claro a superficie sobe para o branco (no escuro ela clareia o fundo);
+     os veus da --tinta ficam para passar o mouse e separar blocos. */
+  --superficie:       rgba(255, 255, 255, 0.72);
+  --superficie-2:     rgba(255, 255, 255, 0.9);
+  --superficie-3:     #FFFFFF;
+  /* Paineis de vidro (cartoes, lista de conversas, campos): brancos. */
+  --vidro:            rgba(255, 255, 255, 0.8);
+  /* Areas "afundadas" (fundo do chat, paineis internos): cinza bem leve. */
+  --afundado:         rgba(15, 23, 42, 0.035);
+  /* Fundo atras dos popups: escurece de leve (preto a 70% deixava o popup cinza). */
+  --veu-modal:        rgba(15, 23, 42, 0.35);
+  --borda:            rgba(15, 23, 42, 0.1);
+  --borda-forte:      rgba(15, 23, 42, 0.18);
+
+  --texto:            #0F172A;
+  --texto-rgb:        15, 23, 42;
+  --texto-suave:      rgba(15, 23, 42, 0.7);
+  --texto-fraco:      rgba(15, 23, 42, 0.5);
+
+  --painel-rgb:         255, 255, 255;
+  --painel-realce-rgb:  226, 232, 244;
+  --painel-fundo:       #F5F7FB;
+  --painel-solido:      #FFFFFF;
+  --painel-realce:      #E9EEF8;
+
+  --tom-azul:         #1D4ED8;
+  --tom-perigo:       #BE123C;
+  --tom-amarelo:      #8A6100;
+  --tom-verde:        #047A45;
+  --tom-laranja:      #B45309;
+  --tom-roxo:         #6D28D9;
+  --tom-ciano:        #0369A1;
+  --tom-texto:        #0F172A;
+
+  --sombra:   0 4px 20px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --sombra-g: 0 8px 32px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(15, 23, 42, 0.08);
+  --glow-pri: 0 0 18px rgba(24, 86, 255, 0.18);
+
+  --malha:
+    radial-gradient(ellipse 80% 60% at 20% 10%,  rgba(24, 86, 255, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 80%,  rgba(120, 40, 255, 0.06) 0%, transparent 55%);
+}
+
+/* Full black: preto de verdade (tela OLED agradece), sem o brilho azul. */
+:root[data-tema="preto"] {
+  --fundo:            #000000;
+  --painel-rgb:         10, 10, 10;
+  --painel-realce-rgb:  38, 38, 38;
+  --painel-fundo:       #000000;
+  --painel-solido:      #0A0A0A;
+  --painel-realce:      #161616;
+  --malha: none;
+}
+
 /* ─── RESET ──────────────────────────────────────────── */
 * { box-sizing: border-box; }
 
@@ -82,11 +160,11 @@ body {
   color: var(--texto);
   background: var(--fundo);
   -webkit-font-smoothing: antialiased;
-  /* Gradient mesh background */
-  background-image:
+  /* Gradient mesh background (cada tema pode trocar pela --malha) */
+  background-image: var(--malha,
     radial-gradient(ellipse 80% 60% at 20% 10%,  rgba(24, 86, 255, 0.18) 0%, transparent 60%),
     radial-gradient(ellipse 60% 50% at 80% 80%,  rgba(120, 40, 255, 0.14) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 40% at 60% 20%,  rgba(7, 202, 107, 0.07) 0%, transparent 50%);
+    radial-gradient(ellipse 50% 40% at 60% 20%,  rgba(7, 202, 107, 0.07) 0%, transparent 50%));
   background-attachment: fixed;
 }
 
@@ -140,10 +218,10 @@ select {
   font-family: var(--fonte);
   font-size: 14px;
   color: var(--texto);
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--vidro, rgba(var(--tinta, 255, 255, 255), 0.05));
   background-image:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0b4ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"),
-    linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+    linear-gradient(135deg, rgba(var(--tinta, 255, 255, 255), 0.05), rgba(var(--tinta, 255, 255, 255), 0.02));
   background-repeat: no-repeat, no-repeat;
   background-position: right 12px center, 0 0;
   background-size: 14px, 100%;
@@ -158,8 +236,8 @@ select {
 }
 
 select:hover {
-  background-color: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(var(--tinta, 255, 255, 255), 0.08);
+  border-color: rgba(var(--tinta, 255, 255, 255), 0.2);
 }
 
 select:focus {
@@ -176,8 +254,8 @@ select:disabled {
 
 /* Popup de opções — dark forçado */
 select option {
-  background-color: #0d1220;
-  color: #e8eeff;
+  background-color: var(--painel-solido, #0d1220);
+  color: var(--tom-texto, #e8eeff);
 }
 
 select option:checked {
@@ -186,8 +264,8 @@ select option:checked {
 }
 
 select optgroup {
-  background-color: #070c18;
-  color: rgba(160, 180, 255, 0.5);
+  background-color: var(--painel-fundo, #070c18);
+  color: rgba(var(--texto-rgb, 160, 180, 255), 0.5);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;

@@ -47,15 +47,15 @@
   z-index: 1;
   width: 100%;
   max-width: 400px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--vidro, rgba(var(--tinta, 255, 255, 255), 0.06));
   backdrop-filter: saturate(200%) blur(32px);
   -webkit-backdrop-filter: saturate(200%) blur(32px);
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(var(--tinta, 255, 255, 255), 0.12);
   border-radius: var(--raio-xl);
   box-shadow:
     0 24px 80px rgba(0, 0, 0, 0.7),
-    0 0 0 1px rgba(255,255,255,0.05),
-    inset 0 1px 0 rgba(255,255,255,0.1),
+    0 0 0 1px rgba(var(--tinta, 255, 255, 255), 0.05),
+    inset 0 1px 0 rgba(var(--tinta, 255, 255, 255), 0.1),
     0 0 60px rgba(24,86,255,0.12);
   padding: var(--e6) var(--e6);
   animation: cardIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -85,7 +85,7 @@
   background: linear-gradient(135deg, var(--primaria), #7c3aed);
   border-radius: 10px;
   font-size: 20px;
-  box-shadow: 0 0 20px rgba(24,86,255,0.5), inset 0 1px 0 rgba(255,255,255,0.2);
+  box-shadow: 0 0 20px rgba(24,86,255,0.5), inset 0 1px 0 rgba(var(--tinta, 255, 255, 255), 0.2);
 }
 
 .login__sub {
@@ -99,7 +99,7 @@
   content: '';
   display: block;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+  background: linear-gradient(90deg, transparent, rgba(var(--tinta, 255, 255, 255), 0.12), transparent);
   margin-bottom: var(--e5);
 }
 

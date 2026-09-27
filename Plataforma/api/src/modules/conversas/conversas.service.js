@@ -21,6 +21,7 @@ import { escopoDe, obterConfiguracao as configEquipe, veTudo } from '../equipe/e
 import { escolherAtendente } from '../equipe/distribuidor.js';
 import { atenaPermite } from '../../ai/permissoes.js';
 import { gerarResumoFinal } from '../../ai/resumo.js';
+import { agendarPedidoDeAvaliacao } from '../../automacao/avaliacaoGoogle.js';
 import * as repo from './conversas.repo.js';
 import { criar as criarNotificacoes, fecharDaConversa as fecharNotificacoes } from '../notificacoes/notificacoes.repo.js';
 
@@ -178,6 +179,11 @@ export async function conexaoDoLead(tenantId, leadId) {
     (await repo.ultimaConexaoDoLead(tenantId, leadId)) ??
     (await repo.conexaoPorChave(tenantId, 'W1')) ?? { channelInstanceId: null, chave: 'W1' }
   );
+}
+
+/** Id da conversa aberta do cliente (qualquer conexao), ou null. */
+export async function conversaAbertaDoLead(tenantId, leadId) {
+  return (await repo.buscarQualquerAbertaDoLead(tenantId, leadId))?.id ?? null;
 }
 
 export async function encontrarOuAbrir(tenantId, { leadId, canal = 'whatsapp', channelInstanceId = null }) {
@@ -802,6 +808,9 @@ async function prepararAnexo({ dataUrl, nome }, legenda) {
  * @param {boolean} [opcoes.concluirPassados] false = nao conclui as OS que ja
  *   passaram (a rotina de fechar o dia nao sabe se o cliente veio). Padrao:
  *   true — o atendente que finaliza continua concluindo como sempre.
+ * @param {boolean} [opcoes.pedirAvaliacao] false = nao manda o pedido de
+ *   avaliacao no Google. O "fechar o dia" so pede a quem teve o atendimento
+ *   concluido; conversas ociosas encerradas em lote nao sao "fim de atendimento".
  */
 export async function finalizar(tenantId, id, { resumo } = {}, usuario, opcoes = {}) {
   const linha = await repo.buscarPorId(tenantId, id);
@@ -839,6 +848,9 @@ export async function finalizar(tenantId, id, { resumo } = {}, usuario, opcoes =
 
   // Sem await: a resposta ao atendente nao espera a IA.
   if (resumoPelaIa) agendarResumo(tenantId, id, linha.leadNome, opcoes.provedores ?? null);
+  // Avaliacao do Google (funcao da Sofia): decide sozinha se manda — desligada,
+  // sem link ou cliente frustrado, nao manda. Tambem sem await.
+  if (opcoes.pedirAvaliacao !== false) agendarPedidoDeAvaliacao(tenantId, id, { provedores: opcoes.provedores ?? null });
 
   // Atendimento encerrado: os avisos dele (ex.: cliente frustrado) saem da
   // tela de todos. Antes ficavam presos, e "Atender" dava erro 422.

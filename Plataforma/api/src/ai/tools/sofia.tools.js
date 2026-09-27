@@ -8,6 +8,7 @@ import { interpretarData } from '../../core/datas-naturais.js';
 import { dataNoFuso } from '../../core/datetime.js';
 import { normalizar, resolverServico } from './catalogo-cache.js';
 import { gravarOfertasHorario, lerOfertasHorario } from '../../modules/conversas/conversas.repo.js';
+import { CHAVES_GRUPOS_SOFIA, GRUPOS_SOFIA } from '../agentes-padrao.js';
 
 const log = comContexto({ modulo: 'sofia' });
 
@@ -96,7 +97,13 @@ export const LEITURAS_DIRETAS = ['consultar_horarios', 'consultar_varios_servico
  * Ferramentas da Sofia.
  *
  *   consultas diretas      — horarios, vagas em sequencia, agendamentos do
- *                            cliente (leitura; permissoes da Atena valem igual)
+ *                            cliente (leitura)
+ *
+ * Cada uma obedece a um interruptor DA SOFIA (GRUPOS_SOFIA em
+ * agentes-padrao.js); so `transferir_para_humano` e fixa. Os interruptores da
+ * Atena valem para o que a ATENA faz, e Atena desligada so tira da Sofia o
+ * `consultar_atena`.
+ *
  *   reservar_horario       — MARCA, mas so um horario que as consultas desta
  *                            conversa ofereceram (as OFERTAS)
  *   consultar_atena        — remarcar, cancelar e o que as consultas nao trazem
@@ -119,10 +126,15 @@ export function ferramentasDaSofia({
   conversationId,
   atenaAtiva = true,
   permitirEscrita = true,
-  gruposAtena = [],
+  // Os interruptores DA SOFIA (GRUPOS_SOFIA). Cada ferramenta abaixo so entra
+  // se o grupo dela estiver ligado — independente dos interruptores da Atena.
+  permissoes = CHAVES_GRUPOS_SOFIA,
   provedores = null,
   informacoes = ''
 }) {
+  const pode = (grupo) => permissoes.includes(grupo);
+  /** Os grupos da Atena que montam as ferramentas da Sofia que estao ligadas. */
+  const gruposDaAtena = (...chaves) => chaves.filter(pode).map((c) => GRUPOS_SOFIA[c].grupoAtena);
   const transferirParaHumano = definirFerramenta({
     nome: 'transferir_para_humano',
     descricao: 'Passa para um atendente: cliente pediu uma pessoa, você não sabe responder, ou reclamação já entendida.',
@@ -151,7 +163,7 @@ export function ferramentasDaSofia({
    * cliente pergunta. Agora a Sofia le quando precisa: a resposta sai do
    * codigo, sem modelo no meio. Nao depende da Atena (nao e agenda).
    */
-  const consultarInformacoes = String(informacoes ?? '').trim()
+  const consultarInformacoes = pode('informacoes') && String(informacoes ?? '').trim()
     ? definirFerramenta({
         nome: 'consultar_informacoes',
         descricao: 'Regras da casa, perguntas frequentes e outras informações da empresa (Wi-Fi, produtos, crianças...).',
@@ -169,16 +181,22 @@ export function ferramentasDaSofia({
     : null;
   const daEmpresa = [consultarInformacoes, transferirParaHumano].filter(Boolean);
 
-  if (!atenaAtiva) return daEmpresa;
-
   const chaveMemoria = `${tenantId}:lead:${leadId}`;
 
   /**
-   * As leituras sao as MESMAS ferramentas da Atena (mesmo codigo, mesmas
-   * permissoes por grupo, mesmo aviso ao funil), so que sem o modelo dela no
-   * meio. Montadas em modo leitura: nenhuma escrita chega a Sofia por aqui.
+   * As leituras sao as MESMAS ferramentas da Atena (mesmo codigo, mesmo aviso
+   * ao funil), so que sem o modelo dela no meio — e por isso NAO dependem de a
+   * Atena estar ligada. Montadas em modo leitura e so com os grupos que a
+   * Sofia tem ligados: nenhuma escrita chega a ela por aqui.
    */
-  const leituras = ferramentasDaAtena({ tenantId, fuso, leadId, conversationId, permitirEscrita: false, grupos: gruposAtena })
+  const leituras = ferramentasDaAtena({
+    tenantId,
+    fuso,
+    leadId,
+    conversationId,
+    permitirEscrita: false,
+    grupos: gruposDaAtena('horarios', 'agendamentos')
+  })
     .filter((f) => LEITURAS_DIRETAS.includes(f.nome))
     .map((f) => ({
       ...f,
@@ -299,7 +317,7 @@ export function ferramentasDaSofia({
    * precisa estar nas OFERTAS desta conversa. Remarcar e cancelar continuam
    * pela Atena (consultar_atena).
    */
-  const escritas = ferramentasDaAtena({ tenantId, fuso, leadId, conversationId, permitirEscrita, grupos: gruposAtena });
+  const escritas = ferramentasDaAtena({ tenantId, fuso, leadId, conversationId, permitirEscrita, grupos: gruposDaAtena('reservar') });
   const criarUm = escritas.find((f) => f.nome === 'criar_agendamento');
   const criarVarios = escritas.find((f) => f.nome === 'agendar_varios_servicos');
 
@@ -372,5 +390,12 @@ export function ferramentasDaSofia({
     }
   });
 
-  return [...leituras, reservar, consultar, ...daEmpresa];
+  return [
+    ...leituras,
+    // Reservar so faz sentido com a consulta de horarios: so marca o que ela ofereceu.
+    ...(pode('reservar') && pode('horarios') ? [reservar] : []),
+    // Pedir a Atena precisa de DUAS coisas: o interruptor da Sofia e a Atena ligada.
+    ...(pode('atena') && atenaAtiva ? [consultar] : []),
+    ...daEmpresa
+  ];
 }

@@ -177,6 +177,41 @@ export async function atendenteSumiu(tenantId, conversa, agora = Date.now()) {
   return Boolean(desde) && agora - desde >= horas * 3_600_000;
 }
 
+/**
+ * Regras de dados quando PARTE das ferramentas de agenda da Sofia esta
+ * desligada. Cada linha diz o que ela faz e, para o que nao tem, o caminho
+ * (uma pessoa) — senao ela prometeria algo que nao consegue cumprir.
+ */
+function regrasParciais(cap) {
+  const consultas = [
+    cap.horarios ? 'Horários livres: consultar_horarios (consultar_varios_servicos para 2+ serviços na mesma visita).' : null,
+    cap.agendamentos ? 'Agendamentos do cliente: consultar_agendamentos_do_cliente.' : null
+  ].filter(Boolean);
+
+  return [
+    `1. Preços: use o CATALOGO abaixo.${consultas.length ? ` ${consultas.join(' ')} São instantâneas: use à vontade.` : ''}`,
+    ...(cap.horarios ? [] : ['   Horários livres você NÃO consegue ver: para marcar, use transferir_para_humano.']),
+    ...(cap.agendamentos || cap.atena ? [] : ['   Os horários que o cliente já tem você NÃO consegue ver: use transferir_para_humano.']),
+    ...(cap.atena ? ['   O que suas consultas não trazem: peça à Atena.'] : []),
+    cap.reservar
+      ? '2. MARCAR: reservar_horario, com o horário que sua consulta mostrou e o cliente escolheu.'
+      : cap.horarios
+        ? '2. MARCAR: você não marca. Mostre as opções e, com o horário escolhido, use transferir_para_humano.'
+        : '2. MARCAR: use transferir_para_humano.',
+    cap.atena
+      ? '   REMARCAR ou CANCELAR: consultar_atena, com o pedido completo.'
+      : '   REMARCAR ou CANCELAR: use transferir_para_humano.',
+    '   Só confirme o que voltou com sucesso; se não deu, explique ou pergunte. Nunca prometa "já te retorno".',
+    '3. NUNCA invente preço, horário ou disponibilidade: só o CATALOGO e o que suas consultas',
+    '   ou a Atena devolveram.',
+    '4. Datas: passe como o cliente falou ("sexta", "dia 25"); a resposta traz o dia por',
+    '   extenso, use-o. Cliente não disse o dia? Pergunte. Nunca escolha por ele.',
+    '5. Mais de uma opção de horário: ofereça poucas (2 ou 3), não a lista inteira.',
+    '6. Mensagem sem pedido novo ("ok", "obrigado", emoji): responda curto, sem',
+    '   consultar nada e sem cumprimentar de novo.'
+  ];
+}
+
 /** Monta as instrucoes da Sofia a partir do perfil configurado + contexto vivo. */
 export function montarSystemPrompt({
   agente,
@@ -186,6 +221,8 @@ export function montarSystemPrompt({
   hoje,
   horaAtual,
   atenaAtiva,
+  // Nomes das ferramentas que a Sofia recebeu neste turno (ver `tem` abaixo).
+  ferramentasDaSofia = null,
   catalogoResumo,
   catalogoVazio = false,
   baseConhecimento,
@@ -199,7 +236,22 @@ export function montarSystemPrompt({
     agente?.systemPrompt?.trim() ||
     `Voce e a atendente virtual de ${nomeEmpresa}. Seja calorosa, direta e objetiva.`;
 
-  const regraDeDados = atenaAtiva
+  /**
+   * O que a Sofia TEM nesta conversa, lido da lista real de ferramentas (cada
+   * uma obedece a um interruptor dela). Sem a lista (chamadas antigas/testes),
+   * vale o de antes: tudo, se a Atena estiver ligada.
+   */
+  const tem = (nome) => (ferramentasDaSofia ? ferramentasDaSofia.includes(nome) : atenaAtiva);
+  const cap = {
+    horarios: tem('consultar_horarios'),
+    agendamentos: tem('consultar_agendamentos_do_cliente'),
+    reservar: tem('reservar_horario'),
+    atena: tem('consultar_atena')
+  };
+  const tudo = cap.horarios && cap.agendamentos && cap.reservar && cap.atena;
+  const alguma = cap.horarios || cap.agendamentos || cap.reservar || cap.atena;
+
+  const regraDeDados = tudo
     ? [
         '1. Preços: use o CATALOGO abaixo. Horários livres e agendamentos do cliente: use',
         '   suas consultas (consultar_horarios; consultar_varios_servicos para 2+ serviços na',
@@ -218,21 +270,23 @@ export function montarSystemPrompt({
         '6. Mensagem sem pedido novo ("ok", "obrigado", emoji): responda curto, sem',
         '   consultar nada e sem cumprimentar de novo.'
       ]
-    : catalogoResumo
-      ? [
-          // Com a Atena desligada o PRECO continua respondivel (o catalogo vai
-          // sempre); o que exige uma pessoa e a agenda.
-          '1. A Atena (agenda) está DESATIVADA. Preços: use o CATALOGO abaixo. Horários e',
-          '   agendamentos você NÃO consegue ver nem marcar: para isso, use transferir_para_humano.',
-          '2. NUNCA invente preço, horário ou disponibilidade. Dúvida que o CATALOGO não responde:',
-          '   use transferir_para_humano.'
-        ]
-      : [
-          '1. A Atena (agente de dados e agenda) está DESATIVADA. Você não tem como consultar',
-          '   preços, horários ou agendamentos.',
-          '2. NUNCA invente preço, horário ou disponibilidade. Para qualquer dúvida desse tipo,',
-          '   use transferir_para_humano.'
-        ];
+    : alguma
+      ? regrasParciais(cap)
+      : catalogoResumo
+        ? [
+            // Sem nenhuma ferramenta de agenda o PRECO continua respondivel (o
+            // catalogo vai sempre); o que exige uma pessoa e a agenda.
+            '1. A agenda está DESATIVADA. Preços: use o CATALOGO abaixo. Horários e',
+            '   agendamentos você NÃO consegue ver nem marcar: para isso, use transferir_para_humano.',
+            '2. NUNCA invente preço, horário ou disponibilidade. Dúvida que o CATALOGO não responde:',
+            '   use transferir_para_humano.'
+          ]
+        : [
+            '1. A agenda (horários e agendamentos) está DESATIVADA. Você não tem como consultar',
+            '   preços, horários ou agendamentos.',
+            '2. NUNCA invente preço, horário ou disponibilidade. Para qualquer dúvida desse tipo,',
+            '   use transferir_para_humano.'
+          ];
 
   return [
     base,
@@ -618,8 +672,11 @@ export async function responder({
     conversationId,
     atenaAtiva,
     permitirEscrita,
-    // As consultas diretas da Sofia obedecem as MESMAS permissoes da Atena.
-    gruposAtena: atena.ferramentas ?? [],
+    // Os interruptores DELA (Inteligencia Artificial > Agentes > Sofia). A
+    // Atena desligada pelo dono so tira o `consultar_atena` (ver atenaAtiva).
+    // Ja o interruptor DEV "Agente de agenda" e trava de plataforma e promete
+    // "a Sofia nao mexe na agenda": desligado, sobra so a base de conhecimento.
+    permissoes: atenaLigada ? (sofia.ferramentas ?? []) : (sofia.ferramentas ?? []).filter((g) => g === 'informacoes'),
     provedores,
     informacoes: baseDetalhes
   });
@@ -664,6 +721,7 @@ export async function responder({
         hoje: dataNoFuso(Date.now(), fuso),
         horaAtual: horaNoFuso(Date.now(), fuso),
         atenaAtiva,
+        ferramentasDaSofia: ferramentas.map((f) => f.nome),
         irritado,
         reclamacao,
         aguardandoHumano

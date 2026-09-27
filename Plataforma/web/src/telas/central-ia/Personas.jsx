@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import { Aviso, AreaTexto, Botao, Campo, Carregando, Entrada, Selecao } from '../../componentes/ui.jsx';
 import { CartaoAquiles } from './CartaoAquiles.jsx';
+import { AvaliacaoGoogle } from './AvaliacaoGoogle.jsx';
 
 /**
  * Aba "Personas dos Agentes".
@@ -136,7 +137,13 @@ export function Personas() {
           <div className="ci-agentes-painel">
             {sofia && (
               <div role="tabpanel" id="ci-painel-atendente" aria-labelledby="ci-elenco-atendente" hidden={escolhido !== 'atendente'}>
-                <CartaoSofia agente={sofia} tons={agentes.data.tons} cadeia={cadeia} />
+                <CartaoSofia
+                  agente={sofia}
+                  tons={agentes.data.tons}
+                  cadeia={cadeia}
+                  permissoes={agentes.data.permissoesSofia}
+                  atenaLigada={atena?.ativo !== false}
+                />
               </div>
             )}
             {atena && (
@@ -368,7 +375,7 @@ function Interruptor({ ativo, aoMudar, desabilitado }) {
   );
 }
 
-function CartaoSofia({ agente, tons, cadeia }) {
+function CartaoSofia({ agente, tons, cadeia, permissoes, atenaLigada }) {
   const salvar = useSalvarAgente('atendente');
 
   // O formulario nasce do que o servidor devolveu e NAO e sobrescrito por
@@ -378,8 +385,25 @@ function CartaoSofia({ agente, tons, cadeia }) {
     nome: agente.nome,
     tom: agente.tom,
     temperatura: agente.temperatura,
-    systemPrompt: agente.systemPrompt
+    systemPrompt: agente.systemPrompt,
+    ferramentas: agente.ferramentas
   });
+
+  function alternar(chave) {
+    setForm((f) => ({
+      ...f,
+      ferramentas: f.ferramentas.includes(chave) ? f.ferramentas.filter((x) => x !== chave) : [...f.ferramentas, chave]
+    }));
+  }
+
+  /** Por que um interruptor ligado nao tem efeito agora (ou null). */
+  function semEfeito(chave) {
+    if (chave === 'reservar' && !form.ferramentas.includes('horarios')) {
+      return 'Precisa de “Consultar horários”: ela só marca um horário que a consulta mostrou.';
+    }
+    if (chave === 'atena' && !atenaLigada) return 'A Atena está desligada: sem efeito até ela ser ligada.';
+    return null;
+  }
 
   return (
     <section className="ci-agente ci-agente--sofia">
@@ -418,6 +442,36 @@ function CartaoSofia({ agente, tons, cadeia }) {
         </Campo>
       </div>
 
+      {/* As ferramentas DA SOFIA. Antes elas obedeciam aos interruptores da
+          Atena, sem a tela dizer; agora cada agente controla as suas. */}
+      <fieldset className="ci-permissoes">
+        <legend>FERRAMENTAS &amp; PERMISSÕES DA SOFIA (TOOLS)</legend>
+        <div className="ci-permissoes__grade">
+          {permissoes.grupos.map((p) => {
+            const aviso = form.ferramentas.includes(p.chave) ? semEfeito(p.chave) : null;
+            return (
+              <label key={p.chave} className="ci-permissao" title={aviso ?? p.descricao}>
+                <input type="checkbox" checked={form.ferramentas.includes(p.chave)} onChange={() => alternar(p.chave)} />
+                <span>
+                  {p.rotulo.toUpperCase()}
+                  {aviso && <small className="ci-permissao__aviso">{aviso}</small>}
+                </span>
+              </label>
+            );
+          })}
+          {permissoes.fixas.map((p) => (
+            <label key={p.chave} className="ci-permissao ci-permissao--fixa" title={p.descricao}>
+              <input type="checkbox" checked disabled readOnly />
+              <span>
+                {p.rotulo.toUpperCase()} <small className="ci-permissao__sempre">SEMPRE</small>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <AvaliacaoGoogle agente={agente} />
+
       <Campo rotulo={`TEMPERATURA / CRIATIVIDADE: ${Number(form.temperatura).toFixed(1)}`}>
         <input
           type="range"
@@ -432,7 +486,7 @@ function CartaoSofia({ agente, tons, cadeia }) {
 
       <Campo
         rotulo="PROMPT DE SISTEMA (PERSONA & DIRETRIZES)"
-        dica="Preços vêm do catálogo; horários, a Sofia consulta direto na agenda. Ela só marca um horário que a consulta mostrou ao cliente, e remarcar ou cancelar passa pela Atena. Essas regras são aplicadas automaticamente."
+        dica="O que ela pode fazer é decidido nos interruptores acima; as regras de uso de cada ferramenta (só marcar o que a consulta mostrou, remarcar e cancelar pela Atena…) entram automaticamente."
       >
         <AreaTexto
           value={form.systemPrompt}
@@ -499,7 +553,11 @@ function CartaoAtena({ agente, permissoes, cadeia }) {
       </Campo>
 
       <fieldset className="ci-permissoes">
-        <legend>FERRAMENTAS &amp; PERMISSÕES HABILITADAS (TOOLS)</legend>
+        <legend>FERRAMENTAS &amp; PERMISSÕES DA ATENA (TOOLS)</legend>
+        <p className="texto-fraco ci-permissoes__nota">
+          Valem para o que a Atena faz: quando a Sofia pede (remarcar, cancelar) e nas rotinas dela (quadro, resumo,
+          fechar o dia). As ferramentas da Sofia têm interruptores próprios, no cartão dela.
+        </p>
         <div className="ci-permissoes__grade">
           {permissoes.map((p) => (
             <label key={p.chave} className="ci-permissao" title={p.descricao}>

@@ -32,7 +32,7 @@
   border-radius: var(--raio-g);
 }
 .textos-dev__mensagem p { margin: 0; font-size: 12.5px; }
-.textos-dev__mensagem--alterada { border-color: #ffd23f; }
+.textos-dev__mensagem--alterada { border-color: var(--tom-amarelo, #ffd23f); }
 
 .textos-dev__selo {
   font-size: 11px;
@@ -41,7 +41,7 @@
   text-transform: uppercase;
   color: var(--texto-fraco);
 }
-.textos-dev__selo--alterada { color: #ffd23f; }
+.textos-dev__selo--alterada { color: var(--tom-amarelo, #ffd23f); }
 
 .textos-dev__manual {
   display: grid;

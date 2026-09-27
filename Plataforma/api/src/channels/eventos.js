@@ -18,6 +18,7 @@
  */
 
 import { ver } from '../core/painel.js';
+import { anotar } from '../core/diario.js';
 
 const MAX_POR_EMPRESA = 300;
 
@@ -63,6 +64,10 @@ export function registrarEvento(tenantId, { chave = null, nivel = 'info', tipo =
     evento.mensagem,
     evento.chave ?? undefined
   );
+
+  // E no diario permanente (data/logs/conexoes.log): o anel some a cada
+  // reinicio, e era justamente o que faltava para investigar uma queda.
+  anotar(`${evento.nivel.toUpperCase()} ${tenantId} ${evento.chave ?? '-'} [${evento.tipo}] ${evento.mensagem}`);
 
   anel.push(evento);
   if (anel.length > MAX_POR_EMPRESA) anel.splice(0, anel.length - MAX_POR_EMPRESA);

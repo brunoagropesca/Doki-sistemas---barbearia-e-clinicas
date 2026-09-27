@@ -25,7 +25,7 @@
   padding: 1px 6px;
   border-radius: 6px;
   background: var(--superficie-2);
-  color: #7eb0ff;
+  color: var(--tom-azul, #7eb0ff);
 }
 
 /* Identidade: foto grande, nome, cargo, status */
@@ -111,7 +111,7 @@
 
 /* Modal de edicao */
 .atalho-campo { display: flex; align-items: center; gap: var(--e2); }
-.atalho-campo > span { font-family: var(--fonte-mono); font-size: 18px; color: #7eb0ff; }
+.atalho-campo > span { font-family: var(--fonte-mono); font-size: 18px; color: var(--tom-azul, #7eb0ff); }
 .atalho-campo .entrada { font-family: var(--fonte-mono); }
 
 .variaveis { display: flex; align-items: center; flex-wrap: wrap; gap: var(--e2); }
@@ -120,7 +120,7 @@
   border: 1px solid rgba(24,86,255,0.35);
   border-radius: 999px;
   background: var(--primaria-suave);
-  color: #7eb0ff;
+  color: var(--tom-azul, #7eb0ff);
   font-family: var(--fonte-mono);
   font-size: 12px;
   cursor: pointer;

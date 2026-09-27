@@ -82,5 +82,8 @@ export const metricasConversasSchema = z.object({
 
 export const abrirConversaSchema = z.object({
   leadId: z.string().min(1, 'Informe o cliente.'),
-  canal: z.string().trim().max(30).default('whatsapp')
+  canal: z.string().trim().max(30).default('whatsapp'),
+  // false = so procura a conversa aberta; sem ela, devolve `conversa: null`
+  // (a tela pergunta antes de iniciar um atendimento novo).
+  criar: z.boolean().default(true)
 });

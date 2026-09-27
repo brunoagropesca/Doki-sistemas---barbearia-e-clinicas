@@ -14,9 +14,20 @@ import { cifrar, decifrar, sufixoVisivel } from '../../core/crypto.js';
 import { Conflito, NaoEncontrado, RegraDeNegocio } from '../../core/errors.js';
 import { comContexto } from '../../core/logger.js';
 import { registrarAuditoria } from '../auditoria/auditoria.service.js';
+import { linkValido } from '../../core/links.js';
 import { PROVEDORES, gerar } from '../../ai/cascade.js';
 import { gemini } from '../../ai/providers/gemini.js';
-import { AGENTES_PADRAO, CHAVES_GRUPOS_ATENA, GRUPOS_ATENA, LIMITES_EXEMPLOS, PROMPTS_ANTIGOS, TONS } from '../../ai/agentes-padrao.js';
+import {
+  AGENTES_PADRAO,
+  CHAVES_GRUPOS_ATENA,
+  CHAVES_GRUPOS_SOFIA,
+  FIXAS_SOFIA,
+  GRUPOS_ATENA,
+  GRUPOS_SOFIA,
+  LIMITES_EXEMPLOS,
+  PROMPTS_ANTIGOS,
+  TONS
+} from '../../ai/agentes-padrao.js';
 import { classificarModelo, nomeAmigavel, ordenarParaExibicao, selecionarMelhores } from '../../ai/catalogo-modelos.js';
 
 const log = comContexto({ modulo: 'ia-config' });
@@ -676,7 +687,11 @@ export async function listarAgentes(tenantId) {
   const salvos = new Map(linhas.map((l) => [l.chave, apresentarAgente(l)]));
 
   // Os agentes conhecidos vem primeiro, na ordem certa (frente, depois bastidores).
-  const conhecidos = Object.keys(AGENTES_PADRAO).map((chave) => salvos.get(chave) ?? agentePadrao(chave));
+  const atena = salvos.get('atena') ?? agentePadrao('atena');
+  const conhecidos = Object.keys(AGENTES_PADRAO).map((chave) => {
+    const agente = salvos.get(chave) ?? agentePadrao(chave);
+    return chave === 'atendente' ? comPermissoesDaSofia(agente, atena) : agente;
+  });
   const outros = [...salvos.values()].filter((a) => !AGENTES_PADRAO[a.chave]);
 
   return [...conhecidos, ...outros];
@@ -695,7 +710,45 @@ export function tonsDisponiveis() {
   return Object.entries(TONS).map(([chave, rotulo]) => ({ chave, rotulo }));
 }
 
+/**
+ * Os interruptores da Sofia para quem NUNCA mexeu neles.
+ *
+ * Antes de a Sofia ter interruptores proprios, o que ela podia fazer vinha da
+ * Atena: as consultas e a reserva obedeciam aos grupos dela, e Atena
+ * desligada tirava tudo. Derivar daqui mantem exatamente o comportamento que
+ * cada empresa ja tinha — nada liga nem desliga sozinho por causa da troca.
+ * Depois que alguem salva os interruptores da Sofia, valem os dela
+ * (`config.ferramentasDefinidas`).
+ */
+function permissoesLegadasDaSofia(atena) {
+  const grupos = atena && atena.ativo !== false ? (atena.ferramentas ?? []) : [];
+  return CHAVES_GRUPOS_SOFIA.filter((chave) => {
+    const grupo = GRUPOS_SOFIA[chave].grupoAtena;
+    return !grupo || grupos.includes(grupo);
+  });
+}
+
+/** Aplica a regra acima na Sofia, se for o caso. */
+function comPermissoesDaSofia(sofia, atena) {
+  if (!sofia || sofia.config?.ferramentasDefinidas) return sofia;
+  return { ...sofia, ferramentas: permissoesLegadasDaSofia(atena) };
+}
+
+/** Catalogo do que a Sofia pode fazer (e o que ela tem sempre), para a tela. */
+export function gruposDaSofia() {
+  return {
+    grupos: Object.entries(GRUPOS_SOFIA).map(([chave, g]) => ({ chave, rotulo: g.rotulo, descricao: g.descricao })),
+    fixas: FIXAS_SOFIA
+  };
+}
+
 export async function obterAgente(tenantId, chave) {
+  const agente = await obterAgenteSalvo(tenantId, chave);
+  if (chave === 'atendente') return comPermissoesDaSofia(agente, await obterAgenteSalvo(tenantId, 'atena'));
+  return agente;
+}
+
+async function obterAgenteSalvo(tenantId, chave) {
   const linha = await db.query.agentProfiles.findFirst({
     where: and(eq(agentProfiles.tenantId, tenantId), eq(agentProfiles.chave, chave))
   });
@@ -731,6 +784,15 @@ export async function salvarAgente(tenantId, chave, dados, { usuario } = {}) {
       );
     }
   }
+  // O mesmo para a Sofia, com os grupos DELA.
+  if (chave === 'atendente' && dados.ferramentas !== undefined) {
+    const invalidas = dados.ferramentas.filter((f) => !CHAVES_GRUPOS_SOFIA.includes(f));
+    if (invalidas.length > 0) {
+      throw new RegraDeNegocio(
+        `Permissão desconhecida: ${invalidas.join(', ')}. As válidas são: ${CHAVES_GRUPOS_SOFIA.join(', ')}.`
+      );
+    }
+  }
 
   /**
    * Modelo preferido: "provedor:modelo" (ex.: "groq:qwen/qwen3.8-27b").
@@ -755,7 +817,22 @@ export async function salvarAgente(tenantId, chave, dados, { usuario } = {}) {
     if (exemplos.some((e) => e.length > LIMITES_EXEMPLOS.caracteres)) {
       throw new RegraDeNegocio(`Cada exemplo pode ter ate ${LIMITES_EXEMPLOS.caracteres} caracteres.`);
     }
-    campos.config = { ...(existente?.config ?? AGENTES_PADRAO[chave]?.config ?? {}), ...dados.config, exemplos };
+    // Avaliacao do Google (so da Sofia). Ligar sem link pode — a engrenagem
+    // fica pedindo o link e nada e enviado ate la; link torto nao: o cliente
+    // receberia um endereco que nao abre.
+    const avaliacao = dados.config.avaliacaoGoogle;
+    if (avaliacao !== undefined) {
+      if (chave !== 'atendente') throw new RegraDeNegocio('A avaliação do Google é uma função da Sofia.');
+      if (avaliacao.link && !linkValido(avaliacao.link)) {
+        throw new RegraDeNegocio('Link da avaliação inválido. Cole o endereço completo, começando com https://');
+      }
+    }
+    campos.config = {
+      ...(existente?.config ?? AGENTES_PADRAO[chave]?.config ?? {}),
+      ...dados.config,
+      // Salvar outro ajuste (ex.: so a avaliacao) nao pode apagar os exemplos.
+      ...(dados.config.exemplos !== undefined ? { exemplos } : {})
+    };
   }
   if (dados.nome !== undefined) campos.nome = dados.nome;
   if (dados.avatar !== undefined) campos.avatar = dados.avatar;
@@ -766,6 +843,11 @@ export async function salvarAgente(tenantId, chave, dados, { usuario } = {}) {
   if (dados.maxTokens !== undefined) campos.maxTokens = dados.maxTokens;
   if (dados.ferramentas !== undefined) campos.ferramentas = dados.ferramentas;
   if (dados.ativo !== undefined) campos.ativo = dados.ativo;
+  // Salvou os interruptores da Sofia: a partir daqui valem os dela, e nao mais
+  // os derivados da Atena (ver `permissoesLegadasDaSofia`).
+  if (chave === 'atendente' && dados.ferramentas !== undefined) {
+    campos.config = { ...(campos.config ?? existente?.config ?? {}), ferramentasDefinidas: true };
+  }
 
   if (existente) {
     await db.update(agentProfiles).set(campos).where(eq(agentProfiles.id, existente.id));

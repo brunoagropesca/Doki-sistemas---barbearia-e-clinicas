@@ -33,7 +33,7 @@
 .eq-aba:hover { color: var(--texto); }
 .eq-aba--ativa { color: var(--texto); border-bottom-color: var(--primaria); }
 .eq-aba__icone { width: 17px; height: 17px; }
-.eq-aba--ativa .eq-aba__icone { color: #8db6ff; }
+.eq-aba--ativa .eq-aba__icone { color: var(--tom-azul, #8db6ff); }
 .eq-aba small,
 .eq-chip small {
   padding: 0 7px;
@@ -71,7 +71,7 @@
   padding: 0 32px 0 34px;
   border: 1px solid var(--borda-forte);
   border-radius: var(--raio);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--tinta, 255, 255, 255), 0.05);
   color: var(--texto);
   font: inherit;
   font-size: 14px;
@@ -123,7 +123,7 @@
 .eq-ponto { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--texto-fraco); }
 .eq-ponto--sucesso { background: var(--sucesso); box-shadow: 0 0 6px rgba(7, 202, 107, 0.6); }
 .eq-ponto--alerta { background: var(--alerta); }
-.eq-ponto--neutro { background: rgba(240, 244, 255, 0.3); }
+.eq-ponto--neutro { background: rgba(var(--texto-rgb, 240, 244, 255), 0.3); }
 
 /* ─── Lista ─── */
 .eq-lista { padding: 0; }
@@ -139,7 +139,7 @@
 }
 .eq-lista--prof .eq-linha { grid-template-columns: minmax(220px, 2.2fr) minmax(130px, 1.3fr) minmax(110px, 1fr) minmax(110px, 1fr) 90px 40px; }
 .eq-lista--atend .eq-linha { grid-template-columns: minmax(220px, 2.2fr) minmax(110px, 1fr) minmax(90px, 0.9fr) minmax(130px, 1.2fr) 90px 40px; }
-.eq-linha:hover { background: rgba(255, 255, 255, 0.03); }
+.eq-linha:hover { background: rgba(var(--tinta, 255, 255, 255), 0.03); }
 .eq-linha:focus-visible { outline: 2px solid var(--primaria); outline-offset: -2px; border-radius: 0; }
 .eq-linha--inativa { opacity: 0.55; }
 .eq-linha--travada { cursor: default; }
@@ -152,10 +152,10 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--texto-fraco);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--tinta, 255, 255, 255), 0.02);
   cursor: default;
 }
-.eq-linha--cabecalho:hover { background: rgba(255, 255, 255, 0.02); }
+.eq-linha--cabecalho:hover { background: rgba(var(--tinta, 255, 255, 255), 0.02); }
 
 .eq-pessoa { display: flex; align-items: center; gap: var(--e3); min-width: 0; }
 .eq-pessoa__texto { display: flex; flex-direction: column; min-width: 0; }
@@ -180,7 +180,7 @@
   padding: 0 6px;
   border-radius: 999px;
   background: var(--primaria-suave);
-  color: #8db6ff;
+  color: var(--tom-azul, #8db6ff);
   font-size: 10.5px;
   font-weight: 700;
 }
@@ -207,7 +207,7 @@
   bottom: -1px;
   width: 11px;
   height: 11px;
-  border: 2px solid #0b1022;
+  border: 2px solid var(--painel-fundo, #0b1022);
   box-shadow: none;
 }
 
@@ -228,7 +228,7 @@
   color: var(--texto-suave);
 }
 .eq-cargo--owner,
-.eq-cargo--admin { color: #8db6ff; border-color: rgba(24, 86, 255, 0.35); background: var(--primaria-suave); }
+.eq-cargo--admin { color: var(--tom-azul, #8db6ff); border-color: rgba(24, 86, 255, 0.35); background: var(--primaria-suave); }
 
 /* Carga: quantas conversas a pessoa tem agora, frente ao limite dela. */
 .eq-carga { display: flex; align-items: center; gap: var(--e2); }
@@ -265,7 +265,7 @@
   padding: 4px;
   display: flex;
   flex-direction: column;
-  background: rgba(12, 16, 34, 0.98);
+  background: rgba(var(--painel-rgb, 12, 16, 34), 0.98);
   border: 1px solid var(--borda-forte);
   border-radius: var(--raio);
   box-shadow: var(--sombra-g);
@@ -284,7 +284,7 @@
 }
 .eq-menu__item:hover:not(:disabled) { background: var(--superficie-2); }
 .eq-menu__item:disabled { opacity: 0.4; cursor: not-allowed; }
-.eq-menu__item--perigo { color: #ff6b82; }
+.eq-menu__item--perigo { color: var(--tom-perigo, #ff6b82); }
 .eq-menu__item--perigo:hover:not(:disabled) { background: var(--perigo-suave); }
 
 /* ─── Telas medias: some o que e detalhe; celular: pessoa + situacao + ⋯ ─── */

@@ -32,7 +32,7 @@
 .cat-limite--alto .cat-limite__numeros strong { color: var(--alerta); }
 .cat-limite--cheio { border-color: rgba(234, 33, 67, 0.4); background: var(--perigo-suave); }
 .cat-limite--cheio .cat-limite__barra { background: var(--perigo); }
-.cat-limite--cheio .cat-limite__numeros strong { color: #ff6b82; }
+.cat-limite--cheio .cat-limite__numeros strong { color: var(--tom-perigo, #ff6b82); }
 
 /* ─── Categorias + lista ─── */
 .cat-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--e4); align-items: start; }
@@ -55,7 +55,7 @@
   border: 1px solid var(--borda);
   border-radius: 999px;
   background: none;
-  color: #8db6ff;
+  color: var(--tom-azul, #8db6ff);
   font: inherit;
   font-size: 11px;
   letter-spacing: 0;
@@ -134,7 +134,7 @@
   padding: 14px var(--e4) 6px;
   font-size: 12px;
   font-weight: 700;
-  color: #8db6ff;
+  color: var(--tom-azul, #8db6ff);
   border-bottom: 1px solid var(--borda);
 }
 
@@ -147,7 +147,7 @@
   height: 26px;
   margin-left: -6px;
   border-radius: 50%;
-  border: 2px solid #0b1022;
+  border: 2px solid var(--painel-fundo, #0b1022);
   background: var(--cor);
   color: #fff;
   font-size: 11px;

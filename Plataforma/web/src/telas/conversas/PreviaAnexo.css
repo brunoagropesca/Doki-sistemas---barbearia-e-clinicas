@@ -12,7 +12,7 @@
   /* Fundo opaco: com transparencia, o cabecalho da conversa "vazava" por tras. */
   background:
     radial-gradient(120% 80% at 50% 45%, rgba(24,86,255,0.10), transparent 60%),
-    #070a16;
+    var(--painel-fundo, #070a16);
   border-radius: inherit;
   animation: previa-entrar 0.16s ease-out;
 }
@@ -30,7 +30,7 @@
   gap: var(--e3);
   padding: var(--e3) var(--e4);
   border-bottom: 1px solid var(--borda);
-  background: rgba(255,255,255,0.02);
+  background: rgba(var(--tinta, 255, 255, 255), 0.02);
 }
 .previa__fechar {
   width: 36px;
@@ -40,7 +40,7 @@
   place-items: center;
   border: 1px solid var(--borda);
   border-radius: 50%;
-  background: rgba(255,255,255,0.05);
+  background: rgba(var(--tinta, 255, 255, 255), 0.05);
   color: var(--texto);
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
@@ -77,7 +77,7 @@
   max-width: 100%;
   max-height: 100%;
   border-radius: 14px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(var(--tinta, 255, 255, 255), 0.08);
   background: #000;
 }
 
@@ -91,7 +91,7 @@
   padding: var(--e6) var(--e5);
   border: 1px solid var(--borda);
   border-radius: var(--raio-xl);
-  background: rgba(255,255,255,0.03);
+  background: rgba(var(--tinta, 255, 255, 255), 0.03);
   word-break: break-word;
 }
 .previa__doc-icone {
@@ -124,7 +124,7 @@
   padding: var(--e3) var(--e4);
   padding-bottom: max(var(--e3), env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--borda);
-  background: rgba(255,255,255,0.02);
+  background: rgba(var(--tinta, 255, 255, 255), 0.02);
 }
 .previa__legenda {
   flex: 1;
@@ -134,7 +134,7 @@
   font-family: var(--fonte);
   font-size: 14px;
   color: var(--texto);
-  background: rgba(255,255,255,0.06);
+  background: rgba(var(--tinta, 255, 255, 255), 0.06);
   border: 1px solid var(--borda-forte);
   border-radius: 23px;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -158,7 +158,7 @@
   overflow-x: auto;
   border: 1px solid var(--borda-forte);
   border-radius: 999px;
-  background: rgba(16, 20, 38, 0.9);
+  background: rgba(var(--painel-rgb, 16, 20, 38), 0.9);
   box-shadow: var(--sombra);
   scrollbar-width: none;
 }
@@ -182,7 +182,7 @@
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
-.editor__ferramenta:hover:not(:disabled) { background: rgba(255,255,255,0.08); color: var(--texto); }
+.editor__ferramenta:hover:not(:disabled) { background: rgba(var(--tinta, 255, 255, 255), 0.08); color: var(--texto); }
 .editor__ferramenta:disabled { opacity: 0.35; cursor: not-allowed; }
 .editor__ferramenta--ativa {
   background: var(--primaria);
@@ -206,7 +206,7 @@
 .editor__cor:hover { transform: scale(1.15); }
 .editor__cor--ativa {
   transform: scale(1.18);
-  border-color: #fff;
+  border-color: var(--tom-texto, #fff);
   box-shadow: 0 0 0 2px var(--primaria), 0 0 12px var(--cor);
 }
 .editor__cor:focus-visible { outline: 2px solid var(--primaria); outline-offset: 2px; }
@@ -219,18 +219,18 @@
   place-items: center;
   border-radius: 10px;
   border: 1.5px solid var(--borda-forte);
-  background: rgba(255,255,255,0.05);
+  background: rgba(var(--tinta, 255, 255, 255), 0.05);
   color: var(--texto);
   font-size: 15px;
   line-height: 1;
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s, transform 0.12s;
 }
-.editor__fonte:hover { background: rgba(255,255,255,0.1); }
+.editor__fonte:hover { background: rgba(var(--tinta, 255, 255, 255), 0.1); }
 .editor__fonte--ativa {
   border-color: var(--primaria);
   background: var(--primaria-suave);
-  color: #7eb0ff;
+  color: var(--tom-azul, #7eb0ff);
   transform: scale(1.06);
 }
 .editor__fonte:focus-visible { outline: 2px solid var(--primaria); outline-offset: 2px; }
@@ -251,11 +251,11 @@
   flex-shrink: 0;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.1);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(var(--tinta, 255, 255, 255), 0.1);
   touch-action: none;
   user-select: none;
   background:
-    repeating-conic-gradient(rgba(255,255,255,0.06) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
+    repeating-conic-gradient(rgba(var(--tinta, 255, 255, 255), 0.06) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;
 }
 .editor__tela--lapis,
 .editor__tela--pincel { cursor: crosshair; }

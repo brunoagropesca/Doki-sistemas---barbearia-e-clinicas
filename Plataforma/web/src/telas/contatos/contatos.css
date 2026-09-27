@@ -38,7 +38,7 @@
   font-size: 12px;
   cursor: pointer;
 }
-.ficha__tag:hover { color: #ff6b82; border-color: rgba(234, 33, 67, 0.4); }
+.ficha__tag:hover { color: var(--tom-perigo, #ff6b82); border-color: rgba(234, 33, 67, 0.4); }
 
 /* ─── CHAVES (campanhas, IA) ───────────────────────────────── */
 
@@ -115,7 +115,7 @@
 .historico-chips .filtro-crm { font-size: 13px; padding: 5px var(--e3); }
 
 .historico__lado { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-.historico__link { font-size: 12px; font-weight: 600; color: #7eb0ff; white-space: nowrap; }
+.historico__link { font-size: 12px; font-weight: 600; color: var(--tom-azul, #7eb0ff); white-space: nowrap; }
 
 /* Atendimento: o texto do resumo manda na altura, entao tudo alinha no topo. */
 .historico__item--atendimento { align-items: start; }
@@ -150,7 +150,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: #7eb0ff;
+  color: var(--tom-azul, #7eb0ff);
   font: inherit;
   font-size: 12px;
   font-weight: 600;

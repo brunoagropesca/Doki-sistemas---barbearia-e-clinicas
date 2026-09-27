@@ -17,6 +17,7 @@ import {
   Vazio
 } from '../../componentes/ui.jsx';
 import { AssistenteAgendar } from '../agenda/AssistenteAgendar.jsx';
+import { useEnviarMensagem } from './IniciarConversa.jsx';
 import './contatos.css';
 
 /**
@@ -121,11 +122,9 @@ export function FichaContato() {
     onSuccess: () => navegar('/contatos')
   });
 
-  const abrirConversa = useMutation({
-    mutationFn: () => api.post('/api/conversas/abrir', { leadId: id }),
-    onSuccess: (r) => navegar(`/conversas?id=${r.conversa.id}`),
-    onError: (err) => setRecado({ tom: 'alerta', texto: err.message })
-  });
+  // Com atendimento aberto vai direto a ele; sem, pergunta antes (popup).
+  const envio = useEnviarMensagem({ aoErro: (texto) => setRecado({ tom: 'alerta', texto }) });
+  const enviarMensagem = () => envio.enviar({ id, nome: lead?.nome });
 
   if (dados.isLoading || !form) return <Carregando />;
   if (dados.isError) return <Aviso tom="perigo">{dados.error.message}</Aviso>;
@@ -152,12 +151,13 @@ export function FichaContato() {
         </div>
 
         <div className="linha">
-          <Botao variante="secundario" carregando={abrirConversa.isPending} onClick={() => abrirConversa.mutate()}>
+          <Botao variante="secundario" carregando={envio.carregando(id)} onClick={enviarMensagem}>
             Enviar mensagem
           </Botao>
           <Botao onClick={() => setAgendando(true)}>Agendar</Botao>
         </div>
       </header>
+      {envio.popup}
 
       {recado && (
         <Aviso tom={recado.tom} aoFechar={() => setRecado(null)}>
@@ -343,8 +343,8 @@ export function FichaContato() {
             agendamentos={agendamentos}
             conversas={lead.historico?.conversas ?? []}
             aoAgendar={() => setAgendando(true)}
-            aoEnviarMensagem={() => abrirConversa.mutate()}
-            enviando={abrirConversa.isPending}
+            aoEnviarMensagem={enviarMensagem}
+            enviando={envio.carregando(id)}
           />
         </div>
       </div>

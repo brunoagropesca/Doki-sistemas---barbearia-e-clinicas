@@ -66,6 +66,12 @@ export async function criarAppDeTeste() {
 
   const tenant = await semear();
 
+  // Entrega de mensagens com tempos de teste: ninguem espera a conexao voltar
+  // por 1 minuto num teste. E a rota espera o resultado ate o fim (null), como
+  // antes — os testes do caminho "pendente" ajustam isto por conta propria.
+  const { tempos } = await import('../../src/modules/conversas/entrega.service.js');
+  Object.assign(tempos, { aguardarConexaoMs: 300, esperasNovaTentativaMs: [20, 50], checarConexaoMs: 20, esperaNaTelaMs: null });
+
   const app = await criarApp();
   await app.ready();
 

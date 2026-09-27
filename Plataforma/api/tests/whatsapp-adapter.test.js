@@ -330,6 +330,70 @@ describe('conectar: QR Code, abrir e enviar', () => {
     assert.match(r.idExterno, /^WA/);
   });
 
+  // Midia em duas fases (subir o arquivo, depois repassar): a entrega so
+  // repete sozinha o que COM CERTEZA nao saiu. O socket imita o Baileys: o
+  // sendMessage chama o `upload` recebido nas opcoes e so depois repassa.
+  async function abertaComUpload({ upload }) {
+    await conectar(tenantId, 'W1');
+    const { sock } = fabricados[0];
+    sock.emitir('connection.update', { connection: 'open' });
+    await esperar(() => estaConectada(tenantId, 'W1'));
+    sock.waUploadToServer = upload;
+    sock.sendMessage = async (jid, conteudo, opcoes) => {
+      await opcoes.upload('/tmp/arquivo.enc', {});
+      sock.enviados.push({ jid, ...conteudo });
+      return { key: { id: 'WAmidia' } };
+    };
+    return sock;
+  }
+  const foto = { tipo: 'imagem', bytes: Buffer.from('x'), mimetype: 'image/jpeg' };
+
+  it('midia: grava "subindo" e so depois "enviando"; a mensagem sai', async () => {
+    const sock = await abertaComUpload({ upload: async () => ({ mediaUrl: 'u', directPath: 'd' }) });
+    const fases = [];
+    await enviar({ tenantId, instanciaChave: 'W1', destino: '11987654321', midia: foto, aoFase: (f) => fases.push(f) });
+    assert.deepEqual(fases, ['subindo', 'enviando']);
+    assert.equal(sock.enviados.length, 1);
+  });
+
+  it('midia que nao subiu: erro marcado como "nao saiu" e nada repassado', async () => {
+    const sock = await abertaComUpload({
+      upload: async () => {
+        throw new Error('Media upload failed on all hosts');
+      }
+    });
+    const fases = [];
+    const err = await enviar({ tenantId, instanciaChave: 'W1', destino: '11987654321', midia: foto, aoFase: (f) => fases.push(f) }).catch((e) => e);
+    assert.equal(err.naoSaiu, true);
+    assert.match(err.message, /não chegou a subir/);
+    assert.deepEqual(fases, ['subindo']);
+    assert.equal(sock.enviados.length, 0);
+  });
+
+  it('prazo estourou subindo: desiste E impede o repasse atrasado (senao o reenvio duplicaria)', async () => {
+    ganchosDeTeste.prazoMidiaMs = 40;
+    try {
+      const sock = await abertaComUpload({
+        upload: async () => {
+          await new Promise((r) => setTimeout(r, 120));
+          return { mediaUrl: 'u', directPath: 'd' };
+        }
+      });
+      const err = await enviar({ tenantId, instanciaChave: 'W1', destino: '11987654321', midia: foto }).catch((e) => e);
+      assert.equal(err.naoSaiu, true);
+      await new Promise((r) => setTimeout(r, 200));
+      assert.equal(sock.enviados.length, 0, 'o upload terminou depois, mas a mensagem nao pode sair');
+    } finally {
+      ganchosDeTeste.prazoMidiaMs = null;
+    }
+  });
+
+  it('conexao fechada: o erro diz que a mensagem nao saiu', async () => {
+    await conectar(tenantId, 'W1');
+    const err = await enviar({ tenantId, instanciaChave: 'W1', destino: '11987654321', texto: 'oi' }).catch((e) => e);
+    assert.equal(err.naoSaiu, true);
+  });
+
   it('duas chamadas quase juntas abrem UM socket so', async () => {
     const [a, b] = await Promise.all([conectar(tenantId, 'W1'), conectar(tenantId, 'W1')]);
     assert.equal(fabricados.length, 1, 'dois sockets na mesma conta se derrubariam em ciclo');

@@ -1,9 +1,10 @@
 import { apenas } from '../../http/plugins/autenticacao.js';
 import * as service from './conversas.service.js';
 import { veTudo } from '../equipe/equipe.config.js';
-import { entregarMensagem } from './entrega.service.js';
+import { entregarComEspera } from './entrega.service.js';
 import { gravarEntrega } from './conversas.repo.js';
 import {
+  abrirConversaSchema,
   anotacoesSchema,
   finalizarSchema,
   moverEtapaSchema,
@@ -55,8 +56,14 @@ export async function rotasConversas(app) {
    * Declarada antes de '/api/conversas/:id' — senao 'abrir' viraria um id.
    */
   app.post('/api/conversas/abrir', { config: apenas.atendente }, async (req) => {
-    const { leadId, canal } = abrirConversaSchema.parse(req.body);
-    const id = await service.encontrarOuAbrir(req.tenantId, { leadId, canal });
+    const { leadId, canal, criar } = abrirConversaSchema.parse(req.body);
+    if (!criar) {
+      const aberta = await service.conversaAbertaDoLead(req.tenantId, leadId);
+      return { conversa: aberta ? await service.obter(req.tenantId, aberta, req.usuario) : null };
+    }
+    // A aberta por qualquer conexao primeiro: sem isto, um cliente que
+    // escreveu pela W1 ganhava uma SEGUNDA conversa, sem conexao, ao lado.
+    const id = (await service.conversaAbertaDoLead(req.tenantId, leadId)) ?? (await service.encontrarOuAbrir(req.tenantId, { leadId, canal }));
     return { conversa: await service.obter(req.tenantId, id, req.usuario) };
   });
 
@@ -113,7 +120,11 @@ export async function rotasConversas(app) {
 
     let entrega;
     try {
-      entrega = await entregarMensagem(req.tenantId, req.params.id, r.id);
+      // Espera ate alguns segundos; se a conexao estiver fora, a entrega segue
+      // em segundo plano e o balao mostra "aguardando conexao" (ver entrega.service).
+      entrega = await entregarComEspera(req.tenantId, req.params.id, r.id, {}, () =>
+        gravarEntrega(req.tenantId, r.id, { erroEnvio: 'Falha inesperada ao enviar. Tente reenviar.' }, req.params.id).catch(() => {})
+      );
     } catch (err) {
       // A mensagem ja esta gravada; uma falha aqui nao pode fazer o atendente
       // achar que ela se perdeu e digitar de novo (duplicaria).
@@ -125,7 +136,7 @@ export async function rotasConversas(app) {
       // `erroEnvio` — invisivel, sem selo de falha e sem botao Reenviar,
       // parecendo enviada para sempre. Esta e a ultima tentativa de marcar.
       try {
-        await gravarEntrega(req.tenantId, r.id, { erroEnvio: entrega.erro });
+        await gravarEntrega(req.tenantId, r.id, { erroEnvio: entrega.erro }, req.params.id);
       } catch (errGravar) {
         req.log.error({ err: errGravar, mensagemId: r.id }, 'Nao foi possivel marcar a falha da rede de seguranca');
       }
@@ -141,7 +152,7 @@ export async function rotasConversas(app) {
 
   /** POST /api/conversas/:id/mensagens/:mensagemId/reenviar — nova tentativa de entrega. */
   app.post('/api/conversas/:id/mensagens/:mensagemId/reenviar', { config: apenas.atendente }, async (req) => {
-    const entrega = await entregarMensagem(req.tenantId, req.params.id, req.params.mensagemId, {
+    const entrega = await entregarComEspera(req.tenantId, req.params.id, req.params.mensagemId, {
       reenvio: true,
       usuario: req.usuario
     });

@@ -22,7 +22,7 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(8, 11, 26, 0.55);
+  background: rgba(var(--painel-rgb, 8, 11, 26), 0.55);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
   border-right: 1px solid var(--borda);
@@ -64,7 +64,7 @@
    escuro neutro. Fundo BRANCO sumia com logos de desenho branco e fundo
    transparente — o caso comum de logo feito para tema escuro. */
 .menu__logo--imagem {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--tinta, 255, 255, 255), 0.06);
   border: 1px solid var(--borda-forte);
   box-shadow: none;
   overflow: hidden;
@@ -100,10 +100,10 @@ a.menu__empresa.active { background: none; }
   overflow-x: hidden;
   /* Barra de rolagem so quando precisa, fina e da cor do tema. */
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  scrollbar-color: rgba(var(--tinta, 255, 255, 255), 0.12) transparent;
 }
 .menu__nav::-webkit-scrollbar { width: 6px; }
-.menu__nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 6px; }
+.menu__nav::-webkit-scrollbar-thumb { background: rgba(var(--tinta, 255, 255, 255), 0.12); border-radius: 6px; }
 .menu__nav::-webkit-scrollbar-button { display: none; }
 
 .menu__secao { display: flex; flex-direction: column; gap: 2px; }
@@ -145,7 +145,7 @@ a.menu__empresa.active { background: none; }
 .menu__item--ativo {
   background: var(--primaria-suave);
   border-color: rgba(24, 86, 255, 0.28);
-  color: #fff;
+  color: var(--tom-texto, #fff);
 }
 /* Tracinho de "voce esta aqui" na borda esquerda. */
 .menu__item--ativo::before {
@@ -160,7 +160,7 @@ a.menu__empresa.active { background: none; }
   box-shadow: 0 0 10px var(--primaria);
 }
 .menu__icone { width: 19px; height: 19px; flex-shrink: 0; }
-.menu__item--ativo .menu__icone { color: #8db6ff; }
+.menu__item--ativo .menu__icone { color: var(--tom-azul, #8db6ff); }
 .menu__rotulo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 .menu__badge {
@@ -193,6 +193,51 @@ a.menu__empresa.active { background: none; }
   border-top: 1px solid var(--borda);
 }
 .menu__recolher { color: var(--texto-fraco); }
+
+/* ── Modo de visualizacao (claro / medio / full black) ── */
+.tema-barra {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  height: 36px;
+  padding: 3px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: var(--superficie);
+  cursor: pointer;
+  touch-action: none; /* arrastar no celular nao rola o menu */
+  user-select: none;
+}
+/* O botao que desliza: ocupa 1/3 e anda pela --tema-pos (0, 1 ou 2; no
+   arraste, qualquer valor no meio). */
+.tema-barra__botao {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3);
+  border-radius: 999px;
+  background: var(--primaria-suave);
+  border: 1px solid rgba(24, 86, 255, 0.35);
+  box-shadow: var(--glow-pri);
+  transform: translateX(calc(var(--tema-pos) * 100%));
+  transition: transform 0.22s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+.tema-barra--arrastando .tema-barra__botao { transition: none; }
+.tema-barra__opcao {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--texto-fraco);
+  transition: color 0.15s;
+}
+.tema-barra__opcao svg { width: 17px; height: 17px; }
+.tema-barra__opcao--ativa { color: var(--tom-azul, #8db6ff); }
+.tema-barra:hover .tema-barra__opcao:not(.tema-barra__opcao--ativa) { color: var(--texto-suave); }
+
+/* O icone que troca com um clique so aparece no menu recolhido. */
+.tema-botao { display: none; color: var(--texto-suave); }
 
 .menu__conta { display: flex; align-items: center; gap: var(--e1); }
 .menu__usuario {
@@ -260,7 +305,7 @@ a.menu__empresa.active { background: none; }
   transition: background 0.15s, color 0.15s;
 }
 .menu__sair svg { width: 18px; height: 18px; }
-.menu__sair:hover { background: var(--perigo-suave); color: #ff6b82; }
+.menu__sair:hover { background: var(--perigo-suave); color: var(--tom-perigo, #ff6b82); }
 
 /*
  * RECOLHIDO (so computador): a mesma estrutura, so que os nomes somem e
@@ -299,6 +344,9 @@ a.menu__empresa.active { background: none; }
   .layout--recolhido .menu__conta { flex-direction: column; gap: var(--e2); }
   .layout--recolhido .menu__usuario { flex: none; padding: 4px; }
   .layout--recolhido .menu__sair { width: 100%; }
+  /* Recolhido nao cabe a barra: fica o icone, que troca com um clique. */
+  .layout--recolhido .tema-barra { display: none; }
+  .layout--recolhido .tema-botao { display: flex; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -347,7 +395,7 @@ a.menu__empresa.active { background: none; }
     z-index: 40;
     min-height: calc(54px + env(safe-area-inset-top, 0px));
     padding: env(safe-area-inset-top, 0px) var(--e3) 0 var(--e4);
-    background: rgba(5, 8, 20, 0.78);
+    background: rgba(var(--painel-rgb, 5, 8, 20), 0.78);
     backdrop-filter: var(--blur);
     -webkit-backdrop-filter: var(--blur);
     border-bottom: 1px solid var(--borda);
@@ -401,7 +449,7 @@ a.menu__empresa.active { background: none; }
     display: flex;
     height: calc(60px + env(safe-area-inset-bottom, 0px));
     padding: 0 var(--e1) env(safe-area-inset-bottom, 0px);
-    background: rgba(8, 11, 26, 0.92);
+    background: rgba(var(--painel-rgb, 8, 11, 26), 0.92);
     backdrop-filter: var(--blur);
     -webkit-backdrop-filter: var(--blur);
     border-top: 1px solid var(--borda);
@@ -440,7 +488,7 @@ a.menu__empresa.active { background: none; }
   .aba__icone svg { width: 23px; height: 23px; }
   .aba:active .aba__icone { transform: scale(0.9); }
   .aba--ativa { color: var(--texto); }
-  .aba--ativa .aba__icone { background: var(--primaria-suave); color: #8db6ff; }
+  .aba--ativa .aba__icone { background: var(--primaria-suave); color: var(--tom-azul, #8db6ff); }
   .aba__badge {
     position: absolute;
     top: -2px;
@@ -450,7 +498,7 @@ a.menu__empresa.active { background: none; }
     padding: 0 4px;
     display: grid;
     place-items: center;
-    border: 2px solid #080b1a;
+    border: 2px solid var(--painel-fundo, #080b1a);
     border-radius: 999px;
     background: var(--perigo);
     color: #fff;
@@ -492,7 +540,7 @@ a.menu__empresa.active { background: none; }
     max-height: 85dvh;
     padding-top: 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
-    background: rgba(10, 14, 30, 0.97);
+    background: rgba(var(--painel-rgb, 10, 14, 30), 0.97);
     border-right: 0;
     border-top: 1px solid var(--borda-forte);
     border-radius: 22px 22px 0 0;

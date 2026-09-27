@@ -11,6 +11,7 @@ import { EditorDeTextos } from './EditorDeTextos.jsx';
 import { FaixaLicenca } from './Licenca.jsx';
 import { ConviteInstalar, useInstalar } from './InstalarApp.jsx';
 import { Icone, Raio } from './Icone.jsx';
+import { SeletorTema } from './SeletorTema.jsx';
 import { useEmpresa } from '../lib/empresa.js';
 import './Layout.css';
 
@@ -277,7 +278,8 @@ export function Layout() {
                       <Icone nome={item.icone} className="menu__icone" />
                       <span className="menu__rotulo">{item.rotulo}</span>
                       {item.contador === 'conversas' && naFila > 0 && (
-                        <span className="menu__badge" aria-label={`${naFila} na fila`}>
+                        {/* `key`: recriado a cada numero novo, para o salto (animacoes.css) tocar. */}
+                        <span key={naFila} className="menu__badge" aria-label={`${naFila} na fila`}>
                           {naFila > 99 ? '99+' : naFila}
                         </span>
                       )}
@@ -301,6 +303,11 @@ export function Layout() {
         </nav>
 
         <div className="menu__rodape">
+          {/* Modo de visualizacao: a barra no menu aberto, o icone no recolhido
+              (o CSS mostra um ou outro — no celular e sempre a barra). */}
+          <SeletorTema />
+          <SeletorTema recolhido />
+
           <button
             type="button"
             className="menu__item menu__recolher"
@@ -357,7 +364,7 @@ export function Layout() {
               <span className="aba__icone">
                 <Icone nome={aba.icone} />
                 {aba.contador === 'conversas' && naFila > 0 && (
-                  <span className="aba__badge" aria-label={`${naFila} na fila`}>
+                  <span key={naFila} className="aba__badge" aria-label={`${naFila} na fila`}>
                     {naFila > 99 ? '99+' : naFila}
                   </span>
                 )}

@@ -46,7 +46,7 @@
 }
 .funcao--desligada {
   border-left-color: var(--texto-fraco);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(var(--tinta, 255, 255, 255), 0.02);
 }
 .funcao--desligada .funcao__titulo,
 .funcao--desligada .funcao__descricao { opacity: 0.7; }
@@ -68,7 +68,7 @@
   margin: 0;
   padding: var(--e2) var(--e3);
   border-radius: var(--raio);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--tinta, 255, 255, 255), 0.03);
   font-size: 12.5px;
   color: var(--texto-suave);
 }
@@ -82,7 +82,7 @@
   height: 26px;
   border: none;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(var(--tinta, 255, 255, 255), 0.15);
   cursor: pointer;
   transition: background 0.2s ease;
 }
