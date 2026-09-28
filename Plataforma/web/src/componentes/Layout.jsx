@@ -12,6 +12,7 @@ import { FaixaLicenca } from './Licenca.jsx';
 import { ConviteInstalar, useInstalar } from './InstalarApp.jsx';
 import { Icone, Raio } from './Icone.jsx';
 import { SeletorTema } from './SeletorTema.jsx';
+import { Hades } from './Hades.jsx';
 import { useEmpresa } from '../lib/empresa.js';
 import './Layout.css';
 
@@ -388,6 +389,8 @@ export function Layout() {
 
       {instalar.modal}
       <NotificacoesAtendimento />
+      {/* Hades: so dono/DEV, e so se o DEV nao o desligou (o componente decide). */}
+      <Hades />
       <AvisoUrgente />
       {usuario?.cargo === 'dev' && <EditorDeTextos />}
     </div>

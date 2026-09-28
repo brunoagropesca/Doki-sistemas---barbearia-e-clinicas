@@ -234,19 +234,108 @@
   grid-template-columns: 34px repeat(var(--horas), minmax(0, 1fr)) minmax(64px, 112px);
   gap: 3px;
 }
+/* Mes e ano: as linhas tem rotulo mais largo ("22 a 28", "jan"). */
+.mc-grade--mes,
+.mc-grade--ano { grid-template-columns: 58px repeat(var(--horas), minmax(0, 1fr)) 110px; }
 .mc-linha { display: contents; }
+
+/* Titulo com a seta que troca a regra (semana -> mes -> ano). */
+.mc-titulo { display: inline-flex; align-items: center; gap: 6px; }
+.mc-titulo__visao {
+  display: inline-block;
+  color: var(--tom-azul, #7eb0ff);
+  animation: mc-visao-entra 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@keyframes mc-visao-entra { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+.mc-seta {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-left: 2px;
+  border: 1px solid var(--borda-forte);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--texto-suave);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.mc-seta svg { width: 15px; height: 15px; }
+.mc-seta:hover { background: var(--primaria-suave); color: var(--texto); transform: translateX(2px); }
+.mc-aviso { margin: 0 0 var(--e2); font-size: 12px; color: var(--texto-fraco); }
+
+/* Envelope do mapa: desliza entre as alturas de semana/mes/ano (a altura vem
+   do useAlturaSuave, em MapaCalor.jsx). So corta o que transborda DURANTE a
+   transicao; parado, o brilho e a dica podem sair da caixa. */
+.mc-corpo { transition: height 420ms cubic-bezier(0.22, 1, 0.36, 1); }
+.mc-corpo--animando { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .mc-corpo { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .mc-titulo__visao { animation: none; } }
 .mc-hora { font-size: 10.5px; color: var(--texto-fraco); text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
 .mc-hora--total { text-align: left; padding-left: 6px; }
 .mc-dia { display: flex; align-items: center; font-size: 12px; font-weight: 600; color: var(--texto-suave); }
+/*
+ * Paleta do mapa de calor POR TEMA (6 degraus, pouco -> muito; MapaCalor.jsx
+ * so usa var(--mc-N)). Cada tema tem a sua cara:
+ *   medio      — o azul da marca (o de sempre);
+ *   claro      — calor de sol: ambar -> vermelho (no fundo claro, "mais" e mais escuro);
+ *   full black — brasa: roxo profundo -> amarelo, que brilha sobre o preto.
+ * --mc-barra: totais por dia/hora; --mc-anel: contorno do horario de pico.
+ */
+.mc {
+  --mc-1: #104281; --mc-2: #1c5cab; --mc-3: #2a78d6; --mc-4: #5598e7; --mc-5: #86b6ef; --mc-6: #cde2fb;
+  --mc-barra: rgba(57, 135, 229, 0.55);
+  --mc-anel: rgba(255, 255, 255, 0.85);
+  --mc-brilho: 1;
+}
+:root[data-tema="claro"] .mc {
+  --mc-1: #fdecc4; --mc-2: #fbd07e; --mc-3: #f7a93b; --mc-4: #ee7a24; --mc-5: #d9501b; --mc-6: #a8301a;
+  --mc-barra: rgba(238, 122, 36, 0.55);
+  --mc-anel: #0f172a;
+  /* Brilho some no fundo claro: um pouco mais forte para aparecer. */
+  --mc-brilho: 1.3;
+}
+:root[data-tema="preto"] .mc {
+  --mc-1: #2b0f3f; --mc-2: #5a1766; --mc-3: #992169; --mc-4: #d63a4c; --mc-5: #f77a2b; --mc-6: #ffd45e;
+  --mc-barra: rgba(247, 122, 43, 0.5);
+  --mc-anel: #ffffff;
+  --mc-brilho: 1.2;
+}
+
 .mc-cel { height: 30px; border-radius: 4px; outline: none; transition: transform 0.08s, box-shadow 0.08s; }
+.mc-cel:not(.mc-cel--vazia) { background: var(--cor); }
 .mc-cel--vazia { background: rgba(var(--tinta, 255, 255, 255), 0.035); }
+
+/* Brilho do calor: halo da propria cor, maior quanto mais quente (--calor e o
+   degrau, 3 a 5). Estatico — nada a recalcular por quadro. */
+.mc-cel--quente {
+  position: relative;
+  box-shadow: 0 0 calc((var(--calor) - 2) * 5px * var(--mc-brilho)) color-mix(in srgb, var(--cor) 85%, transparent);
+}
+/* O degrau maximo "respira": o pulso anima so a OPACIDADE de uma camada com o
+   brilho (barato), e so nessas poucas celulas. */
+.mc-cel--brasa::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 calc(18px * var(--mc-brilho)) 2px var(--cor);
+  opacity: 0;
+  pointer-events: none;
+  animation: mc-respirar 2.4s ease-in-out infinite;
+}
+@keyframes mc-respirar { 50% { opacity: 0.85; } }
+@media (prefers-reduced-motion: reduce) {
+  .mc-cel--brasa::after { animation: none; opacity: 0.5; }
+}
+
 .mc-cel:hover, .mc-cel:focus-visible { transform: scale(1.12); box-shadow: 0 0 0 2px var(--painel-solido, #0e1328), 0 0 0 3px var(--texto); z-index: 1; position: relative; }
-.mc-cel--pico { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85); }
+.mc-cel--pico { box-shadow: inset 0 0 0 2px var(--mc-anel), 0 0 calc(16px * var(--mc-brilho)) var(--cor); }
 .mc-total { display: flex; align-items: center; gap: 6px; padding-left: 6px; min-width: 0; overflow: hidden; }
-.mc-total__barra { display: block; height: 8px; border-radius: 0 3px 3px 0; background: rgba(57, 135, 229, 0.55); flex: none; max-width: 50%; }
+.mc-total__barra { display: block; height: 8px; border-radius: 0 3px 3px 0; background: var(--mc-barra); flex: none; max-width: 50%; }
 .mc-total__valor { font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mc-coluna { display: flex; align-items: flex-end; height: 34px; }
-.mc-coluna__barra { display: block; width: 100%; border-radius: 3px 3px 0 0; background: rgba(57, 135, 229, 0.55); }
+.mc-coluna__barra { display: block; width: 100%; border-radius: 3px 3px 0 0; background: var(--mc-barra); }
 .mc-linha--horas .mc-dia { align-items: flex-end; font-size: 10.5px; color: var(--texto-fraco); }
 
 .mc-leituras { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--e2); margin: 0; }
@@ -277,6 +366,8 @@
   /* Mapa de calor no celular: celulas mais baixas, hora sim hora nao no topo
      e o total do dia so em numero (a barrinha nao cabe). */
   .mc-grade { grid-template-columns: 28px repeat(var(--horas), minmax(0, 1fr)) 58px; gap: 2px; }
+  .mc-grade--mes,
+  .mc-grade--ano { grid-template-columns: 46px repeat(var(--horas), minmax(0, 1fr)) 58px; }
   .mc-cel { height: 24px; border-radius: 3px; }
   .mc-hora { font-size: 9.5px; }
   .mc-hora--impar { visibility: hidden; }
@@ -381,8 +472,44 @@
 .dash--animar .dash-mini { animation: dash-encaixar 480ms var(--dash-curva) calc(var(--b, 0ms) + 380ms) backwards; }
 .dash--animar .dash-mini + .dash-mini { animation-delay: calc(var(--b, 0ms) + 460ms); }
 
-/* Mapa de calor: acende numa onda diagonal (--o = dia + hora) */
-.dash--animar .mc-cel { animation: dash-acender 380ms var(--dash-mola) calc(var(--b, 0ms) + 150ms + var(--o, 0) * 16ms) backwards; }
+/* Mapa de calor: monta do bloco mais QUENTE ao mais frio (--o = posicao na
+   fila, --passo = intervalo; ambos do MapaCalor.jsx). Trocar a metrica recria
+   a grade e a montagem toca de novo, ja sem esperar (--b: 0ms). */
+/*
+ * Montagem em tres fases a cada troca (useFaseDeMontagem, MapaCalor.jsx):
+ *   1. andaime  — rotulos de colunas e linhas entram em sequencia e as
+ *                 celulas surgem VAZIAS, numa onda rapida do canto (--pos);
+ *   2. enchendo — a cor e o brilho escorrem para dentro das celulas, do mais
+ *                 quente ao mais frio (--o), por transicao de cor;
+ *   3. acabamento — barras e numeros dos totais, e as leituras embaixo.
+ */
+.dash--animar .mc-hora { animation: mc-rotulo-cima 360ms var(--dash-curva) calc(var(--b, 0ms) + var(--c, 0) * 22ms) backwards; }
+.dash--animar .mc-dia { animation: mc-rotulo-lado 360ms var(--dash-curva) calc(var(--b, 0ms) + 60ms + var(--l, 0) * 35ms) backwards; }
+.dash--animar .mc-cel { animation: mc-esqueleto 320ms var(--dash-curva) calc(var(--b, 0ms) + 80ms + var(--pos, 0) * 14ms) backwards; }
+@keyframes mc-rotulo-cima { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes mc-rotulo-lado { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+@keyframes mc-esqueleto { from { opacity: 0; transform: scale(0.82); } to { opacity: 1; transform: none; } }
+
+/* Fase 1: ainda sem cor nem brilho — so o esqueleto. */
+.mc-grade--vazio .mc-cel:not(.mc-cel--vazia) { background: rgba(var(--tinta, 255, 255, 255), 0.035); box-shadow: none; }
+.mc-grade--vazio .mc-cel--brasa::after { opacity: 0; animation: none; }
+/* Fase 2: a cor chega; o brilho vem logo atras, um pouco mais devagar. */
+.mc-grade--enchendo .mc-cel:not(.mc-cel--vazia) {
+  transition:
+    background-color 520ms ease-out calc(var(--b, 0ms) + 260ms + var(--o, 0) * var(--passo, 16ms)),
+    box-shadow 700ms ease-out calc(var(--b, 0ms) + 360ms + var(--o, 0) * var(--passo, 16ms));
+}
+/* Fase 3: os totais por ultimo. */
+.dash--animar .mc-total__valor { animation: dash-surgir 360ms var(--dash-curva) calc(var(--b, 0ms) + 700ms + var(--l, 0) * 40ms) backwards; }
+.dash--animar .mc-coluna__barra {
+  transform-origin: 50% 100%;
+  animation: dash-crescer-y 560ms var(--dash-curva) calc(var(--b, 0ms) + 750ms) backwards;
+}
+.dash--animar .mc-leituras > div { animation: dash-surgir 420ms var(--dash-curva) calc(var(--b, 0ms) + 900ms) backwards; }
+.dash--animar .mc-leituras > div:nth-child(2) { animation-delay: calc(var(--b, 0ms) + 960ms); }
+.dash--animar .mc-leituras > div:nth-child(3) { animation-delay: calc(var(--b, 0ms) + 1020ms); }
+.dash--animar .mc-leituras > div:nth-child(4) { animation-delay: calc(var(--b, 0ms) + 1080ms); }
+.dash--animar .mc-leituras > div:nth-child(5) { animation-delay: calc(var(--b, 0ms) + 1140ms); }
 .dash--animar .mc-total__barra {
   transform-origin: 0 50%;
   animation: dash-crescer-x 600ms var(--dash-curva) calc(var(--b, 0ms) + 500ms) backwards;

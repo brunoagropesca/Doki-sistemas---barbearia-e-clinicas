@@ -8,7 +8,8 @@
 .notificacoes {
   position: fixed;
   right: var(--e4);
-  bottom: var(--e4);
+  /* Com o botao do Hades no canto, os avisos sobem para ficar acima dele. */
+  bottom: calc(var(--e4) + var(--hades-espaco, 0px));
   z-index: 2147483000;
   display: flex;
   flex-direction: column;

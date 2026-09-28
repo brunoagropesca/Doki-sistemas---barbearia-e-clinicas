@@ -5,7 +5,7 @@ import { api } from '../lib/api.js';
 import { Aviso, Botao, Carregando, Entrada } from '../componentes/ui.jsx';
 import { Icone } from '../componentes/Icone.jsx';
 import { BarraParte, BarrasH, ColunasEmpilhadas, Legenda, Medidor, duracao, numero, porcento, reais, reaisCurto } from './dashboard/Graficos.jsx';
-import { MapaCalor } from './dashboard/MapaCalor.jsx';
+import { MapaCalor, TituloCalor } from './dashboard/MapaCalor.jsx';
 import { AnimarDashboard, useAnimarDashboard, useContagem, usePreferenciaAnimar } from './dashboard/animacao.js';
 import './dashboard/Dashboard.css';
 
@@ -369,8 +369,18 @@ const rotuloBaldeLongo = (granularidade) => (b) => {
   return data.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' });
 };
 
+/** O que cada regra do mapa de calor mostra (subtitulo do bloco). */
+const SUB_CALOR = {
+  semana: 'Quando o movimento acontece na semana.',
+  mes: 'Começo, meio ou fim do mês: quando o movimento acontece.',
+  ano: 'Os meses mais fortes do ano, e em que dias.'
+};
+const EIXOS_CALOR = { semana: 'Dia da semana × hora', mes: 'Semana do mês × dia da semana', ano: 'Mês × dia da semana' };
+
 function VisaoGeral({ d }) {
   const g = d.periodo.granularidade;
+  // Regra do mapa de calor: semana, mes ou ano (seta ao lado do titulo).
+  const [visaoCalor, setVisaoCalor] = useState('semana');
   const top = d.servicos.slice(0, 5);
   const temIncompleto = d.serie.some((b) => b.parcial);
   return (
@@ -397,8 +407,12 @@ function VisaoGeral({ d }) {
         />
       </Bloco>
 
-      <Bloco largo titulo="Mapa de calor da semana" sub="Quando o movimento acontece. Detalhes na aba Horários.">
-        <MapaCalor calor={d.calor} />
+      <Bloco
+        largo
+        titulo={<TituloCalor visao={visaoCalor} aoTrocar={setVisaoCalor} />}
+        sub={`${SUB_CALOR[visaoCalor]} Detalhes na aba Horários.`}
+      >
+        <MapaCalor calor={d.calor} visao={visaoCalor} diasPeriodo={d.periodo.dias} />
       </Bloco>
 
       <div className="dash-trio">
@@ -435,10 +449,15 @@ function VisaoGeral({ d }) {
 }
 
 function Horarios({ d }) {
+  const [visaoCalor, setVisaoCalor] = useState('semana');
   return (
     <div className="dash-grade">
-      <Bloco largo titulo="Mapa de calor" sub="Dia da semana × hora. Passe o mouse numa célula para ver o número exato.">
-        <MapaCalor calor={d.calor} detalhado />
+      <Bloco
+        largo
+        titulo={<TituloCalor visao={visaoCalor} aoTrocar={setVisaoCalor} />}
+        sub={`${EIXOS_CALOR[visaoCalor]}. Passe o mouse numa célula para ver o número exato.`}
+      >
+        <MapaCalor calor={d.calor} detalhado visao={visaoCalor} diasPeriodo={d.periodo.dias} />
       </Bloco>
       <Bloco titulo="Movimento por dia da semana" sub="Atendimentos concluídos">
         <BarrasH

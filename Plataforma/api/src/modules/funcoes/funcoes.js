@@ -92,6 +92,13 @@ export const FUNCOES = [
     desligada: 'Some o botão "Mandar aviso" e ninguém recebe mais o popup (os pendentes deixam de aparecer).'
   },
   {
+    chave: 'agente_hades',
+    grupo: 'telas',
+    titulo: 'Assistente administrativo (Hades)',
+    descricao: 'O botão flutuante do dono: conversa sobre o negócio, tendências do ramo e sugestões de promoção (chave de IA própria).',
+    desligada: 'Some o botão e a configuração do Hades; a API dele deixa de responder. Nada muda no atendimento.'
+  },
+  {
     chave: 'metricas_profissional',
     grupo: 'telas',
     titulo: 'Métricas do profissional',

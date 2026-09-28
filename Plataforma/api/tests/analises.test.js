@@ -129,6 +129,27 @@ describe('dashboard do dono', () => {
     assert.ok(r.calor.picos.atendimentos.rotulo.includes('h'));
   });
 
+  it('mapas do mes (semana do mes x dia) e do ano (mes x dia): mesmo total, celula certa', async () => {
+    const r = (await pegar()).json();
+    const ontem = menosDias(ctx.hoje, 1);
+    const dia = new Date(`${ontem}T12:00:00Z`).getUTCDay();
+    const { mes, ano } = r.calor.visoes;
+    assert.equal(mes.linhas.length, 5);
+    assert.equal(ano.linhas.length, 12);
+    assert.equal(mes.atendimentos[0].length, 7);
+    // O atendimento de ontem cai na semana do mes e no mes certos.
+    const semanaDoMes = Math.min(4, Math.floor((Number(ontem.slice(8, 10)) - 1) / 7));
+    assert.ok(mes.atendimentos[semanaDoMes][dia] >= 1);
+    assert.ok(ano.atendimentos[Number(ontem.slice(5, 7)) - 1][dia] >= 1);
+    // As tres visoes somam o mesmo total do periodo.
+    const total = r.calor.atendimentos.flat().reduce((s, v) => s + v, 0);
+    for (const v of [mes, ano]) {
+      assert.equal(v.atendimentos.flat().reduce((s, x) => s + x, 0), total);
+      assert.equal(v.porLinha.atendimentos.reduce((s, x) => s + x, 0), total);
+      assert.equal(v.porColuna.atendimentos.reduce((s, x) => s + x, 0), total);
+    }
+  });
+
   it('profissional: faturamento, clientes e ocupacao da jornada', async () => {
     const r = (await pegar()).json();
     const p = r.profissionais.find((x) => x.id === ctx.prof.id);

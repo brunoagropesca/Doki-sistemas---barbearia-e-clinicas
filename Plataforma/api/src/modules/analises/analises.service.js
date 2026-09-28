@@ -398,6 +398,54 @@ export async function relatorio(tenantId, filtros = {}) {
     calor.vendas[l.dia][l.hora] += v.quantidade;
   }
 
+  // --------------------------------------------------------------------------
+  // MAPAS DE CALOR DO MES E DO ANO (o seletor ao lado do titulo, na tela)
+  //   mes: semana do mes (dias 1-7, 8-14, 15-21, 22-28, 29-31) x dia da semana
+  //        -> "o comeco do mes (salario) enche mais que o fim?"
+  //   ano: mes (jan-dez) x dia da semana -> sazonalidade, e em que dias.
+  // Mesmos registros e metricas do mapa da semana; colunas por dia da semana
+  // (0 = domingo; a tela ordena segunda primeiro).
+  // --------------------------------------------------------------------------
+  const VISOES = {
+    mes: { linhas: ['1 a 7', '8 a 14', '15 a 21', '22 a 28', '29 a 31'], linhaDe: (data) => Math.min(4, Math.floor((Number(data.slice(8, 10)) - 1) / 7)) },
+    ano: { linhas: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'], linhaDe: (data) => Number(data.slice(5, 7)) - 1 }
+  };
+  const visoes = {};
+  for (const [nome, v] of Object.entries(VISOES)) {
+    const nova = () => Array.from({ length: v.linhas.length }, () => Array(7).fill(0));
+    const m = { atendimentos: nova(), faturamento: nova(), faltas: nova(), mensagens: nova(), vendas: nova() };
+    for (const h of historico) {
+      const l = v.linhaDe(h.dataLocal);
+      if (h.resultado === 'concluido') {
+        m.atendimentos[l][h.diaSemana] += 1;
+        m.faturamento[l][h.diaSemana] += h.valorCentavos;
+      } else {
+        m.faltas[l][h.diaSemana] += 1;
+      }
+    }
+    for (const e of entradas) {
+      const l = local(e.createdAt);
+      m.mensagens[v.linhaDe(l.data)][l.dia] += 1;
+    }
+    for (const venda of vendas) {
+      const l = horaVenda.get(venda.id);
+      m.faturamento[v.linhaDe(l.data)][l.dia] += venda.totalCentavos;
+      m.vendas[v.linhaDe(l.data)][l.dia] += venda.quantidade;
+    }
+    const picoDe = (mat) => {
+      let melhor = null;
+      mat.forEach((linha, li) => linha.forEach((val, dia) => { if (val > 0 && (!melhor || val > melhor.valor)) melhor = { linha: li, coluna: dia, valor: val }; }));
+      return melhor;
+    };
+    visoes[nome] = {
+      linhas: v.linhas,
+      ...m,
+      picos: Object.fromEntries(Object.entries(m).map(([k, mat]) => [k, picoDe(mat)])),
+      porLinha: Object.fromEntries(Object.entries(m).map(([k, mat]) => [k, mat.map((linha) => linha.reduce((a, b) => a + b, 0))])),
+      porColuna: Object.fromEntries(Object.entries(m).map(([k, mat]) => [k, Array.from({ length: 7 }, (_, d) => mat.reduce((a, linha) => a + linha[d], 0))]))
+    };
+  }
+
   const pico = (m) => {
     let melhor = null;
     m.forEach((linha, d) => linha.forEach((v, h) => { if (v > 0 && (!melhor || v > melhor.valor)) melhor = { dia: d, hora: h, valor: v }; }));
@@ -699,7 +747,8 @@ export async function relatorio(tenantId, filtros = {}) {
       ...calor,
       picos: Object.fromEntries(Object.entries(calor).map(([k, m]) => [k, pico(m)])),
       porDiaSemana: Object.fromEntries(Object.entries(calor).map(([k, m]) => [k, porDiaSemana(m)])),
-      porHora: Object.fromEntries(Object.entries(calor).map(([k, m]) => [k, porHora(m)]))
+      porHora: Object.fromEntries(Object.entries(calor).map(([k, m]) => [k, porHora(m)])),
+      visoes
     },
     servicos,
     categorias,

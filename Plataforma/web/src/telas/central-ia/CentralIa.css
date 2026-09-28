@@ -333,6 +333,16 @@
 .ci-slider--aquiles { accent-color: var(--cor-aquiles); }
 .ci-botao-aquiles { background: linear-gradient(135deg, #ea580c, var(--cor-aquiles)) !important; border-color: rgba(245, 158, 11, 0.5) !important; }
 /* Duas colunas quando cabem, uma quando nao: mede o painel, nao a janela. */
+/* Hades: brasa (roxo profundo -> laranja), a identidade do botao flutuante. */
+.ci-elenco__item--hades { --cor: #f0621f; }
+.ci-agente--hades { border-top-color: #f0621f; }
+.ci-selo--hades { color: var(--tom-laranja, #fdba74); background: rgba(240, 98, 31, 0.14); border-color: rgba(240, 98, 31, 0.35); }
+.ci-modelo--hades { background: linear-gradient(135deg, rgba(59, 15, 92, 0.18), rgba(240, 98, 31, 0.12)); border: 1px solid rgba(240, 98, 31, 0.3); }
+.ci-slider--hades { accent-color: #f0621f; }
+.ci-agente--hades .ci-permissao input { accent-color: #f0621f; }
+.ci-botao-hades { background: linear-gradient(135deg, #8a1c6b, #f0621f) !important; border-color: rgba(240, 98, 31, 0.5) !important; }
+.ci-hades__chave { display: flex; flex-direction: column; gap: var(--e2); margin-bottom: var(--e3); }
+
 .ci-aquiles__colunas { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: var(--e5); }
 .ci-exemplos { display: flex; flex-direction: column; gap: var(--e2); }
 .ci-exemplo { display: flex; gap: var(--e2); align-items: flex-start; }

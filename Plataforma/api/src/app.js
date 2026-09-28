@@ -10,6 +10,7 @@ import { apenas, pluginAutenticacao } from './http/plugins/autenticacao.js';
 import { rotasAuth } from './modules/auth/auth.routes.js';
 import { rotasLeads } from './modules/leads/leads.routes.js';
 import { rotasAgenda } from './modules/agenda/agenda.routes.js';
+import { rotasHades } from './modules/hades/hades.routes.js';
 import { rotasCatalogo } from './modules/catalogo/catalogo.routes.js';
 import { rotasConversas } from './modules/conversas/conversas.routes.js';
 import { rotasIa } from './modules/ia/ia.routes.js';
@@ -166,6 +167,8 @@ export async function criarApp({ logger: loggerCustomizado } = {}) {
   await app.register(rotasEmpresa);
   await app.register(rotasAnalises);
   await app.register(rotasDemonstracao);
+  // Hades: a parte do resto (config propria, chave propria). Ver modules/hades.
+  await app.register(rotasHades);
 
   return app;
 }

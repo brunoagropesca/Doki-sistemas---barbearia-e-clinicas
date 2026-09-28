@@ -4,6 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import { Aviso, AreaTexto, Botao, Campo, Carregando, Entrada, Selecao } from '../../componentes/ui.jsx';
 import { CartaoAquiles } from './CartaoAquiles.jsx';
+import { CartaoHades } from './CartaoHades.jsx';
+import { useAuth } from '../../lib/autenticacao.jsx';
+import { useFuncoes } from '../../lib/funcoes.jsx';
 import { AvaliacaoGoogle } from './AvaliacaoGoogle.jsx';
 
 /**
@@ -81,6 +84,11 @@ export function Personas() {
   const cfg = useQuery({ queryKey: ['atendimento'], queryFn: () => api.get('/api/atendimento/configuracao') });
   const agentes = useQuery({ queryKey: ['ia', 'agentes'], queryFn: () => api.get('/api/ia/agentes') });
   const provedores = useQuery({ queryKey: ['ia', 'provedores'], queryFn: () => api.get('/api/ia/provedores') });
+  // Hades: a parte (config propria), so para o dono/DEV e se o DEV nao o desligou.
+  const { podeAcessar } = useAuth();
+  const { ligada } = useFuncoes();
+  const hadesVisivel = podeAcessar('owner') && ligada('agente_hades');
+  const hades = useQuery({ queryKey: ['hades', 'config'], queryFn: () => api.get('/api/hades/config'), enabled: hadesVisivel });
 
   const salvarCfg = useMutation({
     mutationFn: (dados) => api.put('/api/atendimento/configuracao', dados),
@@ -91,7 +99,7 @@ export function Personas() {
   // voltam para o mesmo agente. Os outros parametros (a aba) sao preservados.
   const [params, setParams] = useSearchParams();
   const pedido = params.get('agente');
-  const escolhido = ELENCO.some((e) => e.chave === pedido) ? pedido : 'atendente';
+  const escolhido = ELENCO.some((e) => e.chave === pedido) && (pedido !== 'hades' || hadesVisivel) ? pedido : 'atendente';
   const escolher = (chave) => {
     const novos = new URLSearchParams(params);
     novos.set('agente', chave);
@@ -114,6 +122,11 @@ export function Personas() {
   const sofia = agentes.data.agentes.find((a) => a.chave === 'atendente');
   const atena = agentes.data.agentes.find((a) => a.chave === 'atena');
   const aquiles = agentes.data.agentes.find((a) => a.chave === 'aquiles');
+  const hadesCfg = hadesVisivel ? hades.data?.config : null;
+  // O elenco le uma lista so: o Hades entra nela como "agente" (sem ser um).
+  const elenco = hadesCfg
+    ? [...agentes.data.agentes, { chave: 'hades', ativo: hadesCfg.ativo, resumoModelo: `Gemini próprio · ${hadesCfg.temChave ? (hadesCfg.modelo ?? 'automático').replace('models/', '') : 'sem chave'}` }]
+    : agentes.data.agentes;
 
   return (
     <div className="coluna">
@@ -130,7 +143,7 @@ export function Personas() {
         </header>
 
         <div className="ci-agentes-layout">
-          <Elenco agentes={agentes.data.agentes} escolhido={escolhido} aoEscolher={escolher} />
+          <Elenco agentes={elenco} escolhido={escolhido} aoEscolher={escolher} />
 
           {/* Os tres ficam montados e so mudam de visibilidade: o que foi digitado
               num agente nao se perde ao olhar outro (o formulario mora em cada cartao). */}
@@ -154,6 +167,11 @@ export function Personas() {
             {aquiles && (
               <div role="tabpanel" id="ci-painel-aquiles" aria-labelledby="ci-elenco-aquiles" hidden={escolhido !== 'aquiles'}>
                 <CartaoAquiles agente={aquiles} provedores={provedores.data?.provedores ?? []} />
+              </div>
+            )}
+            {hadesCfg && (
+              <div role="tabpanel" id="ci-painel-hades" aria-labelledby="ci-elenco-hades" hidden={escolhido !== 'hades'}>
+                <CartaoHades config={hadesCfg} />
               </div>
             )}
           </div>
@@ -299,7 +317,9 @@ export function Personas() {
 const ELENCO = [
   { chave: 'atendente', icone: '👩‍💼', apelido: 'Sofia', funcao: 'Atende o cliente no WhatsApp', cor: 'sofia' },
   { chave: 'atena', icone: '📚', apelido: 'Atena', funcao: 'Consulta e altera agenda e dados', cor: 'atena' },
-  { chave: 'aquiles', icone: '🏹', apelido: 'Aquiles', funcao: 'Escreve as mensagens das campanhas', cor: 'aquiles' }
+  { chave: 'aquiles', icone: '🏹', apelido: 'Aquiles', funcao: 'Escreve as mensagens das campanhas', cor: 'aquiles' },
+  // So aparece para o dono/DEV (a lista recebe o Hades so nesse caso).
+  { chave: 'hades', icone: '🔥', apelido: 'Hades', funcao: 'Assistente administrativo do dono', cor: 'hades' }
 ];
 
 /** "groq:qwen/qwen3.8-27b" -> "Groq · qwen/qwen3.8-27b" */
@@ -315,7 +335,10 @@ function Elenco({ agentes, escolhido, aoEscolher }) {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
     e.preventDefault();
     const passo = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1;
-    const proximo = ELENCO[(i + passo + ELENCO.length) % ELENCO.length];
+    // So entre os que aparecem (o Hades nao aparece para todos).
+    const visiveis = ELENCO.filter((x) => agentes.some((a) => a.chave === x.chave));
+    const atual = visiveis.findIndex((x) => x.chave === ELENCO[i].chave);
+    const proximo = visiveis[(atual + passo + visiveis.length) % visiveis.length];
     aoEscolher(proximo.chave);
     document.getElementById(`ci-elenco-${proximo.chave}`)?.focus();
   };
@@ -343,7 +366,7 @@ function Elenco({ agentes, escolhido, aoEscolher }) {
             <span className="ci-elenco__texto">
               <strong>{item.apelido}</strong>
               <span>{item.funcao}</span>
-              <small>{resumoDoModelo(agente.modeloPreferido)}</small>
+              <small>{agente.resumoModelo ?? resumoDoModelo(agente.modeloPreferido)}</small>
             </span>
             <span className={`ci-elenco__estado ${agente.ativo ? 'ci-elenco__estado--ligado' : ''}`}>
               <span aria-hidden="true" className="ci-elenco__ponto" />
