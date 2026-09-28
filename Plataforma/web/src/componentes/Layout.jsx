@@ -12,6 +12,7 @@ import { FaixaLicenca } from './Licenca.jsx';
 import { ConviteInstalar, useInstalar } from './InstalarApp.jsx';
 import { Icone, Raio } from './Icone.jsx';
 import { SeletorTema } from './SeletorTema.jsx';
+import { SeletorIdioma } from './SeletorIdioma.jsx';
 import { Hades } from './Hades.jsx';
 import { useEmpresa } from '../lib/empresa.js';
 import './Layout.css';
@@ -61,6 +62,7 @@ const SECOES = [
     itens: [
       { para: '/ia', rotulo: 'Inteligência Artificial', icone: 'ia', cargoMinimo: 'admin', tambem: ['/configuracoes'] },
       { para: '/conexoes', rotulo: 'Conexões', icone: 'conexoes', cargoMinimo: 'admin' },
+      { para: '/backups', rotulo: 'Backups', icone: 'backups', cargoMinimo: 'owner' },
       { para: '/licenca', rotulo: 'Licença', icone: 'licenca', cargoMinimo: 'owner' }
     ]
   },
@@ -209,6 +211,7 @@ export function Layout() {
           </span>
         )}
         <h1 className="layout__titulo">{tela.titulo}</h1>
+        <SeletorIdioma />
         <NavLink to="/perfil" className="layout__eu" aria-label="Meu perfil">
           <span className="menu__avatar">
             {usuario?.avatar ? <img src={usuario.avatar} alt="" /> : (usuario?.nome?.[0]?.toUpperCase() ?? '?')}
@@ -343,11 +346,18 @@ export function Layout() {
         </div>
       </aside>
 
-      <main className="conteudo">
-        {usuario?.demonstracao && <FaixaDemonstracao />}
-        <FaixaLicenca />
-        <Outlet />
-      </main>
+      {/* No computador, a faixa de cima guarda o idioma (canto superior
+          direito). No celular a faixa some e o idioma vai na barra do topo. */}
+      <div className="area">
+        <div className="area__topo">
+          <SeletorIdioma />
+        </div>
+        <main className="conteudo">
+          {usuario?.demonstracao && <FaixaDemonstracao />}
+          <FaixaLicenca />
+          <Outlet />
+        </main>
+      </div>
 
       {/* Barra de abas — so no celular. */}
       <div className="layout__rodape">

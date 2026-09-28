@@ -70,3 +70,15 @@ export const acaoEmLoteSchema = z
       d.iaAtiva !== undefined,
     'Escolha o que fazer com os contatos selecionados.'
   );
+
+/**
+ * Correcao da memoria da Sofia pela ficha do contato. As listas vem inteiras
+ * (a tela edita e apaga item a item); `esquecer` sao fatos de agenda que o
+ * atendente mandou a Sofia deixar de lado.
+ */
+const itemDeMemoria = z.string().trim().min(1).max(80);
+export const corrigirMemoriaSchema = z.object({
+  preferencias: z.array(itemDeMemoria).max(5).optional(),
+  observacoes: z.array(itemDeMemoria).max(3).optional(),
+  esquecer: z.array(z.enum(['servicoFrequente', 'profissionalPreferido', 'ultimaVisita'])).max(3).default([])
+});

@@ -8,6 +8,7 @@ import { ID } from '../../core/ids.js';
 import { comContexto } from '../../core/logger.js';
 import { FUSO_PADRAO, dataNoFuso, diaDaSemana, partesNoFuso, somarDias } from '../../core/datetime.js';
 import { formatarBRL } from '../../core/money.js';
+import { atualizarFatosDaAgenda } from '../leads/memoria.js';
 
 const log = comContexto({ modulo: 'historico' });
 
@@ -106,6 +107,10 @@ export async function registrarDesfecho(tenantId, appointmentId) {
       })
       .onConflictDoNothing({ target: serviceHistory.appointmentId })
       .returning({ id: serviceHistory.id });
+
+    // O horario costuma acontecer dias depois de a conversa fechar: e aqui que
+    // a ficha do cliente fica sabendo da visita (sem IA, so o banco).
+    if (inseridas.length > 0 && concluido) await atualizarFatosDaAgenda(tenantId, a.leadId);
 
     return inseridas.length > 0;
   } catch (err) {

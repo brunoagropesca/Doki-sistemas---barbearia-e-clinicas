@@ -177,6 +177,9 @@ describe('funil: as regras que movem o cartao', () => {
 });
 
 describe('resumo automatico ao finalizar', () => {
+  // Depois do resumo vem a chamada curta da ficha do cliente (leads/memoria.js):
+  // aqui contamos so as chamadas do RESUMO.
+  const doResumo = (falso) => falso.chamadas.filter((c) => c.systemPrompt.includes('resumo final'));
   const finalizarComIa = async (id, texto) => {
     const conv = await import('../src/modules/conversas/conversas.service.js');
     const falso = provedorFalso([{ texto }]);
@@ -192,7 +195,7 @@ describe('resumo automatico ao finalizar', () => {
 
     assert.equal(conversa.status, 'finalizada');
     assert.match(conversa.resumo, /corte na segunda/i);
-    assert.equal(falso.chamadas.length, 1, 'uma unica chamada de IA');
+    assert.equal(doResumo(falso).length, 1, 'uma unica chamada de IA para o resumo');
   });
 
   it('o resumo digitado por gente tem preferencia e nao gasta IA', async () => {
@@ -202,8 +205,9 @@ describe('resumo automatico ao finalizar', () => {
 
     await conv.finalizar(tenantId, id, { resumo: 'Resumo do atendente.' }, { ...ctx.usuario }, { provedores: falso.provedores });
 
+    await conv.aguardarResumos();
     assert.equal((await conv.obter(tenantId, id)).resumo, 'Resumo do atendente.');
-    assert.equal(falso.chamadas.length, 0);
+    assert.equal(doResumo(falso).length, 0, 'o resumo nao gasta IA (a ficha le o resumo do atendente)');
   });
 
   it('o resumo vai para a OS junto com o encerramento', async () => {

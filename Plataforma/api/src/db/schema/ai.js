@@ -193,6 +193,36 @@ export const aiCalls = sqliteTable(
 );
 
 /**
+ * Totais MENSAIS das chamadas de IA antigas.
+ *
+ * `ai_calls` guarda uma linha por chamada e e a tabela que mais cresce. O
+ * detalhe fica ~90 dias (depurar, ver o que falhou); passado disso, cada mes
+ * INTEIRO vira uma linha por combinacao (origem, agente, provedor, modelo) —
+ * os relatorios de uso e custo por mes e por ANO continuam exatos.
+ * Ver modules/ia/uso-antigo.js.
+ */
+export const aiCallsMensais = sqliteTable(
+  'ai_calls_mensais',
+  {
+    tenantId: colunaTenant(),
+    /** 'AAAA-MM', no fuso da empresa (o mesmo mes que o relatorio mostra). */
+    mes: text('mes').notNull(),
+    origem: text('origem').notNull(),
+    /** '' quando a chamada nao tinha agente (a chave unica nao aceita nulo). */
+    agentKey: text('agent_key').notNull().default(''),
+    provedor: text('provedor').notNull(),
+    modelo: text('modelo').notNull(),
+    chamadas: integer('chamadas').notNull().default(0),
+    sucessos: integer('sucessos').notNull().default(0),
+    tokensEntrada: integer('tokens_entrada').notNull().default(0),
+    tokensSaida: integer('tokens_saida').notNull().default(0),
+    /** Soma da latencia das chamadas COM sucesso: media = soma / sucessos. */
+    latenciaSomaSucessoMs: integer('latencia_soma_sucesso_ms').notNull().default(0)
+  },
+  (t) => [uniqueIndex('uq_aicalls_mensais').on(t.tenantId, t.mes, t.origem, t.agentKey, t.provedor, t.modelo)]
+);
+
+/**
  * Configuracoes da empresa, em formato chave-valor.
  *
  * Para preferencias que nao merecem coluna propria: modo de atendimento,

@@ -7,6 +7,7 @@ import { anunciarCascata } from './ai/cascade.js';
 import { db } from './db/client.js';
 import { tenants } from './db/schema/tenants.js';
 import { fecharBanco, inicializarBanco } from './db/client.js';
+import { ativarAutoVacuumIncremental } from './db/manutencao.js';
 import { rodarMigrations } from './db/migrate.js';
 import { limparSessoesExpiradas } from './modules/auth/auth.repo.js';
 import { removerDevsAbandonados } from './modules/auth/auth.service.js';
@@ -53,6 +54,10 @@ async function principal() {
   // alguem ter esquecido de rodar a migration.
   await rodarMigrations();
   await inicializarBanco();
+  // Uma vez por banco: liga o auto_vacuum incremental (com o VACUUM que a troca
+  // exige), para o arquivo voltar a encolher depois de exclusoes. ANTES de
+  // abrir a porta: o VACUUM trava o banco enquanto roda. Ver db/manutencao.js.
+  await ativarAutoVacuumIncremental().catch((err) => logger.warn({ err }, 'Nao foi possivel ligar o auto_vacuum incremental'));
 
   const removidas = await limparSessoesExpiradas();
   if (removidas > 0) logger.info({ removidas }, 'Sessoes expiradas removidas');

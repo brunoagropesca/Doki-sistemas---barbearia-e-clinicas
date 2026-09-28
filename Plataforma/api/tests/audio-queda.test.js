@@ -70,6 +70,18 @@ describe('conversao do audio gravado no navegador', () => {
     assert.equal(r.statusCode, 201, r.body);
   });
 
+  it('sai em 32 kbps mono: pelo menos 3x menor que o que o navegador gravou (antes, o remux mantinha o tamanho)', async (t) => {
+    const { paraOggOpus } = await import('../src/core/audio.js');
+    const doNavegador = webmDeMentira({ segundos: 5, kbps: 128 }); // como o Chrome grava
+    const inicio = Date.now();
+    const ogg = await paraOggOpus(doNavegador);
+    const ms = Date.now() - inicio;
+    t.diagnostic(`5 s de audio: ${doNavegador.length} bytes do navegador -> ${ogg.length} bytes (${ms} ms)`);
+    assert.equal(ogg.subarray(0, 4).toString(), 'OggS');
+    assert.ok(ogg.includes('OpusHead'));
+    assert.ok(ogg.length * 3 <= doNavegador.length, `${ogg.length} x 3 > ${doNavegador.length}`);
+  });
+
   it('varios audios ao mesmo tempo: nenhum sai cortado nem falha', async () => {
     // Com o fluent-ffmpeg, 60 simultaneos davam 15 cortados (como sucesso) e
     // 27 "Output stream closed": o "fim" vinha antes de a saida chegar inteira.

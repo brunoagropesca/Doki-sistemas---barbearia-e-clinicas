@@ -56,6 +56,15 @@ export const leads = sqliteTable(
     ultimoContatoEm: instante('ultimo_contato_em'),
 
     /**
+     * O que a Sofia LEMBRA deste cliente entre uma conversa e outra: servico de
+     * sempre, profissional preferido, ultima visita, preferencias ditas por ele.
+     * Memoria DESTILADA (poucas linhas), nao historico — ver leads/memoria.js.
+     * Nulo = cliente sem ficha ainda. (Sem NOT NULL: a coluna entra numa tabela
+     * que ja tem clientes.)
+     */
+    memoria: text('memoria', { mode: 'json' }),
+
+    /**
      * Cliente pediu pra nao receber mais campanha.
      *
      * Isto nao e enfeite: e a diferenca entre marketing e perseguicao, e o

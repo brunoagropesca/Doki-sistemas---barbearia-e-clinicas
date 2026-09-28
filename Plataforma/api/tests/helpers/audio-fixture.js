@@ -12,10 +12,12 @@ import ffmpegBin from 'ffmpeg-static';
  *
  * Gerado uma vez por arquivo de teste (a geracao leva ~100ms) e reaproveitado.
  */
-export function webmDeMentira({ segundos = 1 } = {}) {
+export function webmDeMentira({ segundos = 1, kbps } = {}) {
+  // `kbps`: o Chrome grava a ~128; sem ele, vale o padrao do ffmpeg.
+  const taxa = kbps ? ['-b:a', `${kbps}k`] : [];
   return execFileSync(
     ffmpegBin,
-    ['-f', 'lavfi', '-i', `sine=frequency=440:duration=${segundos}`, '-c:a', 'libopus', '-f', 'webm', 'pipe:1'],
+    ['-f', 'lavfi', '-i', `sine=frequency=440:duration=${segundos}`, '-c:a', 'libopus', ...taxa, '-f', 'webm', 'pipe:1'],
     { maxBuffer: 10 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] }
   );
 }

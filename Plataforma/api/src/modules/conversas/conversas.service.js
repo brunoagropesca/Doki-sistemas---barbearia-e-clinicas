@@ -21,6 +21,7 @@ import { escopoDe, obterConfiguracao as configEquipe, veTudo } from '../equipe/e
 import { escolherAtendente } from '../equipe/distribuidor.js';
 import { atenaPermite } from '../../ai/permissoes.js';
 import { gerarResumoFinal } from '../../ai/resumo.js';
+import { atualizarMemoria } from '../leads/memoria.js';
 import { agendarPedidoDeAvaliacao } from '../../automacao/avaliacaoGoogle.js';
 import * as repo from './conversas.repo.js';
 import { criar as criarNotificacoes, fecharDaConversa as fecharNotificacoes } from '../notificacoes/notificacoes.repo.js';
@@ -847,7 +848,10 @@ export async function finalizar(tenantId, id, { resumo } = {}, usuario, opcoes =
   );
 
   // Sem await: a resposta ao atendente nao espera a IA.
-  if (resumoPelaIa) agendarResumo(tenantId, id, linha.leadNome, opcoes.provedores ?? null);
+  const resumindo = resumoPelaIa ? agendarResumo(tenantId, id, linha.leadNome, opcoes.provedores ?? null) : null;
+  // A ficha do cliente (o que a Sofia lembra na PROXIMA conversa) vem depois
+  // do resumo: as preferencias saem dele. Tambem sem await.
+  agendarMemoria(tenantId, id, linha.conversa.leadId, resumindo, opcoes.provedores ?? null);
   // Avaliacao do Google (funcao da Sofia): decide sozinha se manda — desligada,
   // sem link ou cliente frustrado, nao manda. Tambem sem await.
   if (opcoes.pedirAvaliacao !== false) agendarPedidoDeAvaliacao(tenantId, id, { provedores: opcoes.provedores ?? null });
@@ -900,6 +904,24 @@ function agendarResumo(tenantId, id, leadNome, provedores) {
     }
   })();
 
+  resumosEmAndamento.add(trabalho);
+  trabalho.finally(() => resumosEmAndamento.delete(trabalho));
+  return trabalho;
+}
+
+/**
+ * Atualiza a memoria do cliente depois de finalizar (ver leads/memoria.js).
+ * Espera o resumo da Atena, quando ha um sendo escrito, e le o resumo que
+ * ficou gravado (o do atendente ou o dela). Nunca lanca.
+ */
+function agendarMemoria(tenantId, id, leadId, resumindo, provedores) {
+  if (!leadId) return;
+  const trabalho = (async () => {
+    await resumindo;
+    const atual = await repo.buscarPorId(tenantId, id).catch(() => null);
+    await atualizarMemoria(tenantId, leadId, { resumo: atual?.conversa.resumo ?? null, conversationId: id, provedores });
+  })();
+  // Mesmo conjunto dos resumos: `aguardarResumos` cobre os dois nos testes.
   resumosEmAndamento.add(trabalho);
   trabalho.finally(() => resumosEmAndamento.delete(trabalho));
 }

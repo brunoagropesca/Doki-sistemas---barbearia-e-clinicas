@@ -155,6 +155,20 @@
       "when": 1790353352887,
       "tag": "0021_ofertas_horario",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1790605552307,
+      "tag": "0022_ai_calls_mensais",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1790610725150,
+      "tag": "0023_memoria_do_cliente",
+      "breakpoints": true
     }
   ]
 }

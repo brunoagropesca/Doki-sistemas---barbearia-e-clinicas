@@ -9,6 +9,8 @@ import { transcreverAudio } from '../src/ai/transcricao.js';
 import { salvarAudio } from '../src/modules/equipe/arquivos.js';
 import { paraOggOpus } from '../src/core/audio.js';
 import { webmDeMentira } from './helpers/audio-fixture.js';
+import { spawnSync } from 'node:child_process';
+import ffmpegBin from 'ffmpeg-static';
 import { cifrar } from '../src/core/crypto.js';
 import { iniciarTesteDeModelos, progressoDoTeste } from '../src/modules/ia/ia.service.js';
 import { simular } from '../src/modules/atendimento/simulador.service.js';
@@ -603,17 +605,24 @@ describe('arquivo de audio recebido', () => {
  * vai disparar quando alguem gravar um audio de verdade.
  */
 describe('conversao de audio (webm do navegador -> ogg do WhatsApp)', () => {
-  it('remuxa webm/opus para ogg/opus — mesmo audio, container diferente', async () => {
+  it('converte webm/opus para ogg/opus de voz — mesmo audio, arquivo menor', async () => {
     const webm = webmDeMentira({ segundos: 1 });
     assert.equal(webm.subarray(0, 4).toString('hex'), '1a45dfa3', 'a fixture precisa ser webm de verdade (assinatura EBML)');
 
     const ogg = await paraOggOpus(webm);
 
     assert.equal(ogg.subarray(0, 4).toString('ascii'), 'OggS', 'container ogg de verdade — o que o WhatsApp espera');
-    assert.ok(ogg.length > 0);
-    // Remux (copia o fluxo, nao recodifica): perto do tamanho original, nunca
-    // muito menor — se estivesse recodificando ou truncando, cairia bastante.
-    assert.ok(ogg.length > webm.length * 0.5, 'nao pode ter perdido audio na conversao');
+    // A conversao agora RECODIFICA para 32 kbit/s (arquivo menor de proposito),
+    // entao o tamanho nao prova mais nada. O que prova que nao se perdeu audio
+    // (nem foi truncado) e a DURACAO: a mesma do original.
+    const duracao = (bytes) => {
+      const r = spawnSync(ffmpegBin, ['-hide_banner', '-i', 'pipe:0', '-f', 'null', '-'], { input: bytes });
+      const m = /time=(\d+):(\d+):([\d.]+)/g;
+      let ultimo = null;
+      for (const x of String(r.stderr).matchAll(m)) ultimo = Number(x[1]) * 3600 + Number(x[2]) * 60 + Number(x[3]);
+      return ultimo;
+    };
+    assert.ok(Math.abs(duracao(ogg) - duracao(webm)) < 0.1, `duracao ${duracao(ogg)} s x ${duracao(webm)} s`);
   });
 
   it('audio que nao e audio nenhum: rejeita, nao trava', async () => {

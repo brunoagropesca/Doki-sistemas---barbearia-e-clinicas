@@ -9,7 +9,8 @@ import {
   cancelarRestauracao,
   criarBackup,
   listarBackups,
-  restauracaoPendente
+  restauracaoPendente,
+  resumoDoCofre
 } from './backups.js';
 import { apagarDados, GRUPOS } from './apagar.js';
 
@@ -32,6 +33,8 @@ const SO_REAL = { ...apenas.dev, bancoReal: true };
 export async function rotasDados(app) {
   app.get('/api/dev/backups', { config: SO_REAL }, async () => ({
     backups: listarBackups(),
+    // As fotos e audios de TODOS os backups, uma copia so de cada.
+    cofre: resumoDoCofre(),
     restauracaoPendente: restauracaoPendente(),
     ultimaRestauracao: ultimaRestauracao(),
     grupos: GRUPOS
@@ -48,7 +51,8 @@ export async function rotasDados(app) {
     const { stream, tamanho, nome } = arquivoDoBackup(req.params.id);
     res.header('content-type', 'application/octet-stream');
     res.header('content-disposition', `attachment; filename="${nome}"`);
-    res.header('content-length', String(tamanho));
+    // Backup compactado e descompactado no caminho: o tamanho final so se sabe no fim.
+    if (tamanho != null) res.header('content-length', String(tamanho));
     return stream;
   });
 

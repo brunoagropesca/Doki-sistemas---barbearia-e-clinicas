@@ -184,7 +184,9 @@ export async function rotasIa(app) {
   /** GET /api/ia/uso — consumo e confiabilidade dos ultimos dias. */
   app.get('/api/ia/uso', { config: apenas.admin }, async (req) => {
     const dias = Number(req.query.dias) || 7;
-    return service.uso(req.tenantId, { dias: Math.min(Math.max(dias, 1), 365) });
+    // Ate 90: e o detalhe que a retencao guarda (dados/retencao.js). Periodos
+    // maiores e por ano ficam no Dashboard, que soma os totais mensais.
+    return service.uso(req.tenantId, { dias: Math.min(Math.max(dias, 1), 90) });
   });
 
   /** POST /api/ia/experimentar — testa um prompt sem mexer em conversa real. */

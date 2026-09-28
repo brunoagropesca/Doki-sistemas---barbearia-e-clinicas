@@ -10,10 +10,13 @@ import ffmpegBin from 'ffmpeg-static';
  * `ogg/opus` de verdade; mandar webm chega como anexo generico, ou nem toca,
  * dependendo do aparelho do cliente.
  *
- * A boa noticia: os dois formatos carregam o MESMO codec (Opus), so o
- * "envelope" (container) e diferente — como trocar o CD de caixa sem regravar
- * a musica. Por isso a conversao aqui e um REMUX (`-c:a copy`), nao uma
- * recodificacao: e quase instantaneo e nao perde qualidade nenhuma.
+ * A conversao RECODIFICA para Opus mono a 32 kbit/s — o padrao da propria
+ * mensagem de voz do WhatsApp. Antes era so um remux (trocar o "envelope" webm
+ * pelo ogg, mesmo codec), mas o navegador grava a ~128 kbit/s: 4 s de fala
+ * ocupavam 69 KB, contra ~17 KB de um audio de 7 s do WhatsApp. Para voz, 32
+ * kbit/s mono soa igual, o arquivo fica ~4x menor (no disco, no backup e no
+ * upload para o cliente) e o custo e ~0,2 s por audio curto. O remux ficou de
+ * reserva, se a recodificacao falhar.
  *
  * `ffmpeg-static` empacota o binario do ffmpeg dentro do pacote do npm — quem
  * clona o projeto e roda `npm install` ja tem tudo, sem instalar nada a parte
@@ -34,10 +37,11 @@ const TIMEOUT_MS = 15_000;
  * Converte um audio (o que o `MediaRecorder` do navegador gravou) para
  * `ogg/opus`, pronto para o Baileys mandar como mensagem de voz.
  *
- * Primeiro o REMUX (so troca o container: Chrome, Edge e Firefox gravam Opus).
- * Se nao der, RECODIFICA para Opus: o Safari (iPhone e Mac) grava `audio/mp4`
- * com AAC dentro — o remux nao tem como por AAC num ogg, e o audio do
- * atendente no iPhone era sempre recusado com "Tente gravar de novo".
+ * Sempre RECODIFICA para Opus mono 32 kbit/s (o tamanho da mensagem de voz do
+ * WhatsApp). Serve para todos os navegadores: Chrome/Edge/Firefox gravam Opus
+ * a ~128 kbit/s, e o Safari (iPhone e Mac) grava `audio/mp4` com AAC.
+ * Se a recodificacao falhar, tenta o REMUX (so troca o envelope) — o audio
+ * sai maior, mas sai.
  *
  * @param {Buffer} bytes
  * @returns {Promise<Buffer>}
@@ -45,16 +49,18 @@ const TIMEOUT_MS = 15_000;
  */
 export async function paraOggOpus(bytes) {
   try {
-    return await rodarFfmpeg(bytes, ['-c:a', 'copy']);
-  } catch (errRemux) {
+    return await rodarFfmpeg(bytes, ARGS_VOZ_WHATSAPP);
+  } catch (errRecodificar) {
     try {
-      // Mono a 32 kbit/s: e o que o proprio WhatsApp usa em mensagem de voz.
-      return await rodarFfmpeg(bytes, ['-c:a', 'libopus', '-ac', '1', '-b:a', '32k', '-ar', '48000']);
-    } catch (errRecodificar) {
+      return await rodarFfmpeg(bytes, ['-c:a', 'copy']);
+    } catch (errRemux) {
       throw new Error(`Nao foi possivel converter o audio: ${errRecodificar.message}`, { cause: errRemux });
     }
   }
 }
+
+/** Opus mono, 32 kbit/s, 48 kHz: o que o proprio WhatsApp usa em mensagem de voz. */
+const ARGS_VOZ_WHATSAPP = ['-c:a', 'libopus', '-ac', '1', '-b:a', '32k', '-ar', '48000'];
 
 /** Uma passada do ffmpeg: bytes na entrada (stdin), ogg na saida (stdout), com prazo. */
 function rodarFfmpeg(bytes, argsDoAudio) {

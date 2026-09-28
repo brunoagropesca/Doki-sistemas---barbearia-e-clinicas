@@ -40,6 +40,7 @@ import { funcaoLigada } from '../funcoes/funcoes.js';
 import { mensagemAoCliente } from '../textos/textos.js';
 import { expedienteDaEmpresa } from './expediente.js';
 import { baseParaIa } from '../empresa/empresa.service.js';
+import { memoriaParaPrompt } from '../leads/memoria.js';
 
 const log = comContexto({ modulo: 'atendimento' });
 
@@ -230,7 +231,9 @@ export function montarSystemPrompt({
   informacoesRelevantes = [],
   irritado = false,
   reclamacao = false,
-  aguardandoHumano = false
+  aguardandoHumano = false,
+  // Ficha do cliente (leads/memoria.js): ja destilada e com teto de tamanho.
+  memoriaCliente = ''
 }) {
   const base =
     agente?.systemPrompt?.trim() ||
@@ -375,6 +378,19 @@ export function montarSystemPrompt({
       : []),
     // Cliente na fila que a Sofia voltou a ajudar (casa fechada ou fila parada).
     // Sem isto ela transferiria de novo a cada "e ai?", em circulo.
+    // Cliente que volta: o que ela ja sabe dele, de visitas anteriores. So
+    // quando existe ficha — cliente novo nao paga nem uma linha. Preco nao
+    // entra na ficha: a trava de preco continua aceitando so o catalogo.
+    ...(memoriaCliente
+      ? [
+          '',
+          'O QUE VOCÊ JÁ SABE DESTE CLIENTE (de atendimentos anteriores):',
+          memoriaCliente,
+          'Use com naturalidade, como quem lembra do cliente (ex.: sugerir o serviço de sempre ou',
+          'o profissional de costume), sem listar tudo. Nunca diga que "consta no sistema" ou "no',
+          'cadastro". Confirme antes de marcar. Preço: só do CATALOGO.'
+        ]
+      : []),
     ...(aguardandoHumano
       ? ['- O cliente já pediu um atendente e a equipe já foi avisada, mas ninguém assumiu ainda. Ajude no que',
          '  puder agora; não prometa prazo e não transfira de novo só porque ele insistiu.']
@@ -701,6 +717,10 @@ export async function responder({
   const informacoesRelevantes = itensRelevantes(baseItens, [texto, ...recentesDoCliente.slice(-1)]);
   if (informacoesRelevantes.length) ver('sofia', `${informacoesRelevantes.length} informação(ões) da base ligada(s) a esta mensagem`);
 
+  // O que ela lembra deste cliente de conversas anteriores ('' = cliente novo).
+  const memoriaCliente = await memoriaParaPrompt(tenantId, leadId);
+  if (memoriaCliente) ver('sofia', 'cliente conhecido: ficha do cliente no prompt');
+
   ver('sofia', 'lendo a conversa e decidindo a resposta', `Atena ${atenaAtiva ? 'ligada' : 'desligada'}${permitirEscrita ? '' : ' · somente leitura'}`);
 
   try {
@@ -724,7 +744,8 @@ export async function responder({
         ferramentasDaSofia: ferramentas.map((f) => f.nome),
         irritado,
         reclamacao,
-        aguardandoHumano
+        aguardandoHumano,
+        memoriaCliente
       }),
       mensagens: [...historico, { papel: 'user', conteudo: texto }],
       ferramentas,

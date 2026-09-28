@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from './api.js';
 import { useAuth } from './autenticacao.jsx';
+import { idiomaAtual, traduzir } from './idioma.js';
 
 /**
  * Textos da tela trocados pelo perfil DEV.
@@ -18,10 +19,14 @@ import { useAuth } from './autenticacao.jsx';
  *
  * Limite conhecido: a troca e do texto INTEIRO de um trecho. "Ficha de Carlos"
  * e um texto diferente de "Ficha de Maria".
+ *
+ * O mesmo observador aplica o IDIOMA (lib/idioma.js): fora do portugues, a
+ * traducao vale antes da troca do DEV (que e um texto em portugues).
  */
 
 const ATRIBUTOS = ['placeholder', 'title', 'aria-label', 'alt'];
-const IGNORAR = 'script, style, noscript, textarea, input, select, [contenteditable="true"], .msg, [data-sem-textos]';
+const IGNORAR_SEMPRE = 'script, style, noscript, textarea, input, [contenteditable="true"], .msg, [data-sem-textos]';
+const IGNORAR = `${IGNORAR_SEMPRE}, select`;
 
 export const normalizarTexto = (t) => String(t ?? '').replace(/\s+/g, ' ').trim();
 
@@ -32,7 +37,19 @@ const originalDoAtributo = new WeakMap(); // Element -> { atributo: original }
 let trocas = {};
 
 function ignorado(el) {
-  return !el || Boolean(el.closest?.(IGNORAR));
+  if (!el) return true;
+  if (!el.closest?.(IGNORAR)) return false;
+  // Traduzir o texto de um <option> so e seguro quando ele tem `value`:
+  // sem value, o texto E o valor, e mudar o texto mudaria o que e enviado.
+  if (idiomaAtual !== 'pt' && !el.closest(IGNORAR_SEMPRE) && el.closest('option')?.hasAttribute('value')) return false;
+  return true;
+}
+
+/** O que mostrar no lugar do texto original (null = fica como esta). */
+function alvoPara(original) {
+  const traducao = traduzir(original);
+  if (traducao != null) return traducao;
+  return Object.hasOwn(trocas, original) ? trocas[original] : null;
 }
 
 function aplicarNoTexto(no) {
@@ -46,13 +63,14 @@ function aplicarNoTexto(no) {
   let original = null;
   let alvo = null;
 
+  const direto = lembrado && chave === lembrado.trocadoPara ? null : alvoPara(chave);
   if (lembrado && chave === lembrado.trocadoPara) {
     // Mostrando uma troca nossa. Continua valendo?
     original = lembrado.original;
-    alvo = Object.hasOwn(trocas, original) ? trocas[original] : original;
-  } else if (Object.hasOwn(trocas, chave)) {
+    alvo = alvoPara(original) ?? original;
+  } else if (direto != null) {
     original = chave;
-    alvo = trocas[chave];
+    alvo = direto;
   } else {
     if (lembrado) originalDoNo.delete(no);
     return;
@@ -81,12 +99,13 @@ function aplicarNosAtributos(el) {
 
     let original = null;
     let alvo = null;
+    const direto = lembrado && chave === lembrado.trocadoPara ? null : alvoPara(chave);
     if (lembrado && chave === lembrado.trocadoPara) {
       original = lembrado.original;
-      alvo = Object.hasOwn(trocas, original) ? trocas[original] : original;
-    } else if (Object.hasOwn(trocas, chave)) {
+      alvo = alvoPara(original) ?? original;
+    } else if (direto != null) {
       original = chave;
-      alvo = trocas[chave];
+      alvo = direto;
     } else {
       if (lembrado) delete memoria[atributo];
       continue;
@@ -138,8 +157,9 @@ export function ProvedorTextos({ children }) {
   const mapa = useMemo(() => data?.textos ?? {}, [data]);
 
   // Um observador para o documento todo: telas, modais (que vivem no body)
-  // e o <title> da aba.
-  useEffect(() => {
+  // e o <title> da aba. Antes de pintar (layout effect): em outro idioma, a
+  // tela nao pisca em portugues na primeira vez.
+  useLayoutEffect(() => {
     trocas = mapa;
     aplicarEm(document.documentElement);
 

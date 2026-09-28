@@ -1,4 +1,4 @@
-import { Conflito, ehViolacaoDeUnicidade, NaoEncontrado, RegraDeNegocio } from '../../core/errors.js';
+import { Conflito, ehViolacaoDeUnicidade, NaoEncontrado, RegraDeNegocio, SemPermissao } from '../../core/errors.js';
 import { comContexto } from '../../core/logger.js';
 import { formatarTelefone, normalizarTelefone, variantesDeBusca } from '../../core/phone.js';
 import { formatarBRL } from '../../core/money.js';
@@ -8,6 +8,7 @@ import { channelInstances } from '../../db/schema/conversations.js';
 import { registrarAuditoria } from '../auditoria/auditoria.service.js';
 import { apagarImagem, salvarImagem } from '../equipe/arquivos.js';
 import * as repo from './leads.repo.js';
+import { corrigirMemoria, obterMemoria, podeVerMemoria } from './memoria.js';
 
 const log = comContexto({ modulo: 'leads' });
 
@@ -179,6 +180,35 @@ export async function excluir(tenantId, id, { usuario } = {}) {
 
   log.info({ tenantId, leadId: id, porUserId: usuario?.id }, 'Contato movido para a lixeira');
   return { ok: true };
+}
+
+/**
+ * O que a Sofia lembra do contato (secao da ficha). Quem nao enxerga nenhuma
+ * conversa dele pela privacidade da equipe recebe `restrita`, sem conteudo.
+ */
+export async function obterMemoriaDoContato(tenantId, id, { usuario } = {}) {
+  const memoria = await obterMemoria(tenantId, id);
+  if (!memoria) throw new NaoEncontrado('Contato');
+  if (!(await podeVerMemoria(tenantId, id, usuario))) return { memoria: null, restrita: true };
+  return { memoria, restrita: false };
+}
+
+/** O atendente corrige ou apaga itens da memoria. Auditado: e dado do cliente. */
+export async function corrigirMemoriaDoContato(tenantId, id, dados, { usuario } = {}) {
+  if (!(await repo.buscarPorId(tenantId, id))) throw new NaoEncontrado('Contato');
+  if (!(await podeVerMemoria(tenantId, id, usuario))) {
+    throw new SemPermissao('Este cliente é atendido por outra pessoa da equipe.');
+  }
+  const r = await corrigirMemoria(tenantId, id, dados);
+  await registrarAuditoria({
+    tenantId,
+    usuario,
+    acao: 'lead.memoria',
+    entidade: 'lead',
+    entidadeId: id,
+    dados: { antes: r.antes.texto, depois: r.depois.texto }
+  });
+  return { memoria: r.depois, restrita: false };
 }
 
 /**

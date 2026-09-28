@@ -3,6 +3,7 @@ import * as service from './leads.service.js';
 import {
   acaoEmLoteSchema,
   atualizarLeadSchema,
+  corrigirMemoriaSchema,
   criarLeadSchema,
   listarLeadsSchema
 } from './leads.schemas.js';
@@ -39,6 +40,19 @@ export async function rotasLeads(app) {
    */
   app.get('/api/leads/:id', { config: apenas.atendente }, async (req) => {
     return { lead: await service.obter(req.tenantId, req.params.id) };
+  });
+
+  /**
+   * GET/PUT /api/leads/:id/memoria — o que a Sofia lembra deste cliente.
+   * Mesma regra de privacidade das conversas (ver leads/memoria.js).
+   */
+  app.get('/api/leads/:id/memoria', { config: apenas.atendente }, async (req) => {
+    return service.obterMemoriaDoContato(req.tenantId, req.params.id, { usuario: req.usuario });
+  });
+
+  app.put('/api/leads/:id/memoria', { config: apenas.atendente }, async (req) => {
+    const dados = corrigirMemoriaSchema.parse(req.body ?? {});
+    return service.corrigirMemoriaDoContato(req.tenantId, req.params.id, dados, { usuario: req.usuario });
   });
 
   /** POST /api/leads */

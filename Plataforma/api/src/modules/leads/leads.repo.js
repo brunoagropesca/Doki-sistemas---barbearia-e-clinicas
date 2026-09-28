@@ -65,9 +65,14 @@ export async function atualizar(tenantId, id, dados) {
   return buscarPorId(tenantId, id);
 }
 
-/** Exclusao logica — o registro vai pra lixeira, nao some. */
+/**
+ * Exclusao logica — o registro vai pra lixeira, nao some. A memoria da Sofia
+ * (o que ela lembra do cliente) sai de vez: pedido de exclusao pela LGPD nao
+ * pode deixar para tras preferencias e alergias ditas por ele. Restaurar da
+ * lixeira volta o contato sem ficha; ela se refaz pela agenda.
+ */
 export async function excluir(tenantId, id) {
-  const r = await db.update(leads).set({ deletedAt: new Date() }).where(and(base(tenantId), eq(leads.id, id)));
+  const r = await db.update(leads).set({ deletedAt: new Date(), memoria: null }).where(and(base(tenantId), eq(leads.id, id)));
   return (r.rowsAffected ?? 0) > 0;
 }
 

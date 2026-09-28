@@ -1,7 +1,8 @@
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { copyFileSync, existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { gunzipSync } from 'node:zlib';
 import { eq } from 'drizzle-orm';
 import { criarAppDeTeste, entrar } from './helpers/ambiente.js';
 import { env } from '../src/config/env.js';
@@ -155,7 +156,9 @@ describe('restaurar', () => {
     try {
       const r = aplicarRestauracaoPendente();
       assert.equal(r.ok, true, r.erro);
-      assert.equal(statSync(falso).size, statSync(join(pastaBackups(), alvo.id, 'banco.db')).size);
+      // O backup guarda o banco compactado: o restaurado e o conteudo dele, byte a byte.
+      const guardado = gunzipSync(readFileSync(join(pastaBackups(), alvo.id, 'banco.db.gz')));
+      assert.ok(readFileSync(falso).equals(guardado));
     } finally {
       env.DATABASE_URL = original;
       rmSync(tmp, { recursive: true, force: true });

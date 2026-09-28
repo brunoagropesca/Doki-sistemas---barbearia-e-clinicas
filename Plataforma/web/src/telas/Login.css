@@ -1,5 +1,21 @@
-﻿/* ─── TELA DE LOGIN GLASS ───────────────────────────────── */
+/*
+ * ─── TELA DE LOGIN — MONTAGEM EM 3D ─────────────────────────
+ *
+ * Linha do tempo (a tela fica pronta em ~1,8 s e depois fica PARADA):
+ *   0,0 s  piso de grade se desdobra · camera comeca a assentar
+ *   0,0 s  12 telhas de vidro voam do fundo e encaixam
+ *   0,3 s  paineis do sistema chegam do fundo
+ *   0,7 s  cantos de mira acendem
+ *   1,0 s  o cartao real funde por cima das telhas
+ *   1,1 s  logo e campos sobem em cascata
+ *
+ * Para ficar leve: so `transform` e `opacity` animam, nenhuma animacao e
+ * infinita, nada segue o mouse e nenhum elemento animado usa `filter`.
+ * `.login--parada` (botao "Desligar animacao") mostra tudo pronto.
+ */
+
 .login {
+  --login-assentar: cubic-bezier(0.16, 1, 0.3, 1);
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -8,90 +24,226 @@
   padding-top: max(var(--e5), env(safe-area-inset-top, 0px));
   padding-bottom: max(var(--e5), env(safe-area-inset-bottom, 0px));
   position: relative;
+  overflow-x: clip;
 }
 
-/* Orbs decorativos atrás do card */
+/* Brilhos de fundo: parados, e o degrade radial ja e suave (sem blur). */
 .login::before,
 .login::after {
   content: '';
   position: fixed;
   border-radius: 50%;
-  filter: blur(80px);
   pointer-events: none;
   z-index: 0;
 }
 .login::before {
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(24,86,255,0.25) 0%, transparent 70%);
-  top: -100px;
-  left: -100px;
-  animation: orbFloat 8s ease-in-out infinite;
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(24,86,255,0.2) 0%, transparent 65%);
+  top: -200px;
+  left: -200px;
 }
 .login::after {
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, rgba(120,40,255,0.2) 0%, transparent 70%);
-  bottom: -80px;
-  right: -80px;
-  animation: orbFloat 10s ease-in-out infinite reverse;
-}
-@keyframes orbFloat {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -20px) scale(1.05); }
-  66% { transform: translate(-20px, 30px) scale(0.97); }
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(120,40,255,0.16) 0%, transparent 65%);
+  bottom: -180px;
+  right: -180px;
 }
 
-.login__cartao {
+/* ═══ FUNDO ═══════════════════════════════════════════════ */
+.login__fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Piso: um plano de grade deitado em perspectiva. */
+.login__piso {
+  position: absolute;
+  left: -50%;
+  width: 200%;
+  bottom: 0;
+  height: 60vh;
+  transform-origin: 50% 100%;
+  transform: perspective(700px) rotateX(62deg);
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--primaria) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--primaria) 55%, transparent) 1px, transparent 1px);
+  background-size: 80px 80px;
+  background-position: center bottom;
+  opacity: 0.6;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 70%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 70%);
+  animation: piso-desdobra 1.2s var(--login-assentar) backwards;
+}
+@keyframes piso-desdobra {
+  from { opacity: 0; transform: perspective(700px) rotateX(96deg); }
+  to   { opacity: 0.6; transform: perspective(700px) rotateX(62deg); }
+}
+
+/* Paineis com esqueleto da interface. */
+.login__vidro {
+  position: absolute;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(var(--tinta, 255, 255, 255), 0.14);
+  background: linear-gradient(145deg, rgba(var(--tinta, 255, 255, 255), 0.1), rgba(var(--tinta, 255, 255, 255), 0.03));
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  opacity: 0.85;
+  animation: vidro-chega 1.1s var(--login-assentar) var(--atraso, 0.3s) backwards;
+}
+.login__vidro--a { --atraso: 0.3s;  --de-x: -360px; --de-r: 30deg;  left: calc(50% - 570px); top: 17%; width: 250px; }
+.login__vidro--b { --atraso: 0.45s; --de-x: 360px;  --de-r: -30deg; left: calc(50% + 330px); top: 24%; width: 240px; }
+.login__vidro--c { --atraso: 0.6s;  --de-x: 320px;  --de-r: -24deg; left: calc(50% + 300px); top: 62%; width: 200px; }
+@keyframes vidro-chega {
+  from {
+    opacity: 0;
+    transform: perspective(1000px) translate3d(var(--de-x), 30px, -600px) rotateY(var(--de-r));
+  }
+  to { opacity: 0.85; transform: none; }
+}
+
+.lv-linha { display: flex; align-items: center; gap: 10px; }
+.lv-avatar {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primaria), #7c3aed);
+  opacity: 0.8;
+}
+.lv-linha span { display: grid; gap: 6px; flex: 1; }
+.lv-linha b,
+.lv-balao b {
+  display: block;
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(var(--tinta, 255, 255, 255), 0.22);
+}
+.lv-linha b:last-child { width: 60%; opacity: 0.6; }
+.lv-balao {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  min-width: 56%;
+  max-width: 82%;
+  background: rgba(var(--tinta, 255, 255, 255), 0.08);
+}
+.lv-balao--out {
+  justify-self: end;
+  background: linear-gradient(135deg, rgba(24, 86, 255, 0.55), rgba(124, 58, 237, 0.5));
+}
+.lv-balao--out b { background: rgba(255, 255, 255, 0.55); }
+.lv-balao b:last-child { width: 65%; }
+.lv-barras { display: flex; align-items: flex-end; gap: 8px; height: 76px; }
+.lv-barras i {
+  flex: 1;
+  border-radius: 4px 4px 2px 2px;
+  background: linear-gradient(to top, var(--primaria), #7c3aed);
+  opacity: 0.75;
+}
+.lv-barras i:nth-child(1) { height: 35%; }
+.lv-barras i:nth-child(2) { height: 58%; }
+.lv-barras i:nth-child(3) { height: 44%; }
+.lv-barras i:nth-child(4) { height: 82%; }
+.lv-barras i:nth-child(5) { height: 66%; }
+.lv-barras i:nth-child(6) { height: 100%; }
+
+/* ═══ PALCO E CENA ════════════════════════════════════════ */
+.login__palco {
   position: relative;
   z-index: 1;
   width: 100%;
   max-width: 400px;
+  perspective: 1400px;
+}
+.login__cena {
+  position: relative;
+  transform-style: preserve-3d;
+  /* A camera assenta: a cena chega girada e "cai" no lugar. */
+  animation: cena-assenta 1.6s var(--login-assentar) backwards;
+}
+@keyframes cena-assenta {
+  from { transform: rotateX(12deg) rotateY(-16deg) scale(0.92); }
+  to   { transform: none; }
+}
+
+/* Cantos de mira */
+.login__canto {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 0 solid color-mix(in srgb, var(--primaria) 75%, white);
+  opacity: 0.75;
+  pointer-events: none;
+  animation: canto-acende 0.7s var(--login-assentar) 0.7s backwards;
+}
+.login__canto--tl { top: -14px; left: -14px; border-width: 2px 0 0 2px; border-top-left-radius: 8px; --dx: -16px; --dy: -16px; }
+.login__canto--tr { top: -14px; right: -14px; border-width: 2px 2px 0 0; border-top-right-radius: 8px; --dx: 16px; --dy: -16px; }
+.login__canto--bl { bottom: -14px; left: -14px; border-width: 0 0 2px 2px; border-bottom-left-radius: 8px; --dx: -16px; --dy: 16px; }
+.login__canto--br { bottom: -14px; right: -14px; border-width: 0 2px 2px 0; border-bottom-right-radius: 8px; --dx: 16px; --dy: 16px; }
+@keyframes canto-acende {
+  from { opacity: 0; transform: translate(var(--dx), var(--dy)); }
+  to   { opacity: 0.75; transform: none; }
+}
+
+/* ═══ TELHAS: o cartao sendo montado ══════════════════════ */
+.login__telhas {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 3px;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+.login__telha {
+  border-radius: 8px;
+  border: 1px solid rgba(var(--tinta, 255, 255, 255), 0.2);
+  background: linear-gradient(135deg, rgba(24, 86, 255, 0.28), rgba(var(--tinta, 255, 255, 255), 0.06));
+  animation:
+    telha-entra 0.9s var(--login-assentar) var(--d) backwards,
+    telha-sai 0.4s ease-in 1.2s forwards;
+}
+@keyframes telha-entra {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--dx), var(--dy), var(--dz)) rotateX(var(--rx)) rotateY(var(--ry));
+  }
+  40% { opacity: 1; }
+  to { opacity: 1; transform: none; }
+}
+@keyframes telha-sai {
+  to { opacity: 0; }
+}
+
+/* ═══ CARTAO ══════════════════════════════════════════════ */
+.login__cartao {
+  position: relative;
+  z-index: 1;
+  width: 100%;
   background: var(--vidro, rgba(var(--tinta, 255, 255, 255), 0.06));
-  backdrop-filter: saturate(200%) blur(32px);
-  -webkit-backdrop-filter: saturate(200%) blur(32px);
+  backdrop-filter: saturate(160%) blur(16px);
+  -webkit-backdrop-filter: saturate(160%) blur(16px);
   border: 1px solid rgba(var(--tinta, 255, 255, 255), 0.12);
   border-radius: var(--raio-xl);
   box-shadow:
-    0 24px 80px rgba(0, 0, 0, 0.7),
-    0 0 0 1px rgba(var(--tinta, 255, 255, 255), 0.05),
+    0 24px 70px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(var(--tinta, 255, 255, 255), 0.1),
-    0 0 60px rgba(24,86,255,0.12);
+    0 0 50px rgba(24,86,255,0.1);
   padding: var(--e6) var(--e6);
-  animation: cardIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation: cartao-funde 0.5s ease-out 1s backwards;
 }
-@keyframes cardIn {
-  from { transform: translateY(24px) scale(0.97); opacity: 0; }
-  to   { transform: translateY(0) scale(1); opacity: 1; }
-}
-
-.login__marca {
-  display: flex;
-  align-items: center;
-  gap: var(--e3);
-  margin-bottom: var(--e2);
-}
-.login__marca h1 {
-  font-size: 19px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-.login__logo {
-  width: 38px;
-  height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--primaria), #7c3aed);
-  border-radius: 10px;
-  font-size: 20px;
-  box-shadow: 0 0 20px rgba(24,86,255,0.5), inset 0 1px 0 rgba(var(--tinta, 255, 255, 255), 0.2);
-}
-
-.login__sub {
-  color: var(--texto-suave);
-  margin-bottom: var(--e5);
-  font-size: 13px;
+@keyframes cartao-funde {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* Divisor sutil */
@@ -103,6 +255,99 @@
   margin-bottom: var(--e5);
 }
 
+/* Conteudo: cada bloco sobe de tras, em cascata. */
+.login__item {
+  animation: item-sobe 0.6s var(--login-assentar) calc(1.1s + var(--i, 0) * 70ms) backwards;
+}
+@keyframes item-sobe {
+  from { opacity: 0; transform: perspective(700px) translate3d(0, 18px, -60px) rotateX(-24deg); }
+  to   { opacity: 1; transform: none; }
+}
+
+.login__marca {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  margin-bottom: var(--e3);
+}
+.login__logo {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 14px;
+  user-select: none;
+}
+.login__nome { display: grid; gap: 2px; }
+.login__marca h1 {
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.login__nome span {
+  font-size: 12px;
+  color: var(--texto-suave);
+  letter-spacing: 0.02em;
+}
+
+.login__sub {
+  color: var(--texto-suave);
+  margin-bottom: var(--e5);
+  font-size: 13px;
+}
+
+/* Foco no campo: o rotulo acende. */
+.login .campo:focus-within .campo__rotulo { color: color-mix(in srgb, var(--primaria) 70%, var(--texto)); }
+.login .campo__rotulo { transition: color 0.2s ease; }
+
+/* ═══ BOTAO "DESLIGAR ANIMACAO" ═══════════════════════════ */
+.login__alternar {
+  position: fixed;
+  right: max(var(--e4), env(safe-area-inset-right, 0px));
+  bottom: max(var(--e4), env(safe-area-inset-bottom, 0px));
+  z-index: 2;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--tinta, 255, 255, 255), 0.15);
+  background: rgba(var(--tinta, 255, 255, 255), 0.06);
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.login__idioma {
+  position: fixed;
+  right: max(var(--e4), env(safe-area-inset-right, 0px));
+  top: max(var(--e4), env(safe-area-inset-top, 0px));
+  z-index: 3;
+}
+
+.login__alternar:hover {
+  color: var(--texto);
+  background: rgba(var(--tinta, 255, 255, 255), 0.1);
+  border-color: rgba(var(--tinta, 255, 255, 255), 0.25);
+}
+.login__alternar:focus-visible {
+  outline: 2px solid var(--primaria);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1180px) {
+  .login__vidro { display: none; }
+}
 @media (max-width: 440px) {
   .login__cartao { padding: var(--e5); border-radius: var(--raio-g); }
+  .login__canto { display: none; }
+}
+
+/* ═══ ANIMACAO DESLIGADA: a tela ja aparece pronta ════════ */
+.login--parada .login__piso,
+.login--parada .login__vidro,
+.login--parada .login__cena,
+.login--parada .login__canto,
+.login--parada .login__cartao,
+.login--parada .login__item {
+  animation: none;
 }

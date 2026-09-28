@@ -540,7 +540,13 @@ async function responderLote({ tenantId, canal, instanciaChave, telefone, lead, 
       autorTipo: resposta.respondidoPor === 'menu' ? 'menu' : 'ia',
       externalId: idExternoSaida,
       erroEnvio,
-      metadados: { ...resposta.detalhes, balao: i + 1, totalBaloes: resposta.baloes.length }
+      // O rastro da resposta (consultas com resultados, Atena, ferramentas) vai
+      // so no PRIMEIRO balao: e o mesmo para todos, e repetido pesava 6x o
+      // texto (media 452 bytes por mensagem da IA). Ninguem o le por balao — o
+      // Simulador mostra a resposta ao vivo, nao o banco.
+      metadados: i === 0
+        ? { ...resposta.detalhes, balao: 1, totalBaloes: resposta.baloes.length }
+        : { balao: i + 1, totalBaloes: resposta.baloes.length }
     });
 
     enviados.push({ texto: balao, erroEnvio });

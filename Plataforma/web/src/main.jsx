@@ -6,6 +6,7 @@ import { ProvedorAuth } from './lib/autenticacao.jsx';
 import { ProvedorTextos } from './lib/textos.jsx';
 import { App } from './App.jsx';
 import { registrarServiceWorker } from './lib/appInstalado.js';
+import { carregarIdioma } from './lib/idioma.js';
 // Antes de desenhar: aplica o modo de visualizacao escolhido (sem piscar).
 import './lib/tema.js';
 import './estilos/global.css';
@@ -44,7 +45,9 @@ const clienteQuery = new QueryClient({
   }
 });
 
-createRoot(document.getElementById('raiz')).render(
+// Em ingles/espanhol o dicionario chega antes da primeira tela (sem piscar em
+// portugues). Em portugues nao ha nada a carregar.
+carregarIdioma().finally(() => createRoot(document.getElementById('raiz')).render(
   <StrictMode>
     <QueryClientProvider client={clienteQuery}>
       <BrowserRouter>
@@ -57,4 +60,4 @@ createRoot(document.getElementById('raiz')).render(
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>
-);
+));

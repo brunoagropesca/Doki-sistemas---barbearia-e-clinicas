@@ -29,6 +29,7 @@ import { rotasNotificacoes } from './modules/notificacoes/notificacoes.routes.js
 import { rotasFuncoes } from './modules/funcoes/funcoes.routes.js';
 import { rotasTextos } from './modules/textos/textos.routes.js';
 import { rotasDados } from './modules/dados/dados.routes.js';
+import { rotasBackupsDoDono } from './modules/dados/backups-dono.routes.js';
 import { pluginTravaDeLicenca, rotasLicenca } from './licenca/licenca.routes.js';
 
 /**
@@ -162,6 +163,7 @@ export async function criarApp({ logger: loggerCustomizado } = {}) {
   await app.register(rotasFuncoes);
   await app.register(rotasTextos);
   await app.register(rotasDados);
+  await app.register(rotasBackupsDoDono);
   await app.register(rotasLicenca);
   await app.register(rotasPerfil);
   await app.register(rotasEmpresa);

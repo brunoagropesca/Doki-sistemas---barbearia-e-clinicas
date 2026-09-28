@@ -339,6 +339,8 @@ export function FichaContato() {
             </div>
           </section>
 
+          <MemoriaDaSofia leadId={lead.id} />
+
           <HistoricoCliente
             agendamentos={agendamentos}
             conversas={lead.historico?.conversas ?? []}
@@ -362,6 +364,150 @@ export function FichaContato() {
         />
       )}
     </div>
+  );
+}
+
+/* ─── O QUE A SOFIA LEMBRA ───────────────────────────────────────────── */
+
+const ROTULOS_DA_AGENDA = {
+  servicoFrequente: 'Serviço de sempre',
+  profissionalPreferido: 'Costuma ser atendido por',
+  ultimaVisita: 'Última visita'
+};
+
+function textoDoFato(f) {
+  if (f.chave === 'ultimaVisita') {
+    const data = f.data.split('-').reverse().join('/');
+    // Em pedacos (nao numa string so): o "com" precisa ser um trecho proprio
+    // para a traducao da tela (lib/idioma.js) alcancar.
+    return (
+      <>
+        {data}, {f.servico}
+        {f.profissional && <> com {f.profissional}</>}
+      </>
+    );
+  }
+  return `${f.nome} (${f.vezes} vezes)`;
+}
+
+/**
+ * A ficha que a Sofia usa quando o cliente volta. Fica visivel e corrigivel
+ * aqui porque o que ela "lembra" ela USA com o cliente: uma preferencia errada
+ * precisa sair antes de virar uma sugestao estranha no WhatsApp. Fatos da
+ * agenda nao se editam (vem do historico): o atendente manda ela esquecer.
+ */
+function MemoriaDaSofia({ leadId }) {
+  const queryClient = useQueryClient();
+  const chave = ['lead-memoria', leadId];
+  const consulta = useQuery({ queryKey: chave, queryFn: () => api.get(`/api/leads/${leadId}/memoria`) });
+  const [editando, setEditando] = useState(null); // { lista, indice, texto }
+
+  const salvar = useMutation({
+    mutationFn: (corpo) => api.put(`/api/leads/${leadId}/memoria`, corpo),
+    onSuccess: (r) => {
+      queryClient.setQueryData(chave, r);
+      setEditando(null);
+    }
+  });
+
+  const memoria = consulta.data?.memoria;
+  const trocarItem = (lista, indice, novoTexto) => {
+    const itens = [...memoria[lista]];
+    if (novoTexto == null) itens.splice(indice, 1);
+    else itens[indice] = novoTexto;
+    salvar.mutate({ [lista]: itens });
+  };
+
+  const itensDaLista = (lista) =>
+    (memoria?.[lista] ?? []).map((texto, indice) => {
+      const emEdicao = editando?.lista === lista && editando.indice === indice;
+      return (
+        <li key={`${lista}-${indice}`} className="memoria__item">
+          {emEdicao ? (
+            <form
+              className="memoria__edicao"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (editando.texto.trim()) trocarItem(lista, indice, editando.texto.trim());
+              }}
+            >
+              <Entrada
+                autoFocus
+                maxLength={80}
+                value={editando.texto}
+                aria-label="Corrigir item"
+                onChange={(e) => setEditando({ ...editando, texto: e.target.value })}
+              />
+              <Botao tamanho="sm" type="submit" carregando={salvar.isPending}>Salvar</Botao>
+              <Botao tamanho="sm" variante="fantasma" type="button" onClick={() => setEditando(null)}>Cancelar</Botao>
+            </form>
+          ) : (
+            <>
+              <span className="memoria__texto">
+                <span className="memoria__rotulo">{lista === 'preferencias' ? 'Preferência' : 'Observação'}</span>
+                {texto}
+              </span>
+              <span className="memoria__acoes">
+                <Botao tamanho="sm" variante="fantasma" onClick={() => setEditando({ lista, indice, texto })}>Corrigir</Botao>
+                <Botao tamanho="sm" variante="fantasma" disabled={salvar.isPending} onClick={() => trocarItem(lista, indice, null)}>Apagar</Botao>
+              </span>
+            </>
+          )}
+        </li>
+      );
+    });
+
+  let corpo;
+  if (consulta.isLoading) corpo = <Carregando />;
+  else if (consulta.isError) corpo = <Aviso tom="perigo">{consulta.error.message}</Aviso>;
+  else if (consulta.data?.restrita) corpo = <p className="texto-fraco memoria__vazio">Visível só para quem atende este cliente.</p>;
+  else if (!memoria.agenda.length && !memoria.preferencias.length && !memoria.observacoes.length) {
+    corpo = (
+      <p className="texto-fraco memoria__vazio">
+        Ainda nada. A ficha se forma sozinha: pela agenda, a cada atendimento concluído, e pelo que o cliente contar nas conversas.
+      </p>
+    );
+  } else {
+    corpo = (
+      <ul className="memoria">
+        {memoria.agenda.map((f) => (
+          <li key={f.chave} className="memoria__item">
+            <span className="memoria__texto">
+              <span className="memoria__rotulo">{ROTULOS_DA_AGENDA[f.chave]}</span>
+              {textoDoFato(f)}
+            </span>
+            <span className="memoria__acoes">
+              <Botao
+                tamanho="sm"
+                variante="fantasma"
+                disabled={salvar.isPending}
+                title="Vem da agenda. A Sofia deixa de usar até o dado mudar."
+                onClick={() => salvar.mutate({ esquecer: [f.chave] })}
+              >
+                Esquecer
+              </Botao>
+            </span>
+          </li>
+        ))}
+        {itensDaLista('preferencias')}
+        {itensDaLista('observacoes')}
+      </ul>
+    );
+  }
+
+  return (
+    <section className="cartao">
+      <header className="cartao__topo">
+        <h2 className="cartao__titulo">O que a Sofia lembra</h2>
+      </header>
+      <div className="cartao__corpo coluna">
+        <p className="texto-fraco memoria__explica">
+          Usado quando o cliente volta, para ela sugerir o de sempre sem perguntar tudo de novo.
+        </p>
+        {salvar.isError && <Aviso tom="perigo">{salvar.error.message}</Aviso>}
+        {corpo}
+      </div>
+    </section>
   );
 }
 
@@ -538,7 +684,7 @@ function ItemAtendimento({ c }) {
       <div className="historico__corpo">
         <strong>{quemAtendeu(c)}</strong>
         <span className="texto-fraco">
-          {c.totalMensagensCliente ?? 0} mensage{c.totalMensagensCliente === 1 ? 'm' : 'ns'} do cliente
+          {c.totalMensagensCliente ?? 0} {c.totalMensagensCliente === 1 ? 'mensagem' : 'mensagens'} do cliente
           {tempo && ` · durou ${tempo}`}
           {humor && ` · ${humor.icone} ${humor.rotulo}`}
         </span>

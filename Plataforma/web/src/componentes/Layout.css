@@ -354,6 +354,23 @@ a.menu__empresa.active { background: none; }
 }
 
 /* ─── CONTEÚDO ─────────────────────────────────────────── */
+/* Coluna da direita: a faixa do idioma em cima e o conteudo (que rola) embaixo.
+   A mesa de conversas usa height: 100% do conteudo, que desconta a faixa. */
+.area {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.area__topo {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  padding: max(var(--e3), env(safe-area-inset-top, 0px)) var(--e5) 0;
+}
+.area__topo + .conteudo { padding-top: var(--e3); }
+
 .conteudo {
   flex: 1;
   min-width: 0;
@@ -435,6 +452,12 @@ a.menu__empresa.active { background: none; }
     cursor: pointer;
   }
   .layout__voltar:active { background: var(--superficie-2); }
+  /* A faixa de cima e do computador: aqui o idioma fica na barra do topo. */
+  .area { display: contents; }
+  .area__topo { display: none; }
+  .area__topo + .conteudo { padding-top: var(--e3); }
+  .layout__topo .idioma__botao { height: 30px; padding: 0 8px; }
+  .layout__topo .idioma__seta { display: none; }
   .layout__eu { display: flex; border-radius: 50%; text-decoration: none; }
   .layout__eu:hover { text-decoration: none; }
   .layout__eu .menu__avatar { width: 32px; height: 32px; font-size: 12px; }

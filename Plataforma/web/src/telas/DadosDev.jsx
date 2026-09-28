@@ -103,6 +103,13 @@ export function DadosDev() {
             <p className="texto-fraco">
               Um backup automático é feito todo dia (ficam os 14 mais recentes). Os manuais ficam até você apagar.
             </p>
+            {/* As fotos e audios ficam UMA vez para todos os backups (o cofre). */}
+            {data.cofre?.arquivos > 0 && (
+              <p className="texto-fraco">
+                Fotos e áudios dos backups: {tamanho(data.cofre.bytes)} ({data.cofre.arquivos} arquivos, uma cópia de
+                cada, compartilhada por todos).
+              </p>
+            )}
           </div>
           <div className="dados-dev__criar">
             <label className="opcao">

@@ -4,6 +4,8 @@ import * as s from '../../db/schema/index.js';
 import { RegraDeNegocio } from '../../core/errors.js';
 import { comContexto } from '../../core/logger.js';
 import { criarBackup } from './backups.js';
+import { arquivosCitados, limparOrfaos } from './orfaos.js';
+import { devolverEspacoLivre } from '../../db/manutencao.js';
 
 const log = comContexto({ modulo: 'apagar-dados' });
 
@@ -67,6 +69,11 @@ export async function apagarDados(tenantId, grupos, { usuario } = {}) {
 
   const backup = await criarBackup({ motivo: 'antes_de_apagar', incluirArquivos: true, por: usuario?.nome ?? null });
 
+  // Os arquivos citados ANTES: os que deixarem de ser citados depois sao os
+  // deste apagar (a foto do cliente, o audio da conversa), e saem na hora —
+  // sem a carencia de 24 h da limpeza semanal, que e para upload em andamento.
+  const citadosAntes = await arquivosCitados();
+
   const apagados = {};
   await emTransacao(async (tx) => {
     const apagar = async (nome, tabela, extra) => {
@@ -110,6 +117,16 @@ export async function apagarDados(tenantId, grupos, { usuario } = {}) {
       await apagar('avisos', s.teamAlerts);
     }
   });
+
+  // Antes o arquivo ficava para tras (3 fotos de clientes apagados sem dono no
+  // banco real). Continuam no cofre do backup feito logo acima.
+  const citadosDepois = await arquivosCitados();
+  const soltos = new Set([...citadosAntes].filter((nome) => !citadosDepois.has(nome)));
+  const { apagados: arquivos } = soltos.size ? await limparOrfaos({ carenciaMs: 0, apenas: soltos }) : { apagados: 0 };
+  if (arquivos) apagados.arquivos = arquivos;
+  // Apagar dados e a maior exclusao que existe: o espaco volta ao disco agora,
+  // sem esperar a manutencao semanal.
+  await devolverEspacoLivre().catch((err) => log.warn({ err }, 'Nao foi possivel devolver o espaco livre do banco'));
 
   log.warn({ tenantId, grupos: [...pedidos], backup: backup.id, apagados, por: usuario?.id }, 'Dados apagados');
   return { backup: backup.id, apagados };

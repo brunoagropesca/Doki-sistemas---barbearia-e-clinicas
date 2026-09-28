@@ -8,6 +8,7 @@ import { appointments, productSales, serviceHistory } from '../../db/schema/sche
 import { conversations, messages } from '../../db/schema/conversations.js';
 import { campaigns, campaignTargets } from '../../db/schema/campaigns.js';
 import { aiCalls } from '../../db/schema/ai.js';
+import { usoDeIaMensalNoPeriodo } from '../dados/retencao.js';
 import { RegraDeNegocio } from '../../core/errors.js';
 import { FUSO_PADRAO, dataNoFuso, diaDaSemana, fimDoDia, inicioDoDia, somarDias } from '../../core/datetime.js';
 
@@ -721,21 +722,53 @@ export async function relatorio(tenantId, filtros = {}) {
     lista: campanhasOut
   };
 
-  const okIa = chamadasIa.filter((c) => c.sucesso);
+  // Uso de IA: o detalhe do periodo (~90 dias guardados) + os totais mensais
+  // dos meses mais antigos (ver dados/retencao.js). Tudo vira "grupos" com
+  // contagens, para somar os dois do mesmo jeito; a media de latencia e
+  // soma / sucessos (igual a media das chamadas com sucesso de antes).
+  const mensaisIa = await usoDeIaMensalNoPeriodo(tenantId, p.ini, p.fimMs, fuso);
+  const gruposIa = [
+    ...chamadasIa.map((c) => ({
+      origem: c.origem,
+      agentKey: c.agentKey,
+      provedor: c.provedor,
+      modelo: c.modelo,
+      chamadas: 1,
+      sucessos: c.sucesso ? 1 : 0,
+      tokensEntrada: c.tokensEntrada,
+      tokensSaida: c.tokensSaida,
+      latenciaSomaSucessoMs: c.sucesso ? c.latenciaMs : 0
+    })),
+    ...mensaisIa.grupos
+  ];
+  const somar = (lista, campo) => lista.reduce((s, g) => s + g[campo], 0);
+  const juntarIa = (chave) => {
+    const mapa = new Map();
+    for (const g of gruposIa) mapa.set(chave(g), [...(mapa.get(chave(g)) ?? []), g]);
+    return [...mapa];
+  };
+  const totalIa = somar(gruposIa, 'chamadas');
+  const okIa = somar(gruposIa, 'sucessos');
   const ia = {
-    chamadas: chamadasIa.length,
-    falhas: chamadasIa.length - okIa.length,
-    taxaSucesso: pct(okIa.length, chamadasIa.length),
-    tokensEntrada: chamadasIa.reduce((s, c) => s + c.tokensEntrada, 0),
-    tokensSaida: chamadasIa.reduce((s, c) => s + c.tokensSaida, 0),
-    latenciaMediaMs: okIa.length ? Math.round(media(okIa.map((c) => c.latenciaMs))) : null,
-    porModelo: [...agrupar(chamadasIa, (c) => `${c.provedor} · ${c.modelo}`)]
-      .map(([modelo, total]) => {
-        const deles = chamadasIa.filter((c) => `${c.provedor} · ${c.modelo}` === modelo);
-        return { modelo, chamadas: total, falhas: deles.filter((c) => !c.sucesso).length, tokens: deles.reduce((s, c) => s + c.tokensEntrada + c.tokensSaida, 0) };
-      })
+    chamadas: totalIa,
+    falhas: totalIa - okIa,
+    taxaSucesso: pct(okIa, totalIa),
+    tokensEntrada: somar(gruposIa, 'tokensEntrada'),
+    tokensSaida: somar(gruposIa, 'tokensSaida'),
+    latenciaMediaMs: okIa ? Math.round(somar(gruposIa, 'latenciaSomaSucessoMs') / okIa) : null,
+    porModelo: juntarIa((g) => `${g.provedor} · ${g.modelo}`)
+      .map(([modelo, gs]) => ({
+        modelo,
+        chamadas: somar(gs, 'chamadas'),
+        falhas: somar(gs, 'chamadas') - somar(gs, 'sucessos'),
+        tokens: somar(gs, 'tokensEntrada') + somar(gs, 'tokensSaida')
+      }))
       .sort((a, b) => b.chamadas - a.chamadas),
-    porAgente: [...agrupar(chamadasIa, (c) => c.agentKey ?? c.origem)].map(([agente, total]) => ({ agente, chamadas: total })).sort((a, b) => b.chamadas - a.chamadas)
+    porAgente: juntarIa((g) => g.agentKey ?? g.origem)
+      .map(([agente, gs]) => ({ agente, chamadas: somar(gs, 'chamadas') }))
+      .sort((a, b) => b.chamadas - a.chamadas),
+    // Periodo que pega um mes antigo pela metade: a parte do mes e proporcional.
+    ...(mensaisIa.estimado ? { estimado: true } : {})
   };
 
   return {

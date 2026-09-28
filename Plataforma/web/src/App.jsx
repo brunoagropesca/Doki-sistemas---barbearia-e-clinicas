@@ -12,6 +12,7 @@ import { Agenda } from './telas/Agenda.jsx';
 import { Quadro } from './telas/Quadro.jsx';
 import { Equipe } from './telas/Equipe.jsx';
 import { Catalogo } from './telas/Catalogo.jsx';
+import { Backups } from './telas/Backups.jsx';
 import { Campanhas } from './telas/Campanhas.jsx';
 import { PaginaCampanha } from './telas/campanhas/PaginaCampanha.jsx';
 import { Configuracoes } from './telas/Configuracoes.jsx';
@@ -174,6 +175,14 @@ export function App() {
           element={
             <Protegida cargoMinimo="dev">
               <DadosDev />
+            </Protegida>
+          }
+        />
+        <Route
+          path="/backups"
+          element={
+            <Protegida cargoMinimo="owner">
+              <Backups />
             </Protegida>
           }
         />
