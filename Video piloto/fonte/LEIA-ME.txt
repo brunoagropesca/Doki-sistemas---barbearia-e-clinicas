@@ -1,0 +1,16 @@
+Video piloto DOKI (9:16, 1080x1920, 30 fps, 30 s) - fonte editavel
+
+cena/index.html  -> a animacao inteira. window.render(t) desenha o instante t (segundos).
+                    Abra no Chrome (via um servidor local) para ver e ajustar textos/tempos.
+cena/*.png       -> imagens tiradas do Manual de Marca (logo, fundo, mascote). Nao redesenhar.
+renderizar.mjs   -> gera o MP4: captura os 900 quadros no Chrome e monta com ffmpeg.
+                    Rodar dentro desta pasta "fonte":
+                      FFMPEG=<caminho do ffmpeg> node renderizar.mjs video DOKI_piloto_9x16.mp4 30 30
+                    (o ffmpeg vem no pacote ffmpeg-static da Plataforma/api)
+                    Conferir quadros soltos: node renderizar.mjs quadros 1.4,9.5,27 saida/
+
+AUDIO (trilha + efeitos, tudo sintetizado: sem musica de terceiros, sem licenca)
+gerar-audio.mjs  -> gera o WAV (48 kHz, estereo). Tempos dos efeitos seguem cena/index.html.
+                    node gerar-audio.mjs audio.wav
+Juntar com o video (volume padrao de Reels, -14 LUFS):
+  ffmpeg -i DOKI_piloto_9x16.mp4 -i audio.wav -map 0:v -map 1:a -c:v copy -af "loudnorm=I=-14:TP=-1.5:LRA=11" -c:a aac -b:a 192k -shortest -movflags +faststart DOKI_piloto_9x16_com_audio.mp4

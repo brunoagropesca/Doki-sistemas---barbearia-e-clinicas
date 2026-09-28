@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>DOKI piloto</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=block">
+<style>
+  :root {
+    --navy: #061A2D; --deep: #03111F; --navy2: #0B2740; --cyan: #00DDF2; --blue: #078BFF;
+    --mint: #36E3A1; --ice: #EAF7FA; --slate: #7F95A6; --white: #FFFFFF;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--deep); }
+  body { font-family: 'Inter', sans-serif; color: var(--white); -webkit-font-smoothing: antialiased; }
+  #palco { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: var(--navy); }
+  .abs { position: absolute; will-change: transform, opacity; }
+  .centro-x { left: 0; right: 0; text-align: center; }
+
+  /* fundo com as ondas do manual */
+  #fundo { inset: -60px; background: url(fundo.png) center / cover no-repeat; }
+  #veu { inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(6,26,45,.35) 0%, rgba(3,17,31,.85) 75%); }
+
+  /* logo com as bordas dissolvidas no navy */
+  .logo { width: 980px; height: 980px; left: 50px; background: url(logo.png) center / contain no-repeat;
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 38%, transparent 64%); mask-image: radial-gradient(circle at 50% 50%, #000 38%, transparent 64%); }
+  #anel { width: 520px; height: 520px; left: 280px; border-radius: 50%; border: 4px solid var(--cyan);
+    box-shadow: 0 0 60px rgba(0,221,242,.55), inset 0 0 40px rgba(0,221,242,.25); }
+
+  /* textos */
+  .rotulo { font-weight: 700; font-size: 34px; letter-spacing: .14em; text-transform: uppercase; color: var(--cyan); }
+  .linha { overflow: hidden; display: block; }
+  .linha > span { display: inline-block; will-change: transform; }
+  .grande { font-weight: 900; font-size: 118px; line-height: 1.02; letter-spacing: -.035em; }
+  .degrade { background: linear-gradient(90deg, var(--cyan), var(--blue)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .medio { font-weight: 800; font-size: 72px; line-height: 1.08; letter-spacing: -.03em; }
+  .sub { font-weight: 500; font-size: 38px; color: var(--ice); opacity: .85; }
+  #sublinha { height: 10px; border-radius: 10px; background: linear-gradient(90deg, var(--cyan), var(--blue)); transform-origin: left center; }
+
+  /* celular */
+  #celular { width: 700px; height: 1140px; left: 190px; top: 390px; border-radius: 88px; background: #0a0f18;
+    padding: 22px; box-shadow: 0 40px 120px rgba(0,0,0,.55), 0 0 0 3px rgba(0,221,242,.35), 0 0 80px rgba(7,139,255,.25); }
+  #tela { width: 100%; height: 100%; border-radius: 68px; overflow: hidden; background: linear-gradient(180deg, #071d33 0%, #04121f 100%); display: flex; flex-direction: column; }
+  #topo-chat { display: flex; align-items: center; gap: 22px; padding: 70px 34px 26px; background: rgba(11,39,64,.9); border-bottom: 1px solid rgba(0,221,242,.18); }
+  .avatar { width: 84px; height: 84px; border-radius: 50%; flex: none; background: #0d2238 url(logo.png) no-repeat; background-size: 280px; background-position: -93px -58px; box-shadow: 0 0 0 3px rgba(0,221,242,.5); }
+  #topo-chat b { font-size: 34px; font-weight: 700; display: block; }
+  #topo-chat small { font-size: 26px; color: var(--mint); font-weight: 600; }
+  #conversa { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 24px 28px 36px; gap: 0; }
+  .item { overflow: hidden; }
+  .item > div { padding-top: 18px; display: flex; }
+  .item.cli > div { justify-content: flex-end; }
+  .balao { max-width: 78%; font-size: 33px; line-height: 1.32; padding: 22px 28px; border-radius: 34px; font-weight: 500; transform-origin: left bottom; }
+  .cli .balao { background: var(--blue); border-bottom-right-radius: 10px; transform-origin: right bottom; }
+  .sofia .balao { background: #10304d; border: 1px solid rgba(0,221,242,.25); border-bottom-left-radius: 10px; }
+  .sofia .balao em { display: block; font-style: normal; font-size: 24px; font-weight: 700; color: var(--cyan); margin-bottom: 6px; letter-spacing: .04em; }
+  .digitando { display: flex; gap: 10px; padding: 26px 30px; }
+  .digitando i { width: 16px; height: 16px; border-radius: 50%; background: var(--cyan); display: block; }
+  #selo { left: 340px; top: 1600px; width: 680px; padding: 24px 30px; border-radius: 26px; background: rgba(54,227,161,.14);
+    border: 2px solid var(--mint); color: var(--mint); font-size: 34px; font-weight: 700; text-align: center; box-shadow: 0 0 50px rgba(54,227,161,.3); }
+  #mascote { width: 290px; height: 290px; border-radius: 50%; left: 30px; top: 1560px; background: url(mascotes.png) no-repeat;
+    background-size: 833.5px auto; background-position: -100px -14.7px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+
+  /* cartoes do sistema */
+  .cartao { width: 900px; left: 90px; border-radius: 36px; padding: 40px 44px; background: linear-gradient(180deg, rgba(16,48,77,.92), rgba(8,29,49,.94));
+    border: 1px solid rgba(0,221,242,.22); box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+  .cartao h3 { font-size: 30px; font-weight: 700; color: var(--cyan); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 26px; display: flex; justify-content: space-between; }
+  .cartao h3 span { color: var(--slate); letter-spacing: 0; text-transform: none; font-weight: 600; }
+  .agenda-linha { display: flex; align-items: center; gap: 28px; padding: 18px 22px; border-radius: 20px; font-size: 34px; }
+  .agenda-linha + .agenda-linha { margin-top: 10px; }
+  .agenda-linha b { font-variant-numeric: tabular-nums; width: 118px; font-weight: 800; }
+  .agenda-linha span { flex: 1; color: var(--ice); }
+  .agenda-linha small { font-size: 26px; color: var(--slate); font-weight: 600; }
+  #nova { background: rgba(54,227,161,.12); box-shadow: inset 0 0 0 2px var(--mint); }
+  #nova small { color: var(--mint); }
+  .chips { display: flex; flex-wrap: wrap; gap: 16px; }
+  .chip { font-size: 31px; font-weight: 600; padding: 16px 26px; border-radius: 999px; background: rgba(0,221,242,.1); border: 1px solid rgba(0,221,242,.35); }
+  .valor { font-size: 88px; font-weight: 900; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .valor small { font-size: 36px; color: var(--mint); font-weight: 700; margin-left: 16px; letter-spacing: 0; }
+  .barras { display: flex; align-items: flex-end; gap: 18px; height: 170px; margin-top: 20px; }
+  .barras i { flex: 1; border-radius: 12px 12px 4px 4px; background: linear-gradient(180deg, var(--cyan), var(--blue)); transform-origin: bottom; display: block; }
+
+  /* beneficios */
+  .beneficio { left: 90px; width: 900px; display: flex; align-items: center; gap: 36px; padding: 34px 40px; border-radius: 32px;
+    background: rgba(11,39,64,.78); border: 1px solid rgba(0,221,242,.2); }
+  .icone { width: 120px; height: 120px; border-radius: 30px; flex: none; display: grid; place-items: center; background: rgba(0,221,242,.12); border: 2px solid rgba(0,221,242,.45); }
+  .icone svg { width: 64px; height: 64px; fill: none; stroke: var(--cyan); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .beneficio b { font-size: 46px; font-weight: 800; line-height: 1.15; letter-spacing: -.02em; }
+  .beneficio small { display: block; font-size: 30px; color: var(--slate); font-weight: 500; margin-top: 8px; }
+
+  /* CTA */
+  #cta { inset: 0; background: url(cta.png) center / cover no-repeat; }
+  #cta-sombra { inset: 0; background: linear-gradient(180deg, transparent 55%, rgba(3,17,31,.92) 88%); }
+  #botao { left: 190px; width: 700px; top: 1600px; padding: 36px 0; border-radius: 22px; background: var(--blue); text-align: center;
+    font-size: 54px; font-weight: 800; letter-spacing: -.01em; box-shadow: 0 20px 70px rgba(7,139,255,.55), 0 0 0 3px rgba(0,221,242,.6); }
+  #fim { inset: 0; background: radial-gradient(circle at 50% 42%, #0B2740 0%, var(--navy) 45%, var(--deep) 100%); }
+  #preto { inset: 0; background: #000; }
+</style>
+</head>
+<body>
+<div id="palco">
+  <div id="fundo" class="abs"></div>
+  <div id="veu" class="abs"></div>
+
+  <!-- 1. abertura -->
+  <div id="anel" class="abs" style="top:650px"></div>
+  <div id="logo1" class="abs logo" style="top:470px"></div>
+
+  <!-- 2. gancho -->
+  <div id="gancho" class="abs centro-x" style="top:560px">
+    <div id="g-rot" class="rotulo">🕚 São 23h</div>
+    <div class="grande" style="margin-top:40px">
+      <span class="linha"><span id="g1">Seu cliente</span></span>
+      <span class="linha"><span id="g2">mandou</span></span>
+      <span class="linha"><span id="g3">mensagem.</span></span>
+    </div>
+    <div class="grande degrade" style="margin-top:60px"><span class="linha"><span id="g4" class="degrade">Quem responde?</span></span></div>
+    <div id="sublinha" style="width:640px;margin:26px auto 0"></div>
+  </div>
+
+  <!-- 3. conversa -->
+  <div id="c-titulo" class="abs centro-x" style="top:150px">
+    <div class="rotulo">Sofia · a IA da DOKI</div>
+    <div class="medio" style="margin-top:18px">Responde na hora.<br><span class="degrade">24 horas por dia.</span></div>
+  </div>
+  <div id="celular" class="abs">
+    <div id="tela">
+      <div id="topo-chat"><div class="avatar"></div><div><b>Barbearia do Zé</b><small>● online</small></div></div>
+      <div id="conversa">
+        <div class="item cli" id="m1"><div><div class="balao">Oi! Tem horário amanhã à tarde pra corte?</div></div></div>
+        <div class="item sofia" id="d1"><div><div class="balao digitando"><i></i><i></i><i></i></div></div></div>
+        <div class="item sofia" id="m2"><div><div class="balao"><em>SOFIA</em>Oi, Rafael! 😊 Amanhã tenho 14h ou 16h30 com o Carlos. Qual fica melhor?</div></div></div>
+        <div class="item cli" id="m3"><div><div class="balao">16h30 👍</div></div></div>
+        <div class="item sofia" id="d2"><div><div class="balao digitando"><i></i><i></i><i></i></div></div></div>
+        <div class="item sofia" id="m4"><div><div class="balao"><em>SOFIA</em>Fechado! ✅ Corte amanhã às 16h30 com o Carlos. Te lembro na véspera.</div></div></div>
+      </div>
+    </div>
+  </div>
+  <div id="selo" class="abs">✓ Horário marcado na agenda</div>
+  <div id="mascote" class="abs"></div>
+
+  <!-- 4. sistema -->
+  <div id="s-titulo" class="abs centro-x" style="top:170px">
+    <div class="rotulo">Plataforma DOKI</div>
+    <div class="medio" style="margin-top:18px">Tudo num <span class="degrade">painel só.</span></div>
+  </div>
+  <div id="k-agenda" class="abs cartao" style="top:420px">
+    <h3>Agenda <span>amanhã</span></h3>
+    <div class="agenda-linha"><b>09:00</b><span>Barba · Julia</span><small>confirmado</small></div>
+    <div class="agenda-linha"><b>14:00</b><span>Degradê · Carlos</span><small>confirmado</small></div>
+    <div class="agenda-linha" id="nova"><b>16:30</b><span>Corte · Rafael</span><small>via IA</small></div>
+  </div>
+  <div id="k-memoria" class="abs cartao" style="top:900px">
+    <h3>O que a Sofia lembra <span>Rafael</span></h3>
+    <div class="chips">
+      <div class="chip">✂️ Corte de sempre</div><div class="chip">💈 Prefere o Carlos</div><div class="chip">🕓 Vem à tarde</div>
+    </div>
+  </div>
+  <div id="k-dash" class="abs cartao" style="top:1240px">
+    <h3>Faturamento do mês <span>ao vivo</span></h3>
+    <div class="valor"><span id="contador">R$ 0</span><small id="alta">▲ 12%</small></div>
+    <div class="barras"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
+
+  <!-- 5. beneficios -->
+  <div id="b-titulo" class="abs centro-x" style="top:300px">
+    <div class="medio">Tecnologia que trabalha<br><span class="degrade">enquanto você trabalha.</span></div>
+  </div>
+  <div id="b1" class="abs beneficio" style="top:700px">
+    <div class="icone"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.1A8 8 0 1 1 20 12z"/><path d="M8.5 11h7M8.5 14h4"/></svg></div>
+    <div><b>Atende o WhatsApp 24h</b><small>Responde, tira dúvida e passa o preço certo.</small></div>
+  </div>
+  <div id="b2" class="abs beneficio" style="top:960px">
+    <div class="icone"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M9 15l2 2 4-4"/></svg></div>
+    <div><b>Marca na agenda sozinha</b><small>E lembra o cliente na véspera.</small></div>
+  </div>
+  <div id="b3" class="abs beneficio" style="top:1220px">
+    <div class="icone"><svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/><path d="M19 19c0 1.5-2 2.5-5 2.5"/></svg></div>
+    <div><b>Chama a equipe na hora certa</b><small>Gente de verdade quando o cliente precisa.</small></div>
+  </div>
+
+  <!-- 6. chamada e fim -->
+  <div id="cta" class="abs"></div>
+  <div id="cta-sombra" class="abs"></div>
+  <div id="botao" class="abs">Chama a DOKI →</div>
+  <div id="cta-sub" class="abs centro-x sub" style="top:1790px">Chats inteligentes para barbearias e clínicas</div>
+
+  <div id="fim" class="abs"></div>
+  <div id="logo2" class="abs logo" style="top:330px"></div>
+  <div id="f-texto" class="abs centro-x" style="top:1330px">
+    <div class="medio">Chama a <span class="degrade">DOKI.</span></div>
+    <div class="sub" style="margin-top:22px">Atendimento mais simples, rápido e humano.</div>
+  </div>
+  <div id="preto" class="abs"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const cl = (v) => Math.max(0, Math.min(1, v));
+const k = (t, a, b) => cl((t - a) / (b - a));
+const eOut = (x) => 1 - Math.pow(1 - x, 3);
+const eIO = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const eBack = (x) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const lerp = (a, b, x) => a + (b - a) * x;
+
+/** Visivel entre [entra, sai], com rampas de entrada e saida. */
+const janela = (t, a, b, c, d) => Math.min(eOut(k(t, a, b)), 1 - eIO(k(t, c, d)));
+
+function pos(el, { o = 1, x = 0, y = 0, s = 1, r = 0, blur = 0 } = {}) {
+  el.style.opacity = o;
+  el.style.transform = `translate(${x}px, ${y}px) scale(${s}) rotate(${r}deg)`;
+  el.style.filter = blur > 0.05 ? `blur(${blur}px)` : 'none';
+  el.style.visibility = o <= 0.001 ? 'hidden' : 'visible';
+}
+
+const itens = ['m1', 'd1', 'm2', 'm3', 'd2', 'm4'].map((id) => ({ el: $(id) }));
+function medir() {
+  for (const it of itens) { it.el.style.height = 'auto'; it.h = it.el.scrollHeight; }
+}
+
+const brl = (v) => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
+const ALTURAS = [0.35, 0.5, 0.42, 0.62, 0.55, 0.74, 0.68, 0.92];
+
+window.render = (t) => {
+  // fundo: deriva lenta o video inteiro
+  pos($('fundo'), { s: 1.04 + t * 0.004, x: Math.sin(t / 6) * 18, y: Math.cos(t / 7) * 22 });
+
+  // 1. abertura (0 - 3.2)
+  const l1 = eOut(k(t, 0.15, 1.3));
+  const saiL1 = eIO(k(t, 2.5, 3.1));
+  pos($('logo1'), { o: l1 * (1 - saiL1), s: lerp(0.86, 1, l1) + saiL1 * 0.12, blur: (1 - l1) * 14 });
+  const an = k(t, 0.35, 1.8);
+  pos($('anel'), { o: Math.sin(an * Math.PI) * 0.9 * (1 - saiL1), s: lerp(0.6, 1.35, eOut(an)) });
+
+  // 2. gancho (3.0 - 6.6)
+  const vg = janela(t, 3.0, 3.3, 6.15, 6.55);
+  pos($('gancho'), { o: vg, y: -eIO(k(t, 6.15, 6.55)) * 80 });
+  pos($('g-rot'), { o: eOut(k(t, 3.05, 3.5)), y: (1 - eOut(k(t, 3.05, 3.5))) * 30 });
+  [['g1', 3.25], ['g2', 3.45], ['g3', 3.65]].forEach(([id, a]) => { $(id).style.transform = `translateY(${(1 - eOut(k(t, a, a + 0.55))) * 110}%)`; });
+  $('g4').style.transform = `translateY(${(1 - eOut(k(t, 4.55, 5.1))) * 110}%)`;
+  $('sublinha').style.transform = `scaleX(${eIO(k(t, 5.0, 5.7))})`;
+
+  // 3. conversa (6.4 - 14.8)
+  const vc = janela(t, 6.4, 7.0, 14.3, 14.8);
+  pos($('c-titulo'), { o: vc, y: (1 - eOut(k(t, 6.4, 7.0))) * -40 });
+  pos($('celular'), { o: vc, y: (1 - eOut(k(t, 6.4, 7.1))) * 500 + eIO(k(t, 14.3, 14.8)) * 300, s: lerp(0.92, 1, eOut(k(t, 6.4, 7.1))) });
+  const tempos = { m1: [7.2, 99], d1: [8.0, 8.9], m2: [8.9, 99], m3: [10.4, 99], d2: [11.0, 11.8], m4: [11.8, 99] };
+  for (const it of itens) {
+    const [a, b] = tempos[it.el.id];
+    const ent = eOut(k(t, a, a + 0.35));
+    const sai = b < 99 ? eIO(k(t, b - 0.05, b + 0.25)) : 0;
+    const f = ent * (1 - sai);
+    it.el.style.height = f * it.h + 'px';
+    const bal = it.el.querySelector('.balao');
+    bal.style.opacity = f;
+    bal.style.transform = `scale(${lerp(0.6, 1, eBack(cl(ent)))})`;
+    bal.querySelectorAll('i').forEach((d, j) => { d.style.transform = `translateY(${Math.sin(t * 9 - j * 0.9) * 6}px)`; d.style.opacity = 0.5 + 0.5 * Math.max(0, Math.sin(t * 9 - j * 0.9)); });
+  }
+  const sel = eBack(k(t, 12.7, 13.2));
+  pos($('selo'), { o: cl(k(t, 12.7, 13.0)) * (1 - eIO(k(t, 14.2, 14.6))), s: lerp(0.5, 1, sel), y: (1 - eOut(k(t, 12.7, 13.2))) * 60 });
+  const ms = eBack(k(t, 7.4, 8.0));
+  pos($('mascote'), { o: cl(k(t, 7.4, 7.7)) * (1 - eIO(k(t, 14.2, 14.6))), s: lerp(0.3, 1, ms), r: Math.sin(t * 1.6) * 3 - 6 * (1 - ms) });
+
+  // 4. sistema (14.6 - 21.2)
+  const vs = janela(t, 14.6, 15.1, 20.8, 21.2);
+  pos($('s-titulo'), { o: vs, y: (1 - eOut(k(t, 14.6, 15.1))) * -40 });
+  [['k-agenda', 14.9], ['k-memoria', 16.9], ['k-dash', 18.1]].forEach(([id, a], i) => {
+    const e = eOut(k(t, a, a + 0.6));
+    pos($(id), { o: cl(k(t, a, a + 0.3)) * (1 - eIO(k(t, 20.8 - i * 0.08, 21.2))), x: (1 - e) * 700, r: (1 - e) * 4 });
+  });
+  const nv = eOut(k(t, 15.7, 16.2));
+  $('nova').style.opacity = nv; $('nova').style.transform = `translateX(${(1 - nv) * 140}px)`;
+  $('nova').style.boxShadow = `inset 0 0 0 2px #36E3A1, 0 0 ${30 + Math.sin(t * 4) * 12}px rgba(54,227,161,${0.35 * nv})`;
+  document.querySelectorAll('.chip').forEach((c, j) => { const e = eBack(k(t, 17.3 + j * 0.25, 17.75 + j * 0.25)); c.style.opacity = cl(k(t, 17.3 + j * 0.25, 17.5 + j * 0.25)); c.style.transform = `scale(${lerp(0.4, 1, e)})`; });
+  $('contador').textContent = brl(18940 * eOut(k(t, 18.5, 20.0)));
+  $('alta').style.opacity = cl(k(t, 19.8, 20.1));
+  document.querySelectorAll('.barras i').forEach((b, j) => { b.style.height = ALTURAS[j] * 100 + '%'; b.style.transform = `scaleY(${eOut(k(t, 18.5 + j * 0.1, 19.2 + j * 0.1))})`; });
+
+  // 5. beneficios (21.0 - 25.4)
+  const vb = janela(t, 21.0, 21.5, 25.0, 25.4);
+  pos($('b-titulo'), { o: vb, y: (1 - eOut(k(t, 21.0, 21.5))) * 40 });
+  [['b1', 21.6], ['b2', 22.3], ['b3', 23.0]].forEach(([id, a]) => {
+    const e = eOut(k(t, a, a + 0.55));
+    pos($(id), { o: cl(k(t, a, a + 0.3)) * (1 - eIO(k(t, 25.0, 25.4))), x: (1 - e) * -500 });
+    $(id).querySelector('.icone').style.transform = `scale(${lerp(0.3, 1, eBack(k(t, a + 0.15, a + 0.6)))})`;
+  });
+
+  // 6. chamada (25.2 - 28.6) e fim (28.4 - 30)
+  const vcta = janela(t, 25.2, 25.8, 28.3, 28.8);
+  pos($('cta'), { o: vcta, s: 1.02 + eIO(k(t, 25.2, 28.8)) * 0.07 });
+  pos($('cta-sombra'), { o: vcta });
+  const bt = eBack(k(t, 26.4, 26.9));
+  pos($('botao'), { o: cl(k(t, 26.4, 26.6)) * (1 - eIO(k(t, 28.3, 28.7))), s: lerp(0.5, 1, bt) * (1 + Math.max(0, Math.sin((t - 27) * 5)) * 0.025 * cl(k(t, 27, 27.3))) });
+  pos($('cta-sub'), { o: cl(k(t, 26.9, 27.3)) * (1 - eIO(k(t, 28.3, 28.7))), y: (1 - eOut(k(t, 26.9, 27.3))) * 20 });
+
+  const vf = eOut(k(t, 28.4, 28.9));
+  pos($('fim'), { o: vf });
+  const l2 = eOut(k(t, 28.6, 29.4));
+  pos($('logo2'), { o: l2, s: lerp(0.88, 1, l2), blur: (1 - l2) * 10 });
+  pos($('f-texto'), { o: eOut(k(t, 28.9, 29.4)), y: (1 - eOut(k(t, 28.9, 29.4))) * 30 });
+  pos($('preto'), { o: eIO(k(t, 29.55, 30)) });
+};
+
+window.preparar = async () => {
+  await document.fonts.ready;
+  await Promise.all(['fundo.png', 'logo.png', 'cta.png', 'mascotes.png'].map((src) => { const i = new Image(); i.src = src; return i.decode(); }));
+  medir();
+  window.render(0);
+  return true;
+};
+</script>
+</body>
+</html>

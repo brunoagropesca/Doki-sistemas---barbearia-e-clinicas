@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Doki Sistemas — Apresentação Comercial Executiva</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap');
+
+    @page {
+      size: A4 portrait;
+      margin: 12mm 14mm 14mm 14mm;
+      @bottom-right {
+        content: counter(page);
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 8pt;
+        color: #94A3B8;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #1E293B;
+      background: #FFFFFF;
+      font-size: 9.5pt;
+      line-height: 1.5;
+    }
+
+    /* TIPOGRAFIA */
+    h1, h2, h3, h4 {
+      font-family: 'Outfit', sans-serif;
+      color: #0F172A;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    /* HEADER & CAPA EXECUTIVA */
+    .header-cover {
+      border-bottom: 2px solid #E2E8F0;
+      padding-bottom: 18px;
+      margin-bottom: 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #059669 0%, #0284C7 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFFFFF;
+      font-size: 22px;
+      font-weight: 900;
+      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+    }
+
+    .brand-text h1 {
+      font-size: 22pt;
+      letter-spacing: -0.5px;
+      color: #0F172A;
+    }
+
+    .brand-text p {
+      font-size: 9.5pt;
+      color: #64748B;
+      font-weight: 600;
+    }
+
+    .header-badge {
+      text-align: right;
+    }
+
+    .tag-proposta {
+      display: inline-block;
+      background: #EFF6FF;
+      color: #1D4ED8;
+      border: 1px solid #BFDBFE;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 8pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .hero-title-box {
+      background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+      color: #FFFFFF;
+      padding: 22px 24px;
+      border-radius: 14px;
+      margin-bottom: 22px;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15);
+    }
+
+    .hero-title-box h2 {
+      color: #FFFFFF;
+      font-size: 16pt;
+      margin-bottom: 8px;
+    }
+
+    .hero-title-box p {
+      color: #CBD5E1;
+      font-size: 9.5pt;
+      line-height: 1.5;
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .stat-card .val {
+      font-family: 'Outfit', sans-serif;
+      font-size: 14pt;
+      font-weight: 800;
+      color: #34D399;
+    }
+
+    .stat-card .lbl {
+      font-size: 7.5pt;
+      color: #94A3B8;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* SEÇÕES */
+    .section-block {
+      margin-bottom: 24px;
+      page-break-inside: avoid;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 2px solid #F1F5F9;
+      padding-bottom: 8px;
+      margin-bottom: 14px;
+    }
+
+    .section-num {
+      width: 24px;
+      height: 24px;
+      background: #0F172A;
+      color: white;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8.5pt;
+      font-weight: 800;
+    }
+
+    .section-title {
+      font-size: 13pt;
+      color: #0F172A;
+    }
+
+    /* CARDS DE GARGALO */
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .card-problem {
+      background: #FFF;
+      border: 1px solid #E2E8F0;
+      border-top: 3px solid #EF4444;
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .card-problem.amber {
+      border-top-color: #F59E0B;
+    }
+
+    .card-problem.blue {
+      border-top-color: #0284C7;
+    }
+
+    .card-problem h4 {
+      font-size: 9.5pt;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-problem p {
+      font-size: 8.5pt;
+      color: #64748B;
+      line-height: 1.45;
+    }
+
+    /* AGENTES DE IA (DESTAQUE MÁXIMO) */
+    .agent-box {
+      border-radius: 10px;
+      border: 1px solid #E2E8F0;
+      padding: 14px;
+      margin-bottom: 12px;
+      background: #FAFAFA;
+      display: grid;
+      grid-template-columns: 80px 1fr 140px;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .agent-avatar-col {
+      text-align: center;
+    }
+
+    .agent-icon-badge {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin: 0 auto 6px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    .agent-icon-badge.sofia {
+      background: #FDF2F8;
+      border: 1.5px solid #F472B6;
+      color: #DB2777;
+    }
+
+    .agent-icon-badge.atena {
+      background: #ECFDF5;
+      border: 1.5px solid #34D399;
+      color: #059669;
+    }
+
+    .agent-icon-badge.aquiles {
+      background: #FFFBEB;
+      border: 1.5px solid #FBBF24;
+      color: #D97706;
+    }
+
+    .agent-tag {
+      font-size: 7.5pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .agent-tag.sofia { color: #DB2777; }
+    .agent-tag.atena { color: #059669; }
+    .agent-tag.aquiles { color: #D97706; }
+
+    .agent-content h3 {
+      font-size: 11.5pt;
+      margin-bottom: 4px;
+    }
+
+    .agent-content .role {
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 6px;
+    }
+
+    .agent-content p {
+      font-size: 8.5pt;
+      color: #475569;
+      line-height: 1.45;
+      margin-bottom: 6px;
+    }
+
+    .agent-checklist {
+      list-style: none;
+      font-size: 8pt;
+      color: #334155;
+    }
+
+    .agent-checklist li {
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .agent-checklist li strong {
+      color: #0F172A;
+    }
+
+    .agent-thumb {
+      width: 100%;
+      height: 95px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid #CBD5E1;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    /* DIAGRAMA DE FLUXO */
+    .flow-container {
+      background: #F8FAFC;
+      border: 1px dashed #CBD5E1;
+      border-radius: 10px;
+      padding: 12px;
+      margin: 14px 0;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      text-align: center;
+    }
+
+    .flow-step {
+      flex: 1;
+      padding: 6px;
+    }
+
+    .flow-step .f-icon {
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+
+    .flow-step .f-name {
+      font-size: 8.5pt;
+      font-weight: 800;
+      color: #0F172A;
+    }
+
+    .flow-step .f-desc {
+      font-size: 7.5pt;
+      color: #64748B;
+    }
+
+    .flow-arrow {
+      color: #94A3B8;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    /* TABELA DE SITUAÇÕES REAIS */
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 8.5pt;
+    }
+
+    table.data-table th {
+      background: #0F172A;
+      color: #FFFFFF;
+      padding: 8px 10px;
+      text-align: left;
+      font-family: 'Outfit', sans-serif;
+      font-size: 8.5pt;
+      font-weight: 700;
+    }
+
+    table.data-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #E2E8F0;
+      vertical-align: top;
+    }
+
+    table.data-table tr:nth-child(even) td {
+      background: #F8FAFC;
+    }
+
+    .badge-before {
+      display: inline-block;
+      background: #FEE2E2;
+      color: #991B1B;
+      font-size: 7.5pt;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-bottom: 3px;
+    }
+
+    .badge-after {
+      display: inline-block;
+      background: #DCFCE7;
+      color: #166534;
+      font-size: 7.5pt;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-bottom: 3px;
+    }
+
+    /* SCREENSHOTS GRID */
+    .screens-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .screen-item {
+      border: 1px solid #E2E8F0;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .screen-item img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      display: block;
+      border-bottom: 1px solid #E2E8F0;
+    }
+
+    .screen-item-caption {
+      padding: 8px 10px;
+    }
+
+    .screen-item-caption h5 {
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: #0F172A;
+      margin-bottom: 2px;
+    }
+
+    .screen-item-caption p {
+      font-size: 7.5pt;
+      color: #64748B;
+    }
+
+    /* ROI BOX */
+    .roi-table-container {
+      background: #F0FDF4;
+      border: 1.5px solid #86EFAC;
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 12px;
+    }
+
+    .roi-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .roi-header h4 {
+      color: #166534;
+      font-size: 11pt;
+    }
+
+    .roi-highlight-badge {
+      background: #16A34A;
+      color: white;
+      font-size: 8pt;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 9999px;
+    }
+
+    .total-roi-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #166534;
+      color: white;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-top: 10px;
+      font-weight: 700;
+    }
+
+    .total-roi-row .amount {
+      font-family: 'Outfit', sans-serif;
+      font-size: 15pt;
+      font-weight: 900;
+      color: #FDE047;
+    }
+
+    /* CTA FINAL */
+    .cta-banner {
+      background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+      border-radius: 10px;
+      color: white;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 18px;
+    }
+
+    .cta-banner h4 {
+      color: white;
+      font-size: 12pt;
+      margin-bottom: 4px;
+    }
+
+    .cta-banner p {
+      font-size: 8.5pt;
+      color: #94A3B8;
+    }
+
+    .cta-badge {
+      background: #10B981;
+      color: white;
+      font-size: 9pt;
+      font-weight: 800;
+      padding: 8px 14px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .page-break {
+      page-break-after: always;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========================================================
+       PÁGINA 1: CAPA, VISÃO GERAL, GARGALOS E TRIO DE AGENTES
+       ======================================================== -->
+
+  <div class="header-cover">
+    <div class="brand-box">
+      <div class="brand-icon">◆</div>
+      <div class="brand-text">
+        <h1>DOKI SISTEMAS</h1>
+        <p>Inteligência Artificial & Gestão 360 para Barbearias e Clínicas</p>
+      </div>
+    </div>
+    <div class="header-badge">
+      <span class="tag-proposta">Apresentação Executiva</span>
+      <div style="font-size: 8pt; color: #64748B;">Documento Comercial &bull; 2026</div>
+    </div>
+  </div>
+
+  <div class="hero-title-box">
+    <h2>Transforme o WhatsApp da sua Empresa em uma Máquina Autônoma de Agendamentos e Vendas</h2>
+    <p>
+      O Doki Sistemas é a solução definitiva que integra CRM Inteligente, Atendimento Multicanal, Agenda Dinâmica e uma equipe de Agentes de Inteligência Artificial especializados (Sofia, Atena e Aquiles) que operam 24/7 sem erros e sem pausas.
+    </p>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="val">&lt; 5 seg</div>
+        <div class="lbl">Tempo de Resposta</div>
+      </div>
+      <div class="stat-card">
+        <div class="val">24/7</div>
+        <div class="lbl">Atendimento Ativo</div>
+      </div>
+      <div class="stat-card">
+        <div class="val">+45%</div>
+        <div class="lbl">Conversão de Leads</div>
+      </div>
+      <div class="stat-card">
+        <div class="val">0 Conflitos</div>
+        <div class="lbl">Erros de Agenda</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-block">
+    <div class="section-header">
+      <span class="section-num">1</span>
+      <h3 class="section-title">O Gargalo Invisível: Por que estabelecimentos perdem até 40% do faturamento?</h3>
+    </div>
+
+    <div class="grid-3">
+      <div class="card-problem">
+        <h4>⏳ Demora Fatal no WhatsApp</h4>
+        <p>O cliente quer agendar às 22h na cama ou às 7h antes de trabalhar. Se sua recepção demora 15 minutos, ele abre o WhatsApp do concorrente e agenda lá.</p>
+      </div>
+      <div class="card-problem amber">
+        <h4>🌪️ Leads Esquecidos no Vácuo</h4>
+        <p>Centenas de pessoas perguntam o preço e não respondem na hora. Sem funil automatizado, esse contato esfria e centenas de reais são perdidos diariamente.</p>
+      </div>
+      <div class="card-problem blue">
+        <h4>🪑 Horários Ociosos & No-Show</h4>
+        <p>Terças e quartas com cadeiras vazias e faltas de clientes que esqueceram da consulta porque ninguém teve tempo de enviar lembretes manuais.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-block">
+    <div class="section-header">
+      <span class="section-num">2</span>
+      <h3 class="section-title">O Grande Diferencial: O Trio de Agentes de Inteligência Artificial</h3>
+    </div>
+
+    <p style="font-size: 8.8pt; color: #475569; margin-bottom: 12px;">
+      Ao contrário de chatbots ultrapassados com menus numéricos ("digite 1 para agendar"), o Doki possui uma <strong>tríade de agentes com papéis técnicos isolados</strong> que operam com processamento de linguagem natural e travas de segurança rígidas:
+    </p>
+
+    <!-- SOFIA -->
+    <div class="agent-box">
+      <div class="agent-avatar-col">
+        <div class="agent-icon-badge sofia">💬</div>
+        <span class="agent-tag sofia">Recepção</span>
+      </div>
+      <div class="agent-content">
+        <h3>1. Sofia — A Atendente de Frente (Linha de Contato 24/7)</h3>
+        <div class="role">Atendimento Humanizado, Triagem e Conversão no WhatsApp</div>
+        <p>Atende em segundos, acolhe o cliente com cordialidade, escuta áudios em velocidade recorde (Whisper/Gemini), compreende fotos de referência e negocia horários com naturalidade.</p>
+        <ul class="agent-checklist">
+          <li>✔ <strong>Memória do Cliente:</strong> Lembra do corte preferido, profissional habitual e detalhes anteriores.</li>
+          <li>✔ <strong>Trava de Preço Rígida:</strong> Impossibilitada de inventar preços ou conceder descontos não cadastrados.</li>
+          <li>✔ <strong>Sistema de Ofertas:</strong> Só reserva horários validados nos últimos 120 minutos (zero horário fantasma).</li>
+        </ul>
+      </div>
+      <div>
+        <img src="./prints/04_central_ia_agentes.png" alt="Sofia na Central de IA" class="agent-thumb">
+      </div>
+    </div>
+
+    <!-- ATENA -->
+    <div class="agent-box">
+      <div class="agent-avatar-col">
+        <div class="agent-icon-badge atena">🧠</div>
+        <span class="agent-tag atena">Operações</span>
+      </div>
+      <div class="agent-content">
+        <h3>2. Atena — O Cérebro Operacional (Gestão da Agenda & Regras)</h3>
+        <div class="role">Backoffice Matemático, Cálculo Dinâmico e Controle de Conflitos</div>
+        <p>Calcula encaixes de múltiplos serviços (ex: Corte + Barba = 50min), soma tempos de higienização de sala/bancada, respeita jornadas de cada profissional e grava no banco sem falhas.</p>
+        <ul class="agent-checklist">
+          <li>✔ <strong>Zero Conflitos:</strong> Impede sobreposição de horários e elimina 100% dos erros humanos de marcação.</li>
+          <li>✔ <strong>Subchat com a Equipe (`/atena`):</strong> O atendente humano pode dar ordens diretas via chat para a Atena organizar a grade sem que o cliente veja nos bastidores.</li>
+          <li>✔ <strong>Histórico Protegido:</strong> Proibida de apagar atendimentos concluídos ou históricos protegidos.</li>
+        </ul>
+      </div>
+      <div>
+        <img src="./prints/04b_agente_atena.png" alt="Atena Configurações" class="agent-thumb">
+      </div>
+    </div>
+
+    <!-- AQUILES -->
+    <div class="agent-box">
+      <div class="agent-avatar-col">
+        <div class="agent-icon-badge aquiles">🎯</div>
+        <span class="agent-tag aquiles">Vendas</span>
+      </div>
+      <div class="agent-content">
+        <h3>3. Aquiles — O Especialista em Vendas & Reativação Ativa</h3>
+        <div class="role">Prevenção de Churn, Campanhas 1 a 1 e Ocupação de Horários Vazios</div>
+        <p>Monitora o CRM para detectar clientes ausentes há 20, 30 ou 45 dias. Redige mensagens ultra-personalizadas citando o serviço habitual e convidando para os horários vagos da semana.</p>
+        <ul class="agent-checklist">
+          <li>✔ <strong>Proteção Anti-Bloqueio:</strong> Simula cadência humana de digitação e respeita intervalos de segurança.</li>
+          <li>✔ <strong>Filtro Anti-Gafes:</strong> Jamais convida clientes que já tenham agendamento futuro marcado na grade.</li>
+          <li>✔ <strong>Reativação Ativa:</strong> Enche a grade de terças e quartas-feiras automaticamente sem custo de anúncio.</li>
+        </ul>
+      </div>
+      <div>
+        <img src="./prints/04c_agente_aquiles.png" alt="Aquiles Campanhas" class="agent-thumb">
+      </div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ========================================================
+       PÁGINA 2: ROTINA DO DIA A DIA, TELAS DO SISTEMA E ROI
+       ======================================================== -->
+
+  <div class="section-block">
+    <div class="section-header">
+      <span class="section-num">3</span>
+      <h3 class="section-title">Como os Agentes Resolvem o Dia a Dia na Prática</h3>
+    </div>
+
+    <div class="flow-container">
+      <div class="flow-step">
+        <div class="f-icon">📱</div>
+        <div class="f-name">1. Cliente Chama</div>
+        <div class="f-desc">Manda texto ou áudio às 23h pelo WhatsApp.</div>
+      </div>
+      <div class="flow-arrow">➔</div>
+      <div class="flow-step">
+        <div class="f-icon">💬</div>
+        <div class="f-name">2. Sofia Acolhe</div>
+        <div class="f-desc">Transcreve o áudio, tira dúvidas e oferece opções.</div>
+      </div>
+      <div class="flow-arrow">➔</div>
+      <div class="flow-step">
+        <div class="f-icon">🧠</div>
+        <div class="f-name">3. Atena Crava</div>
+        <div class="f-desc">Calcula a grade composta e confirma o agendamento.</div>
+      </div>
+      <div class="flow-arrow">➔</div>
+      <div class="flow-step">
+        <div class="f-icon">🎯</div>
+        <div class="f-name">4. Aquiles Fideliza</div>
+        <div class="f-desc">Monitora o ciclo de retorno e reativa o cliente.</div>
+      </div>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 25%;">Situação Real</th>
+          <th style="width: 37%;">Como Era no Método Tradicional</th>
+          <th style="width: 38%;">Com a Equipe Doki (Sofia + Atena + Aquiles)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Cliente manda áudio no domingo à noite</strong></td>
+          <td><span class="badge-before">Perda de Venda</span> A mensagem fica sem resposta até o dia seguinte. O cliente procura outro estabelecimento aberto.</td>
+          <td><span class="badge-after">Resolvido em 4s</span> Sofia ouve o áudio, consulta a grade com a Atena e fecha o agendamento na hora.</td>
+        </tr>
+        <tr>
+          <td><strong>Agendamento de 2 ou 3 serviços simultâneos</strong></td>
+          <td><span class="badge-before">Risco de Atraso</span> A recepcionista erra as contas de cabeça ou esquece o tempo de esterilização/limpeza.</td>
+          <td><span class="badge-after">Encaixe Perfeito</span> Atena calcula a duração total exata, bloqueia a grade e confirma os profissionais certos.</td>
+        </tr>
+        <tr>
+          <td><strong>Cliente com dúvida complexa ou caso médico</strong></td>
+          <td><span class="badge-before">Loop de Robô</span> Chatbots tradicionais ficam repetindo o menu e irritam o cliente.</td>
+          <td><span class="badge-after">Transbordo Suave</span> Sofia avisa a recepção; no painel, o cartão pisca em laranja e o humano assume em 1 clique.</td>
+        </tr>
+        <tr>
+          <td><strong>Grade vazia no meio da semana</strong></td>
+          <td><span class="badge-before">Prejuízo</span> Horários ociosos com custos fixos correndo sem receita gerada.</td>
+          <td><span class="badge-after">Receita Resgatada</span> Aquiles filtra clientes fiéis na janela de corte/consulta e envia convites personalizados.</td>
+        </tr>
+        <tr>
+          <td><strong>Faltas no dia agendado (No-Show)</strong></td>
+          <td><span class="badge-before">Cadeira Vazia</span> Atendente esquece de mandar lembretes manuais; o cliente esquece e não aparece.</td>
+          <td><span class="badge-after">Confirmação Ativa</span> Lembrete automatizado na véspera com confirmação rápida ou liberação antecipada da vaga.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section-block">
+    <div class="section-header">
+      <span class="section-num">4</span>
+      <h3 class="section-title">O Ecossistema Completo Integrado aos Agentes (Telas Reais)</h3>
+    </div>
+
+    <div class="screens-grid">
+      <div class="screen-item">
+        <img src="./prints/03_quadro_leads.png" alt="Quadro Kanban">
+        <div class="screen-item-caption">
+          <h5>Quadro Kanban Automatizado</h5>
+          <p>Leads avançam de coluna sozinhos conforme a conversa com a IA progride (Novo ➔ Sofia ➔ Agendado).</p>
+        </div>
+      </div>
+      <div class="screen-item">
+        <img src="./prints/05_conversas_chat.png" alt="Live Chat WhatsApp">
+        <div class="screen-item-caption">
+          <h5>Livechat Omnichannel com Transcrição</h5>
+          <p>Alternância suave entre Bot e Humano, player de áudio otimizado e transcrição integrada.</p>
+        </div>
+      </div>
+      <div class="screen-item">
+        <img src="./prints/06_agenda.png" alt="Agenda Dinâmica">
+        <div class="screen-item-caption">
+          <h5>Agenda Dinâmica Multiprofissional</h5>
+          <p>Visão clara por profissional, controle de comissões, encaixes inteligentes e múltiplos procedimentos.</p>
+        </div>
+      </div>
+      <div class="screen-item">
+        <img src="./prints/02_dashboard_dono.png" alt="Dashboard do Dono">
+        <div class="screen-item-caption">
+          <h5>Painel Executivo do Dono & Excel</h5>
+          <p>Mapas de calor de ocupação, ticket médio, conversão e exportação nativa de relatórios analíticos em .xlsx.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-block">
+    <div class="section-header">
+      <span class="section-num">5</span>
+      <h3 class="section-title">Calculadora de Retorno Sobre o Investimento (ROI Real)</h3>
+    </div>
+
+    <div class="roi-table-container">
+      <div class="roi-header">
+        <h4>Projeção Financeira Mensal (Estimativa Conservadora para 3 Profissionais)</h4>
+        <span class="roi-highlight-badge">Retorno Imediato</span>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; font-size: 8.5pt;">
+        <tr style="border-bottom: 1px solid #DCFCE7;">
+          <td style="padding: 6px 0;"><strong>Agendamentos fora do horário comercial:</strong> +2 clientes/dia fechados pela Sofia à noite/madrugada</td>
+          <td style="text-align: right; font-weight: 700; color: #166534;">+ R$ 3.000,00 / mês</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #DCFCE7;">
+          <td style="padding: 6px 0;"><strong>Redução drástica de faltas (No-Show):</strong> Lembretes automáticos que salvam horários</td>
+          <td style="text-align: right; font-weight: 700; color: #166534;">+ R$ 1.200,00 / mês</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0;"><strong>Reativação ativa de clientes sumidos (Aquiles):</strong> 25 retornos mensais recuperados</td>
+          <td style="text-align: right; font-weight: 700; color: #166534;">+ R$ 1.250,00 / mês</td>
+        </tr>
+      </table>
+
+      <div class="total-roi-row">
+        <span>Faturamento Adicional Estimado para o seu Negócio:</span>
+        <span class="amount">+ R$ 5.450,00 / mês</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-banner">
+    <div>
+      <h4>Pronto para colocar a Sofia, Atena e Aquiles para trabalhar no seu negócio?</h4>
+      <p>Implantação simples em 24 horas &bull; Conexão via QR Code &bull; Treinamento e suporte inclusos.</p>
+    </div>
+    <div class="cta-badge">
+      Ativação Imediata
+    </div>
+  </div>
+
+</body>
+</html>
