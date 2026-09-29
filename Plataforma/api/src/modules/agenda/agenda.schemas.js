@@ -83,7 +83,17 @@ export const arquivarSchema = z.object({
   desfazer: z.boolean().default(false)
 });
 
+/** "id1,id2" (como a tela manda na URL) -> ['id1', 'id2']. Vazio = sem filtro. */
+const listaDeIds = z
+  .string()
+  .max(4000)
+  .transform((v) => v.split(',').map((x) => x.trim()).filter(Boolean))
+  .optional();
+
 export const metricasSchema = z.object({
   data: dataSchema.optional(),
-  dataFim: dataSchema.optional()
+  dataFim: dataSchema.optional(),
+  /** Os mesmos filtros da agenda: os numeros do topo batem com o que a tela mostra. */
+  profissionais: listaDeIds,
+  servicos: listaDeIds
 });

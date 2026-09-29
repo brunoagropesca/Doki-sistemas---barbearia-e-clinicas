@@ -7,6 +7,8 @@ import { comContexto } from '../../core/logger.js';
 import { registrarAuditoria } from '../auditoria/auditoria.service.js';
 import { abrir, apagarArquivo, COOKIE_DEMONSTRACAO, espelharUsuario, existe, fechar, tamanhoEmBytes } from './demonstracao.js';
 import { gerarDemonstracao } from './gerador.js';
+import { exportarDemonstracao } from './exportar.js';
+import { criarBackup } from '../dados/backups.js';
 
 const log = comContexto({ modulo: 'demonstracao' });
 
@@ -19,6 +21,12 @@ const ROTA = { ...apenas.dev, bancoReal: true };
 
 /** A geracao roda em segundo plano; a tela acompanha por aqui. */
 export const geracao = { rodando: false, etapa: null, pct: 0, erro: null, terminouEm: null };
+
+/** A exportacao para a empresa real, tambem em segundo plano. */
+export const exportacao = { rodando: false, etapa: null, pct: 0, erro: null, terminouEm: null, resultado: null };
+
+/** O texto que o DEV digita para confirmar: exportar mexe na empresa de verdade. */
+export const CONFIRMACAO_EXPORTAR = 'EXPORTAR';
 
 async function resumo() {
   if (!existe() || geracao.rodando) return null;
@@ -50,12 +58,14 @@ export async function rotasDemonstracao(app) {
     tamanhoBytes: existe() ? tamanhoEmBytes() : 0,
     ativo: req.cookies?.[COOKIE_DEMONSTRACAO] === '1' && existe(),
     geracao,
+    exportacao,
     resumo: await resumo()
   }));
 
   /** Gera (ou gera de novo, do zero) — responde na hora; o progresso vem pelo GET. */
   app.post('/api/dev/demonstracao/gerar', { config: ROTA }, async (req, res) => {
     if (geracao.rodando) throw new RegraDeNegocio('A demonstração já está sendo gerada.');
+    if (exportacao.rodando) throw new RegraDeNegocio('Espere a exportação terminar.');
     Object.assign(geracao, { rodando: true, etapa: 'Preparando', pct: 1, erro: null, terminouEm: null });
     const tenantOrigem = req.tenantId;
     const quem = req.usuario;
@@ -88,6 +98,54 @@ export async function rotasDemonstracao(app) {
     return { geracao };
   });
 
+  /**
+   * Traz os dados da demonstracao para a empresa REAL, misturados com os dela
+   * (ver exportar.js). Faz um backup antes — e o caminho de volta. Exige
+   * `{ confirmar: 'EXPORTAR' }`: nao e acao para um clique perdido.
+   */
+  app.post('/api/dev/demonstracao/exportar', { config: ROTA }, async (req, res) => {
+    if ((req.body?.confirmar ?? '') !== CONFIRMACAO_EXPORTAR) {
+      throw new RegraDeNegocio(`Digite ${CONFIRMACAO_EXPORTAR} para confirmar.`);
+    }
+    if (geracao.rodando) throw new RegraDeNegocio('Espere a demonstração terminar de ser gerada.');
+    if (exportacao.rodando) throw new RegraDeNegocio('A exportação já está em andamento.');
+    if (!existe()) throw new RegraDeNegocio('Gere o banco de demonstração primeiro.');
+
+    Object.assign(exportacao, { rodando: true, etapa: 'Fazendo backup', pct: 1, erro: null, terminouEm: null, resultado: null });
+    const tenantDestino = req.tenantId;
+    const quem = req.usuario;
+
+    setImmediate(async () => {
+      try {
+        const backup = await criarBackup({ motivo: 'antes_de_exportar_demo', por: quem.nome });
+        const { db } = await abrir();
+        const r = await exportarDemonstracao({
+          origem: db,
+          destino: dbReal,
+          tenantDestino,
+          progresso: (etapa, pct) => Object.assign(exportacao, { etapa, pct })
+        });
+        exportacao.resultado = { ...r, backupId: backup.id };
+        log.warn({ contagem: r.contagem, backup: backup.id }, 'Demonstracao exportada para a empresa real');
+        await registrarAuditoria({
+          tenantId: tenantDestino,
+          usuario: quem,
+          acao: 'demonstracao.exportar',
+          entidade: 'demonstracao',
+          dados: { ...r.contagem, backup: backup.id }
+        });
+      } catch (err) {
+        log.error({ err }, 'Falha ao exportar a demonstracao');
+        exportacao.erro = String(err?.message ?? err).slice(0, 300);
+      } finally {
+        Object.assign(exportacao, { rodando: false, terminouEm: new Date() });
+      }
+    });
+
+    res.status(202);
+    return { exportacao };
+  });
+
   /** Liga a demonstracao NESTE navegador. */
   app.post('/api/dev/demonstracao/entrar', { config: ROTA }, async (req, res) => {
     if (geracao.rodando) throw new RegraDeNegocio('Espere a demonstração terminar de ser gerada.');
@@ -106,6 +164,7 @@ export async function rotasDemonstracao(app) {
   /** Apaga o arquivo da demonstracao do disco. */
   app.delete('/api/dev/demonstracao', { config: ROTA }, async (req, res) => {
     if (geracao.rodando) throw new RegraDeNegocio('Espere a geração terminar para excluir.');
+    if (exportacao.rodando) throw new RegraDeNegocio('Espere a exportação terminar para excluir.');
     const liberados = existe() ? await apagarArquivo() : 0;
     res.clearCookie(COOKIE_DEMONSTRACAO, { path: '/' });
     await registrarAuditoria({ tenantId: req.tenantId, usuario: req.usuario, acao: 'demonstracao.excluir', entidade: 'demonstracao', dados: { liberados } });

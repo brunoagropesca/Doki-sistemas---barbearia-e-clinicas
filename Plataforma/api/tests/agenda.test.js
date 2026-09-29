@@ -447,6 +447,23 @@ describe('detalhes e metricas', () => {
     assert.equal(m.faturamentoCentavos, 4500, 'cancelado e pendente nao entram no faturamento');
     assert.ok(m.cancelados >= 1);
   });
+
+  it('as metricas seguem os filtros de profissional e servico da tela', async () => {
+    const metricas = async (qs) =>
+      (await app.inject({ method: 'GET', url: `/api/agenda/metricas?data=${SEGUNDA}${qs}`, headers: cab })).json();
+
+    const todos = await metricas('');
+    const doCarlos = await metricas(`&profissionais=${ctx.carlos.id}`);
+    const doCarlosNoCorte = await metricas(`&profissionais=${ctx.carlos.id}&servicos=${ctx.corteSocial.id}`);
+    const deNinguem = await metricas('&profissionais=prof_inexistente');
+
+    assert.ok(todos.total > 0);
+    assert.ok(doCarlos.total <= todos.total);
+    assert.ok(doCarlosNoCorte.total <= doCarlos.total);
+    assert.equal(doCarlosNoCorte.faturamentoCentavos, 4500, 'o concluido do dia foi um Corte Social com o Carlos');
+    assert.equal(deNinguem.total, 0);
+    assert.equal(deNinguem.faturamentoCentavos, 0);
+  });
 });
 
 describe('permissao', () => {

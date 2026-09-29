@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
-import { Aviso, Botao } from '../../componentes/ui.jsx';
+import { Aviso, Botao, Entrada } from '../../componentes/ui.jsx';
 
 /**
  * Banco de DEMONSTRACAO — para mostrar o sistema a um cliente.
@@ -10,6 +10,10 @@ import { Aviso, Botao } from '../../componentes/ui.jsx';
  * atendentes, 40 servicos, 110 produtos, conversas em todos os estados...).
  * "Entrar" liga a demonstracao SO neste navegador: donos e atendentes seguem
  * no banco de verdade, e nada da demonstracao sai pelo WhatsApp real.
+ *
+ * "Exportar" e o contrario: traz o movimento ficticio PARA a empresa real,
+ * misturado com o dela (ver api/.../demonstracao/exportar.js). Pede para
+ * digitar EXPORTAR e faz um backup antes.
  */
 
 const tamanho = (bytes) =>
@@ -19,12 +23,14 @@ const numero = (n) => (n ?? 0).toLocaleString('pt-BR');
 export function PainelDemonstracao() {
   const [aviso, setAviso] = useState(null);
   const [confirmarExcluir, setConfirmarExcluir] = useState(false);
+  const [confirmarExportar, setConfirmarExportar] = useState(false);
+  const [textoExportar, setTextoExportar] = useState('');
 
   const estado = useQuery({
     queryKey: ['dev', 'demonstracao'],
     queryFn: () => api.get('/api/dev/demonstracao'),
     // Enquanto gera, acompanha o progresso de perto.
-    refetchInterval: (q) => (q.state.data?.geracao?.rodando ? 700 : false)
+    refetchInterval: (q) => (q.state.data?.geracao?.rodando || q.state.data?.exportacao?.rodando ? 700 : false)
   });
   const falhou = (err) => setAviso({ tom: 'perigo', texto: err.message });
 
@@ -37,6 +43,15 @@ export function PainelDemonstracao() {
     mutationFn: () => api.post('/api/dev/demonstracao/entrar'),
     // Recarrega a pagina inteira: cada tela passa a ler a empresa ficticia.
     onSuccess: () => window.location.assign('/'),
+    onError: falhou
+  });
+  const exportar = useMutation({
+    mutationFn: () => api.post('/api/dev/demonstracao/exportar', { confirmar: textoExportar }),
+    onSuccess: () => {
+      setConfirmarExportar(false);
+      setTextoExportar('');
+      estado.refetch();
+    },
     onError: falhou
   });
   const excluir = useMutation({
@@ -52,6 +67,8 @@ export function PainelDemonstracao() {
   const d = estado.data;
   const g = d?.geracao;
   const r = d?.resumo;
+  const x = d?.exportacao;
+  const ocupado = g?.rodando || x?.rodando;
 
   return (
     <section className="dados-dev__secao demo">
@@ -71,9 +88,24 @@ export function PainelDemonstracao() {
         </Aviso>
       )}
       {g?.erro && <Aviso tom="perigo">A última geração falhou: {g.erro}</Aviso>}
+      {x?.erro && !x.rodando && <Aviso tom="perigo">A exportação falhou e nada foi gravado na empresa: {x.erro}</Aviso>}
+      {x?.resultado && !x.rodando && (
+        <Aviso tom="sucesso">
+          Demonstração exportada para a empresa: {numero(x.resultado.contagem.leads)} clientes, {numero(x.resultado.contagem.appointments)}{' '}
+          agendamentos, {numero(x.resultado.contagem.conversations)} conversas. Backup de antes: {x.resultado.backupId} (em Backups).
+        </Aviso>
+      )}
 
       <div className="demo__cartao">
-        {g?.rodando ? (
+        {x?.rodando ? (
+          <div className="demo__gerando" role="status">
+            <strong>Exportando para a empresa…</strong>
+            <span className="texto-suave">{x.etapa}</span>
+            <span className="demo__barra">
+              <span style={{ width: `${x.pct}%` }} />
+            </span>
+          </div>
+        ) : g?.rodando ? (
           <div className="demo__gerando" role="status">
             <strong>Gerando a demonstração…</strong>
             <span className="texto-suave">{g.etapa}</span>
@@ -117,7 +149,7 @@ export function PainelDemonstracao() {
         )}
 
         <div className="demo__acoes">
-          {d?.existe && !g?.rodando && (
+          {d?.existe && !ocupado && (
             <Botao carregando={entrar.isPending} onClick={() => entrar.mutate()}>
               {d.ativo ? 'Abrir a demonstração' : 'Entrar na demonstração'}
             </Botao>
@@ -125,7 +157,7 @@ export function PainelDemonstracao() {
           <Botao
             variante={d?.existe ? 'secundario' : 'primario'}
             carregando={gerar.isPending || g?.rodando}
-            disabled={g?.rodando}
+            disabled={ocupado}
             onClick={() => {
               if (!d?.existe || confirm('Gerar de novo apaga a demonstração atual (inclusive o que foi mexido nela) e cria outra do zero. Continuar?')) {
                 gerar.mutate();
@@ -134,12 +166,52 @@ export function PainelDemonstracao() {
           >
             {d?.existe ? 'Gerar de novo' : 'Gerar demonstração'}
           </Botao>
-          {d?.existe && !g?.rodando && (
+          {d?.existe && !ocupado && (
+            <Botao variante="secundario" onClick={() => setConfirmarExportar(true)}>
+              Exportar demonstração…
+            </Botao>
+          )}
+          {d?.existe && !ocupado && (
             <Botao variante="perigo" onClick={() => setConfirmarExcluir(true)}>
               Excluir demonstração
             </Botao>
           )}
         </div>
+
+        {confirmarExportar && (
+          <div className="demo__confirmar" role="alertdialog" aria-label="Exportar a demonstração">
+            <p>
+              <strong>Trazer os dados da demonstração para a empresa de verdade?</strong> Clientes, agenda, conversas, vendas,
+              campanhas, profissionais, serviços e produtos fictícios entram <strong>misturados</strong> com os reais — a Sofia e a
+              recepção passam a ver os profissionais e serviços da demonstração ao marcar horário.
+            </p>
+            <p className="texto-suave">
+              Para nada sair para gente de verdade: os telefones viram números impossíveis, conversas chegam finalizadas, campanhas
+              pausadas e sem aceitar campanha, e lembretes já constam como enviados. Usuários, conexões e configurações da
+              demonstração não vêm. Um backup é feito antes — é o caminho de volta (Backups → restaurar).
+            </p>
+            <label className="coluna" style={{ gap: 4 }}>
+              <span>
+                Digite <strong className="mono">EXPORTAR</strong> para confirmar
+              </span>
+              <Entrada value={textoExportar} autoComplete="off" onChange={(e) => setTextoExportar(e.target.value)} />
+            </label>
+            <div className="linha">
+              <Botao variante="perigo" disabled={textoExportar !== 'EXPORTAR'} carregando={exportar.isPending} onClick={() => exportar.mutate()}>
+                Exportar para a empresa
+              </Botao>
+              <Botao
+                variante="fantasma"
+                onClick={() => {
+                  setConfirmarExportar(false);
+                  setTextoExportar('');
+                }}
+              >
+                Cancelar
+              </Botao>
+            </div>
+          </div>
+        )}
 
         {confirmarExcluir && (
           <div className="demo__confirmar" role="alertdialog" aria-label="Excluir a demonstração">

@@ -1043,17 +1043,19 @@ export async function excluir(tenantId, id, { usuario } = {}) {
   return { ok: true };
 }
 
-export async function metricas(tenantId, { data, dataFim } = {}, usuario) {
+export async function metricas(tenantId, { data, dataFim, profissionais, servicos } = {}, usuario) {
   const fuso = await fusoDaEmpresa(tenantId);
   const inicial = data || dataNoFuso(Date.now(), fuso);
   const final = dataFim || inicial;
 
-  // O faturamento do painel segue o recorte: atendente ve o proprio.
+  // O faturamento do painel segue o recorte: atendente ve o proprio. Os
+  // filtros da tela so ESTREITAM esse recorte, nunca o ampliam.
   const numeros = await repo.metricas(
     tenantId,
     inicioDoDia(inicial, fuso),
     fimDoDia(final, fuso),
-    await escopoDe(tenantId, usuario)
+    await escopoDe(tenantId, usuario),
+    { professionalIds: profissionais, serviceIds: servicos }
   );
 
   return {

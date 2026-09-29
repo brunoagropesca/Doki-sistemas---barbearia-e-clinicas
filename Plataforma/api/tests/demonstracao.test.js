@@ -183,6 +183,95 @@ describe('banco de demonstracao', () => {
     assert.match(r.json().erro.mensagem, /demonstra/i);
   });
 
+  /**
+   * EXPORTAR: o movimento ficticio entra na empresa REAL, misturado. O que
+   * importa e que nada dele consiga falar com gente de verdade.
+   */
+  describe('exportar para a empresa real', () => {
+    const real = async (sql) => {
+      const { db } = await import('../src/db/client.js');
+      return (await db.all(sql));
+    };
+    const conta = async (sql) => Number(Object.values((await real(sql))[0])[0]);
+    const antes = {};
+
+    async function esperarExportacao() {
+      for (let i = 0; i < 600; i++) {
+        const r = (await pedir('GET', '/api/dev/demonstracao', dev)).json();
+        if (!r.exportacao.rodando) return r.exportacao;
+        await new Promise((ok) => setTimeout(ok, 250));
+      }
+      throw new Error('A exportacao nao terminou a tempo');
+    }
+
+    it('sem digitar EXPORTAR, recusa', async () => {
+      const r = await pedir('POST', '/api/dev/demonstracao/exportar', dev, { confirmar: 'sim' });
+      assert.equal(r.statusCode, 422);
+    });
+
+    it('so o DEV exporta', async () => {
+      const r = await pedir('POST', '/api/dev/demonstracao/exportar', dono, { confirmar: 'EXPORTAR' });
+      assert.equal(r.statusCode, 404);
+    });
+
+    it('traz clientes, agenda e conversas, com backup antes', { timeout: 180_000 }, async () => {
+      antes.leads = await conta(`select count(*) from leads`);
+      antes.users = await conta(`select count(*) from users`);
+      antes.canais = await conta(`select count(*) from channel_instances`);
+      antes.bloqueiosGerais = await conta(`select count(*) from schedule_blocks where professional_id is null`);
+      antes.ajustes = await conta(`select count(*) from settings`);
+
+      const r = await pedir('POST', '/api/dev/demonstracao/exportar', dev, { confirmar: 'EXPORTAR' });
+      assert.equal(r.statusCode, 202, r.body);
+      const x = await esperarExportacao();
+      assert.equal(x.erro, null);
+      antes.backupId = x.resultado.backupId;
+      antes.importados = x.resultado.contagem.leads;
+      assert.ok(x.resultado.contagem.leads > 100);
+      assert.equal(await conta(`select count(*) from leads`), antes.leads + x.resultado.contagem.leads);
+      assert.ok((await pedir('GET', '/api/profissionais', dono)).json().profissionais.length >= 19, 'os profissionais da demo aparecem');
+    });
+
+    it('usuarios, conexoes, configuracao e feriados ficticios nao vem', async () => {
+      assert.equal(await conta(`select count(*) from users`), antes.users);
+      assert.equal(await conta(`select count(*) from channel_instances`), antes.canais);
+      assert.equal(await conta(`select count(*) from settings`), antes.ajustes);
+      assert.equal(await conta(`select count(*) from schedule_blocks where professional_id is null`), antes.bloqueiosGerais);
+    });
+
+    it('nada importado consegue falar com gente de verdade', async () => {
+      // Todo telefone ficticio virou numero impossivel (DDD 10).
+      assert.equal(await conta(`select count(*) from leads where telefone like '55109%'`), antes.importados);
+      assert.equal(await conta(`select count(*) from campaign_targets where telefone not like '55109%'`), 0);
+      // Os profissionais da demo nascem com 5511981xxxxxx (ver o gerador).
+      assert.equal(await conta(`select count(*) from professionals where telefone like '5511981%'`), 0);
+      // Nao entram em campanha, nao ha conversa aberta nem campanha enviando.
+      assert.equal(await conta(`select count(*) from leads where telefone like '55109%' and aceita_campanha = 1`), 0);
+      assert.equal(await conta(`select count(*) from conversations c join leads l on l.id = c.lead_id where l.telefone like '55109%' and c.status != 'finalizada'`), 0);
+      assert.equal(await conta(`select count(*) from campaigns where status in ('enviando', 'gerando')`), 0);
+      assert.equal(
+        await conta(`select count(*) from appointments where lembrete_enviado_em is null and inicio_em > ${Date.now()} and lead_id in (select id from leads where telefone like '55109%')`),
+        0
+      );
+    });
+
+    it('a mesma demonstracao nao entra duas vezes', async () => {
+      await pedir('POST', '/api/dev/demonstracao/exportar', dev, { confirmar: 'EXPORTAR' });
+      const x = await esperarExportacao();
+      assert.match(x.erro, /já foi exportada/);
+    });
+
+    after(async () => {
+      if (!antes.backupId) return;
+      const { apagarBackup } = await import('../src/modules/dados/backups.js');
+      try {
+        apagarBackup(antes.backupId);
+      } catch {
+        // backup protegido/ja apagado: nao importa para o teste
+      }
+    });
+  });
+
   it('excluir apaga o arquivo e libera o espaco', async () => {
     const r = await pedir('DELETE', '/api/dev/demonstracao', dev);
     assert.equal(r.statusCode, 200, r.body);

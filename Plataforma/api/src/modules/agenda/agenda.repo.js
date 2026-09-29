@@ -288,7 +288,7 @@ export async function excluir(tenantId, id) {
  * Feito em UMA consulta com `SUM(CASE WHEN ...)` em vez de uma consulta por
  * status. Seis idas ao banco viram uma.
  */
-export async function metricas(tenantId, inicioEm, fimEm, escopo) {
+export async function metricas(tenantId, inicioEm, fimEm, escopo, { professionalIds, serviceIds } = {}) {
   const conta = (status) =>
     sql`COALESCE(SUM(CASE WHEN ${appointments.status} = ${status} THEN 1 ELSE 0 END), 0)`;
 
@@ -310,7 +310,9 @@ export async function metricas(tenantId, inicioEm, fimEm, escopo) {
         base(tenantId),
         somenteDoEscopo(escopo),
         gte(appointments.inicioEm, new Date(inicioEm)),
-        lt(appointments.inicioEm, new Date(fimEm))
+        lt(appointments.inicioEm, new Date(fimEm)),
+        professionalIds?.length ? inArray(appointments.professionalId, professionalIds) : undefined,
+        serviceIds?.length ? inArray(appointments.serviceId, serviceIds) : undefined
       )
     );
 

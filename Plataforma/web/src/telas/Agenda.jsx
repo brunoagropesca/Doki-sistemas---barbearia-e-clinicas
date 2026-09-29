@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/autenticacao.jsx';
@@ -18,6 +19,10 @@ import { DetalheOS, PROXIMOS } from './agenda/DetalheOS.jsx';
 import { AssistenteAgendar } from './agenda/AssistenteAgendar.jsx';
 import './agenda/assistente.css';
 import { PerfilLead } from './agenda/PerfilLead.jsx';
+import { aplicarFiltros, FiltrosAgenda } from './agenda/FiltrosAgenda.jsx';
+
+/** "a,b" da URL -> ['a', 'b']. */
+const lerLista = (valor) => (valor ? valor.split(',').filter(Boolean) : []);
 
 /** Data de hoje no formato AAAA-MM-DD, no fuso do navegador. */
 function hojeISO() {
@@ -35,6 +40,19 @@ export function Agenda() {
   const [verArquivados, setVerArquivados] = useState(false);
   const [perfilAberto, setPerfilAberto] = useState(null);
 
+  // Filtros na URL: sobrevivem a troca lista/calendario, ao recarregar e a um link copiado.
+  const [params, setParams] = useSearchParams();
+  const filtros = { profissionais: lerLista(params.get('prof')), servicos: lerLista(params.get('serv')) };
+  const filtrando = filtros.profissionais.length > 0 || filtros.servicos.length > 0;
+  function mudarFiltros(novos) {
+    const p = new URLSearchParams(params);
+    for (const [chave, lista] of [['prof', novos.profissionais], ['serv', novos.servicos]]) {
+      if (lista.length) p.set(chave, lista.join(','));
+      else p.delete(chave);
+    }
+    setParams(p, { replace: true });
+  }
+
   const emCalendario = visao === 'calendario';
   const mes = limitesDoMes(data);
 
@@ -47,11 +65,15 @@ export function Agenda() {
   });
 
   const metricas = useQuery({
-    queryKey: ['agenda', 'metricas', emCalendario ? mes : data, visao],
+    queryKey: ['agenda', 'metricas', emCalendario ? mes : data, visao, filtros.profissionais.join(), filtros.servicos.join()],
     queryFn: () =>
-      emCalendario
-        ? api.get('/api/agenda/metricas', { data: mes.de, dataFim: mes.ate })
-        : api.get('/api/agenda/metricas', { data })
+      api.get('/api/agenda/metricas', {
+        ...(emCalendario ? { data: mes.de, dataFim: mes.ate } : { data }),
+        // Os numeros do topo seguem os filtros (o servidor aplica no recorte de quem pede).
+        profissionais: filtros.profissionais.join(','),
+        servicos: filtros.servicos.join(',')
+      }),
+    placeholderData: (anterior) => anterior
   });
 
   const mudarStatus = useMutation({
@@ -69,7 +91,8 @@ export function Agenda() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['agenda'] })
   });
 
-  const lista = agenda.data?.agendamentos ?? [];
+  const todosDoPeriodo = agenda.data?.agendamentos ?? [];
+  const lista = aplicarFiltros(todosDoPeriodo, filtros);
   const m = metricas.data;
   /** Estados terminais: so eles podem ser arquivados, e nenhum deles se edita. */
   const ENCERRADOS = ['concluido', 'cancelado', 'faltou'];
@@ -131,6 +154,15 @@ export function Agenda() {
         </div>
       </header>
 
+      <div className="linha linha--entre" style={{ flexWrap: 'wrap', gap: 'var(--e2)' }}>
+        <FiltrosAgenda agendamentos={todosDoPeriodo} filtros={filtros} aoMudar={mudarFiltros} />
+        {filtrando && !agenda.isLoading && (
+          <p className="fa-resultado texto-suave">
+            Mostrando <strong>{lista.length}</strong> de {todosDoPeriodo.length} {periodo}
+          </p>
+        )}
+      </div>
+
       <div className="grade">
         <Metrica rotulo={`Total ${periodo}`} valor={m?.total ?? '—'} />
         <Metrica rotulo="Confirmados" valor={m?.confirmados ?? '—'} />
@@ -171,6 +203,16 @@ export function Agenda() {
         >
           {agenda.isLoading ? (
             <Carregando />
+          ) : lista.length === 0 && filtrando ? (
+            <Vazio
+              titulo="Nenhum atendimento com esses filtros"
+              descricao={`Há ${todosDoPeriodo.length} atendimento${todosDoPeriodo.length === 1 ? '' : 's'} neste dia fora do filtro.`}
+              acao={
+                <Botao variante="secundario" onClick={() => mudarFiltros({ profissionais: [], servicos: [] })}>
+                  Limpar filtros
+                </Botao>
+              }
+            />
           ) : lista.length === 0 ? (
             <Vazio
               titulo="Nenhum atendimento neste dia"
