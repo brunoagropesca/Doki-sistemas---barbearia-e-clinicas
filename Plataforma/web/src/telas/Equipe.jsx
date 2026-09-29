@@ -271,7 +271,7 @@ function Profissionais({ consulta, pedidoNovo }) {
             visiveis.map((p) => {
               const jornada = resumoJornada(p.jornada);
               const proprios = p.servicos.filter((s) => s.precoProprio || s.duracaoPropria).length;
-              const login = p.userId ? logins.get(p.userId) ?? 'Com login' : null;
+              const login = p.acesso ? `Agenda: ${p.acesso.username}` : p.userId ? logins.get(p.userId) ?? 'Com login' : null;
               return (
                 <div
                   key={p.id}
@@ -442,6 +442,116 @@ function MetricasProfissional({ id }) {
 }
 
 /**
+ * Login do profissional SO para a agenda dele: entra, ve os atendimentos do
+ * dia e abre o painel de cada um — nada mais do sistema.
+ *
+ * Acao propria (salva na hora, fora do "Salvar" da ficha) porque cria ou
+ * derruba um login: nao pode ficar pendurada num formulario que a pessoa
+ * talvez cancele.
+ */
+function AcessoAgenda({ p, novo, aoMudarVinculo }) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState(null); // null = fechado
+  const acesso = p?.acesso;
+
+  const atualizar = (dados) => {
+    queryClient.setQueryData(['profissional', p.id], dados);
+    aoMudarVinculo(dados.profissional.userId);
+    queryClient.invalidateQueries({ queryKey: ['profissionais'] });
+  };
+
+  const salvar = useMutation({
+    mutationFn: () => api.put(`/api/profissionais/${p.id}/acesso`, form),
+    onSuccess: (dados) => {
+      atualizar(dados);
+      setForm(null);
+    }
+  });
+
+  const remover = useMutation({
+    mutationFn: () => api.delete(`/api/profissionais/${p.id}/acesso`),
+    onSuccess: atualizar
+  });
+
+  const sugestao = () =>
+    (p?.nome ?? '')
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .trim()
+      .split(/s+/)
+      .slice(0, 2)
+      .join('.')
+      .replace(/[^a-z0-9._-]/g, '');
+
+  return (
+    <div className="eq-acesso">
+      <div className="eq-acesso__topo">
+        <strong>Acesso à agenda</strong>
+        {acesso && <Etiqueta tom="sucesso">Ativo</Etiqueta>}
+      </div>
+
+      {novo ? (
+        <p className="texto-fraco">Salve a ficha para criar o login do profissional.</p>
+      ) : form ? (
+        <>
+          {salvar.isError && <Aviso tom="perigo">{salvar.error.message}</Aviso>}
+          <Campo rotulo="Usuário" erro={salvar.error?.camposComErro?.username}>
+            <Entrada value={form.username} autoComplete="off" onChange={(e) => setForm({ ...form, username: e.target.value })} />
+          </Campo>
+          <Campo
+            rotulo={acesso ? 'Nova senha' : 'Senha'}
+            dica={acesso ? 'Deixe em branco para manter a atual. Trocar a senha desconecta o profissional.' : 'Mínimo de 8 caracteres.'}
+            erro={salvar.error?.camposComErro?.senha}
+          >
+            <Entrada type="password" value={form.senha} autoComplete="new-password" onChange={(e) => setForm({ ...form, senha: e.target.value })} />
+          </Campo>
+          <div className="linha linha--fim">
+            <Botao variante="secundario" tamanho="sm" onClick={() => setForm(null)}>
+              Cancelar
+            </Botao>
+            <Botao tamanho="sm" carregando={salvar.isPending} disabled={!form.username.trim()} onClick={() => salvar.mutate()}>
+              {acesso ? 'Salvar acesso' : 'Criar acesso'}
+            </Botao>
+          </div>
+        </>
+      ) : acesso ? (
+        <>
+          <p className="texto-suave">
+            Entra com o usuário <strong className="mono">{acesso.username}</strong> e vê só os atendimentos dele.
+            {acesso.ultimoLoginEm && <> Último acesso em {new Date(acesso.ultimoLoginEm).toLocaleDateString('pt-BR')}.</>}
+          </p>
+          {remover.isError && <Aviso tom="perigo">{remover.error.message}</Aviso>}
+          <div className="linha">
+            <Botao variante="secundario" tamanho="sm" onClick={() => setForm({ username: acesso.username, senha: '' })}>
+              Trocar usuário ou senha
+            </Botao>
+            <Botao
+              variante="fantasma"
+              tamanho="sm"
+              carregando={remover.isPending}
+              onClick={() => confirm(`Remover o acesso de ${p.nome}? O login deixa de funcionar na hora.`) && remover.mutate()}
+            >
+              Remover acesso
+            </Botao>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="texto-fraco">
+            Um login só para o profissional ver os atendimentos do dia dele e abrir cada um. Ele não vê mais nada do sistema.
+            {p?.userId && ' Substitui o login do sistema ligado acima.'}
+          </p>
+          <Botao variante="secundario" tamanho="sm" onClick={() => setForm({ username: sugestao(), senha: '' })}>
+            Criar acesso
+          </Botao>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
  * A ficha do profissional.
  *
  * O miolo dela e a tabela de servicos: quanto ELE cobra e em quanto tempo ELE
@@ -591,17 +701,23 @@ function FichaProfissional({ id, aoFechar, aoSalvar }) {
             <Campo rotulo="Telefone">
               <Entrada value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
             </Campo>
-            <Campo rotulo="Login no sistema">
-              <Selecao value={form.userId} onChange={(e) => setForm({ ...form, userId: e.target.value })}>
-                <option value="">Sem login</option>
-                {(atendentes.data?.atendentes ?? []).map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nome} ({a.cargo})
-                  </option>
-                ))}
-              </Selecao>
-            </Campo>
+            {/* Com acesso proprio, o vinculo e o do acesso (abaixo): o seletor sairia do ar. */}
+            {!p?.acesso && (
+              <Campo rotulo="Login no sistema" dica="Para quem também atende no sistema (recepção, gerência).">
+                <Selecao value={form.userId} onChange={(e) => setForm({ ...form, userId: e.target.value })}>
+                  <option value="">Sem login</option>
+                  {(atendentes.data?.atendentes ?? []).map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.nome} ({a.cargo})
+                    </option>
+                  ))}
+                </Selecao>
+              </Campo>
+            )}
           </div>
+
+          {/* O acesso mexe no vinculo: o "Salvar" da ficha precisa mandar o vinculo novo, nao o que abriu. */}
+          <AcessoAgenda p={p} novo={novo} aoMudarVinculo={(userId) => setForm((f) => ({ ...f, userId: userId ?? '' }))} />
 
           <Campo rotulo="Cor na agenda">
             <div className="linha" style={{ gap: 6 }}>

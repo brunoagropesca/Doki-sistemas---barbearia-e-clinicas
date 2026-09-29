@@ -689,3 +689,16 @@
   .eq-form { grid-template-columns: 1fr; }
   .eq-form__interruptor { padding-top: 0; }
 }
+
+/* Ficha do profissional: o login dele so para a agenda do dia. */
+.eq-acesso {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  padding: var(--e3);
+  border: 1px dashed var(--borda-forte);
+  border-radius: var(--raio);
+  background: rgba(var(--tinta, 255, 255, 255), 0.02);
+}
+.eq-acesso__topo { display: flex; align-items: center; justify-content: space-between; gap: var(--e2); }
+.eq-acesso p { margin: 0; font-size: 13px; }

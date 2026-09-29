@@ -60,8 +60,14 @@ function relativo(ms) {
  * visivel ao lado e o painel tem altura para mostrar tudo que importa no
  * balcao — cliente (historico, etiquetas, alergias), valores, vendas, a
  * linha do tempo e as acoes.
+ *
+ * `modoProfissional`: o painel aberto pelo proprio barbeiro na tela "Meu dia".
+ * Le e muda o status pelas rotas dele (`/api/meu-dia`) e esconde o que ele nao
+ * pode usar: excluir, editar/remarcar, arquivar e os atalhos para telas da
+ * recepcao (conversa, ficha do cliente).
  */
-export function DetalheOS({ id, aoFechar, aoAbrirPerfil, podeExcluir, abrirEditando = false }) {
+export function DetalheOS({ id, aoFechar, aoAbrirPerfil, podeExcluir, abrirEditando = false, modoProfissional = false }) {
+  const rota = modoProfissional ? '/api/meu-dia' : '/api/agenda';
   const queryClient = useQueryClient();
   const [editando, setEditando] = useState(abrirEditando);
   const [saindo, setSaindo] = useState(false);
@@ -79,7 +85,10 @@ export function DetalheOS({ id, aoFechar, aoAbrirPerfil, podeExcluir, abrirEdita
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const dados = useQuery({ queryKey: ['agenda', 'os', id], queryFn: () => api.get(`/api/agenda/${id}`) });
+  const dados = useQuery({
+    queryKey: ['agenda', modoProfissional ? 'meu-dia' : 'os', id],
+    queryFn: () => api.get(`${rota}/${id}`)
+  });
   const a = dados.data?.agendamento;
 
   const atualizarTudo = () => {
@@ -88,7 +97,7 @@ export function DetalheOS({ id, aoFechar, aoAbrirPerfil, podeExcluir, abrirEdita
   };
 
   const mudarStatus = useMutation({
-    mutationFn: ({ status }) => api.patch(`/api/agenda/${id}/status`, { status }),
+    mutationFn: ({ status }) => api.patch(`${rota}/${id}/status`, { status }),
     onSuccess: atualizarTudo
   });
 
@@ -166,7 +175,7 @@ export function DetalheOS({ id, aoFechar, aoAbrirPerfil, podeExcluir, abrirEdita
                 </div>
               )}
 
-              <Cliente a={a} aoAbrirPerfil={aoAbrirPerfil} />
+              <Cliente a={a} aoAbrirPerfil={aoAbrirPerfil} modoProfissional={modoProfissional} />
               <Valores a={a} />
               <Notas a={a} />
               <LinhaDoTempo a={a} />
@@ -174,7 +183,7 @@ export function DetalheOS({ id, aoFechar, aoAbrirPerfil, podeExcluir, abrirEdita
           )}
         </div>
 
-        {a && !editando && (
+        {a && !editando && !modoProfissional && (
           <footer className="os__rodape">
             {podeExcluir && (
               <Botao
@@ -208,7 +217,7 @@ export function DetalheOS({ id, aoFechar, aoAbrirPerfil, podeExcluir, abrirEdita
 
 // ─── Blocos do painel ──────────────────────────────────────────────────────
 
-function Cabecalho({ a }) {
+export function Cabecalho({ a, mostrarCliente = false }) {
   const diaLongo = new Date(a.inicioEm).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
   const dia = diaLongo.charAt(0).toUpperCase() + diaLongo.slice(1);
   return (
@@ -229,16 +238,23 @@ function Cabecalho({ a }) {
           {a.duracaoMinutos} min · {relativo(a.inicioEm)}
         </span>
       </div>
-      <div className="os-cab__prof">
-        <span className="os-cab__cor" style={{ background: a.profissionalCor }} aria-hidden="true" />
-        com <strong>{a.profissionalNome}</strong>
-      </div>
+      {mostrarCliente ? (
+        <div className="os-cab__prof">
+          <span className="os-cab__inicial" aria-hidden="true">{(a.leadNome ?? '?').trim().charAt(0).toUpperCase()}</span>
+          cliente <strong>{a.leadNome}</strong>
+        </div>
+      ) : (
+        <div className="os-cab__prof">
+          <span className="os-cab__cor" style={{ background: a.profissionalCor }} aria-hidden="true" />
+          com <strong>{a.profissionalNome}</strong>
+        </div>
+      )}
     </section>
   );
 }
 
 /** Barra de etapas: onde a OS esta no caminho marcado → concluido. */
-function Etapas({ status }) {
+export function Etapas({ status }) {
   const fora = status === 'cancelado' || status === 'faltou';
   const atual = ETAPAS.findIndex(([s]) => s === status);
   return (
@@ -257,7 +273,7 @@ function Etapas({ status }) {
   );
 }
 
-function Cliente({ a, aoAbrirPerfil }) {
+function Cliente({ a, aoAbrirPerfil, modoProfissional }) {
   const c = a.contexto?.cliente;
   const inicial = (a.leadNome ?? '?').trim().charAt(0).toUpperCase();
   const whatsapp = a.leadTelefone ? `https://wa.me/${String(a.leadTelefone).replace(/\D/g, '')}` : null;
@@ -267,13 +283,17 @@ function Cliente({ a, aoAbrirPerfil }) {
       <div className="os-cliente">
         <span className="os-cliente__foto" aria-hidden="true">{inicial}</span>
         <div className="os-cliente__nome">
-          <button type="button" className="link" onClick={() => aoAbrirPerfil?.(a.leadId)}>
-            {a.leadNome}
-          </button>
+          {modoProfissional ? (
+            <strong className="os-cliente__titulo">{a.leadNome}</strong>
+          ) : (
+            <button type="button" className="link" onClick={() => aoAbrirPerfil?.(a.leadId)}>
+              {a.leadNome}
+            </button>
+          )}
           <span className="texto-fraco">{a.leadTelefoneFormatado}</span>
         </div>
         <div className="os-cliente__atalhos">
-          {a.conversationId && (
+          {a.conversationId && !modoProfissional && (
             <Link className="os-atalho" to={`/conversas?id=${a.conversationId}`} title="Abrir a conversa deste agendamento">
               💬
             </Link>

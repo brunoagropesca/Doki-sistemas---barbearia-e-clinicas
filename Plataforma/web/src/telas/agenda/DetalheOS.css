@@ -221,3 +221,17 @@
   .os-numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .os-cab__servico { font-size: 20px; }
 }
+
+/* Cartao do "Meu dia": no lugar de "com <profissional>", a inicial do cliente. */
+.os-cab__inicial {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5b6cff, #8a4dff);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+.os-cliente__titulo { font-size: 16px; }

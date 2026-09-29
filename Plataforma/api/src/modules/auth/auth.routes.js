@@ -78,12 +78,12 @@ export async function rotasAuth(app) {
   });
 
   /** GET /api/auth/eu — quem sou eu? Usada pelo front no carregamento. */
-  app.get('/api/auth/eu', { config: apenas.atendente }, async (req) => {
+  app.get('/api/auth/eu', { config: apenas.profissional }, async (req) => {
     return { usuario: req.usuario };
   });
 
   /** POST /api/auth/trocar-senha */
-  app.post('/api/auth/trocar-senha', { config: { ...apenas.atendente, bancoReal: true } }, async (req, res) => {
+  app.post('/api/auth/trocar-senha', { config: { ...apenas.profissional, bancoReal: true } }, async (req, res) => {
     const { senhaAtual, novaSenha } = trocarSenhaSchema.parse(req.body);
 
     await service.trocarSenha({ userId: req.usuario.id, senhaAtual, novaSenha });

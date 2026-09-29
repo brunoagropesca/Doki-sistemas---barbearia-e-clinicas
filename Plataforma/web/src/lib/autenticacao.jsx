@@ -18,7 +18,7 @@ import { api, quandoPerderSessao } from './api.js';
 const ContextoAuth = createContext(null);
 
 /** Hierarquia de cargos, espelhando a do servidor. */
-const NIVEL = { atendente: 10, admin: 20, owner: 30, dev: 100 };
+const NIVEL = { profissional: 5, atendente: 10, admin: 20, owner: 30, dev: 100 };
 
 export function ProvedorAuth({ children }) {
   const [usuario, setUsuario] = useState(null);

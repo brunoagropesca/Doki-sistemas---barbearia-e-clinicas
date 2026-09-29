@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { apenas } from '../../http/plugins/autenticacao.js';
 import { caminhoDe, EXTENSOES_DOCUMENTO } from './arquivos.js';
 import * as service from './equipe.service.js';
+import { senhaSchema, usernameSchema } from '../auth/auth.schemas.js';
 import { metricasDoProfissional } from '../historico/historico.service.js';
 import { exigirFuncao } from '../funcoes/funcoes.js';
 import { CRITERIOS_DISTRIBUICAO, PRIVACIDADE, obterConfiguracao, salvarConfiguracao } from './equipe.config.js';
@@ -47,6 +48,12 @@ const criarProfissionalSchema = z.object({
 
 const atualizarProfissionalSchema = criarProfissionalSchema.partial().extend({
   removerFoto: z.boolean().optional()
+});
+
+const acessoSchema = z.object({
+  username: usernameSchema,
+  /** Vazio = mantem a senha atual (so vale quando o acesso ja existe). */
+  senha: senhaSchema.optional().or(z.literal('').transform(() => undefined))
 });
 
 const definirServicosSchema = z.object({
@@ -179,6 +186,20 @@ export async function rotasEquipe(app) {
   app.put('/api/profissionais/:id/servicos', { config: apenas.admin }, async (req) => {
     const { servicos } = definirServicosSchema.parse(req.body);
     return { servicos: await service.definirServicos(req.tenantId, req.params.id, servicos) };
+  });
+
+  /**
+   * PUT /api/profissionais/:id/acesso — login do profissional so para a agenda dele.
+   * Cria na primeira vez (senha obrigatoria); depois troca usuario e/ou senha.
+   */
+  app.put('/api/profissionais/:id/acesso', { config: apenas.admin }, async (req) => {
+    const dados = acessoSchema.parse(req.body);
+    return { profissional: await service.definirAcesso(req.tenantId, req.params.id, dados, { usuario: req.usuario }) };
+  });
+
+  /** DELETE /api/profissionais/:id/acesso — exclui o login (as sessoes caem na hora). */
+  app.delete('/api/profissionais/:id/acesso', { config: apenas.admin }, async (req) => {
+    return { profissional: await service.removerAcesso(req.tenantId, req.params.id, { usuario: req.usuario }) };
   });
 
   app.delete('/api/profissionais/:id', { config: apenas.admin }, async (req) => {

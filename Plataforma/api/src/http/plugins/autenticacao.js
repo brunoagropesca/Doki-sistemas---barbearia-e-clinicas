@@ -99,6 +99,14 @@ async function plugin(app) {
       throw new NaoAutenticado();
     }
 
+    // Login de PROFISSIONAL: lista de permitidos, nao de proibidos. Ele so
+    // passa nas rotas marcadas para ele (`apenas.profissional` ou
+    // `profissional: true`). Rota nova nasce fechada para ele — esquecer de
+    // marcar nunca abre a agenda da casa inteira para o barbeiro.
+    if (req.usuario.cargo === 'profissional' && rota.profissional !== true) {
+      throw new SemPermissao('Seu acesso é só à sua agenda do dia.');
+    }
+
     // Cargo minimo exigido pela rota, quando declarado.
     if (rota.cargoMinimo) {
       const nivelUsuario = NIVEL_CARGO[req.usuario.cargo] ?? 0;
@@ -155,6 +163,11 @@ export const pluginAutenticacao = fp(plugin, { name: 'autenticacao' });
  */
 export const apenas = {
   publico: { publico: true },
+  /**
+   * Qualquer pessoa logada, INCLUSIVE o login de profissional. So para o
+   * minimo que a tela dele usa (quem sou eu, a agenda dele, trocar senha).
+   */
+  profissional: { cargoMinimo: 'profissional', profissional: true },
   atendente: { cargoMinimo: 'atendente' },
   admin: { cargoMinimo: 'admin' },
   owner: { cargoMinimo: 'owner' },

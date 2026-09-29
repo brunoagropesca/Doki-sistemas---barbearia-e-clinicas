@@ -10,6 +10,7 @@ import { apenas, pluginAutenticacao } from './http/plugins/autenticacao.js';
 import { rotasAuth } from './modules/auth/auth.routes.js';
 import { rotasLeads } from './modules/leads/leads.routes.js';
 import { rotasAgenda } from './modules/agenda/agenda.routes.js';
+import { rotasMeuDia } from './modules/meu-dia/meu-dia.routes.js';
 import { rotasHades } from './modules/hades/hades.routes.js';
 import { rotasCatalogo } from './modules/catalogo/catalogo.routes.js';
 import { rotasConversas } from './modules/conversas/conversas.routes.js';
@@ -151,6 +152,7 @@ export async function criarApp({ logger: loggerCustomizado } = {}) {
   await app.register(rotasAuth);
   await app.register(rotasLeads);
   await app.register(rotasAgenda);
+  await app.register(rotasMeuDia);
   await app.register(rotasCatalogo);
   await app.register(rotasConversas);
   await app.register(rotasIa);

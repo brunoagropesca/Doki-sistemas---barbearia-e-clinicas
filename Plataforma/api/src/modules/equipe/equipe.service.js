@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { professionals } from '../../db/schema/crm.js';
 import { professionalServices, services } from '../../db/schema/catalog.js';
@@ -12,6 +12,7 @@ import { formatarTelefone, normalizarTelefone } from '../../core/phone.js';
 import { comContexto } from '../../core/logger.js';
 import { registrarAuditoria } from '../auditoria/auditoria.service.js';
 import { apagarImagem, salvarImagem } from './arquivos.js';
+import * as authService from '../auth/auth.service.js';
 
 const log = comContexto({ modulo: 'equipe' });
 
@@ -34,8 +35,30 @@ const log = comContexto({ modulo: 'equipe' });
 
 const base = (tenantId) => and(eq(professionals.tenantId, tenantId), isNull(professionals.deletedAt));
 
-function apresentar(p, servicos = []) {
+/**
+ * O login PROPRIO do profissional (cargo `profissional`), se tiver.
+ *
+ * So esse tipo aparece como "acesso": um profissional ligado ao login de uma
+ * recepcionista usa o sistema inteiro pelo login dela, e a ficha continua
+ * mostrando esse vinculo no seletor de sempre.
+ */
+async function acessosDe(tenantId, userIds) {
+  const ids = [...new Set(userIds.filter(Boolean))];
+  if (ids.length === 0) return new Map();
+  const linhas = await db
+    .select({ id: users.id, username: users.username, ativo: users.ativo, ultimoLoginEm: users.ultimoLoginEm })
+    .from(users)
+    .where(
+      and(eq(users.tenantId, tenantId), eq(users.cargo, 'profissional'), isNull(users.deletedAt), inArray(users.id, ids))
+    );
+  return new Map(
+    linhas.map((u) => [u.id, { userId: u.id, username: u.username, ativo: u.ativo, ultimoLoginEm: u.ultimoLoginEm?.getTime() ?? null }])
+  );
+}
+
+function apresentar(p, servicos = [], acesso = null) {
   return {
+    acesso,
     id: p.id,
     nome: p.nome,
     funcao: p.funcao,
@@ -111,8 +134,9 @@ export async function listarProfissionais(tenantId, { incluirInativos = false } 
 
   // Uma consulta por profissional seria 1+N; a lista e curta (a equipe de uma
   // barbearia cabe numa mao), mas pedir tudo de uma vez e igualmente simples.
+  const acessos = await acessosDe(tenantId, linhas.map((p) => p.userId));
   const todos = await Promise.all(
-    linhas.map(async (p) => apresentar(p, await servicosDoProfissional(tenantId, p.id)))
+    linhas.map(async (p) => apresentar(p, await servicosDoProfissional(tenantId, p.id), acessos.get(p.userId) ?? null))
   );
   return todos;
 }
@@ -120,7 +144,83 @@ export async function listarProfissionais(tenantId, { incluirInativos = false } 
 export async function obterProfissional(tenantId, id) {
   const p = await db.query.professionals.findFirst({ where: and(base(tenantId), eq(professionals.id, id)) });
   if (!p) throw new NaoEncontrado('Profissional');
-  return apresentar(p, await servicosDoProfissional(tenantId, id));
+  const acessos = await acessosDe(tenantId, [p.userId]);
+  return apresentar(p, await servicosDoProfissional(tenantId, id), acessos.get(p.userId) ?? null);
+}
+
+/**
+ * Cria (ou atualiza) o login do profissional para ele ver a propria agenda.
+ *
+ * O login nasce com cargo `profissional` e JA ligado a ficha: e o vinculo que
+ * diz de quem e a agenda. Se a ficha estava ligada ao login de alguem da
+ * equipe, o vinculo passa para o login novo — a pessoa continua existindo,
+ * so deixa de ser "este profissional".
+ *
+ * Com acesso ja criado: troca o usuario e/ou a senha (trocar a senha derruba
+ * as sessoes abertas, como em qualquer funcionario).
+ */
+export async function definirAcesso(tenantId, id, { username, senha }, { usuario }) {
+  const p = await db.query.professionals.findFirst({ where: and(base(tenantId), eq(professionals.id, id)) });
+  if (!p) throw new NaoEncontrado('Profissional');
+  const atual = (await acessosDe(tenantId, [p.userId])).get(p.userId);
+
+  if (atual) {
+    await authService.editarUsuario({
+      solicitante: usuario,
+      tenantId,
+      id: atual.userId,
+      dados: { username, nome: p.nome, ativo: true, ...(senha ? { novaSenha: senha } : {}) }
+    });
+  } else {
+    if (!senha) throw new RegraDeNegocio('Defina uma senha para o primeiro acesso.');
+    const criado = await authService.criarUsuario({
+      solicitante: usuario,
+      tenantId,
+      username,
+      senha,
+      nome: p.nome,
+      cargo: 'profissional',
+      telefone: p.telefone ?? undefined
+    });
+    await db.update(professionals).set({ userId: criado.id }).where(and(base(tenantId), eq(professionals.id, id)));
+  }
+
+  await registrarAuditoria({
+    tenantId,
+    usuario,
+    acao: atual ? 'profissional.acesso_editar' : 'profissional.acesso_criar',
+    entidade: 'profissional',
+    entidadeId: id,
+    dados: { depois: { username, senha: senha ? 'definida' : undefined } }
+  });
+
+  return obterProfissional(tenantId, id);
+}
+
+/**
+ * Tira o acesso: o login `profissional` e excluido (sessoes caem na hora) e
+ * a ficha fica sem login. Ligada ao login de alguem da equipe, so desfaz o
+ * vinculo — ninguem perde o proprio acesso por aqui.
+ */
+export async function removerAcesso(tenantId, id, { usuario }) {
+  const p = await db.query.professionals.findFirst({ where: and(base(tenantId), eq(professionals.id, id)) });
+  if (!p) throw new NaoEncontrado('Profissional');
+  if (!p.userId) return obterProfissional(tenantId, id);
+
+  const atual = (await acessosDe(tenantId, [p.userId])).get(p.userId);
+  await db.update(professionals).set({ userId: null }).where(and(base(tenantId), eq(professionals.id, id)));
+  if (atual) await authService.excluirUsuario({ solicitante: usuario, tenantId, id: atual.userId });
+
+  await registrarAuditoria({
+    tenantId,
+    usuario,
+    acao: 'profissional.acesso_remover',
+    entidade: 'profissional',
+    entidadeId: id,
+    dados: { antes: { userId: p.userId, username: atual?.username } }
+  });
+
+  return obterProfissional(tenantId, id);
 }
 
 export async function criarProfissional(tenantId, dados, { usuario } = {}) {
@@ -159,6 +259,17 @@ export async function criarProfissional(tenantId, dados, { usuario } = {}) {
 export async function atualizarProfissional(tenantId, id, dados, { usuario } = {}) {
   const atual = await db.query.professionals.findFirst({ where: and(base(tenantId), eq(professionals.id, id)) });
   if (!atual) throw new NaoEncontrado('Profissional');
+
+  // O login proprio do profissional so se liga e desliga pelo "acesso"
+  // (definirAcesso/removerAcesso): ligar aqui deixaria o login de um
+  // profissional apontando para a agenda de outro, e desligar deixaria um
+  // login orfao que entra e nao ve nada.
+  if (dados.userId !== undefined && (dados.userId ?? null) !== (atual.userId ?? null)) {
+    const envolvidos = await acessosDe(tenantId, [atual.userId, dados.userId]);
+    if (envolvidos.size > 0) {
+      throw new RegraDeNegocio('O acesso do profissional se muda em "Acesso à agenda", na ficha dele.');
+    }
+  }
 
   const mudancas = {};
   for (const campo of ['nome', 'funcao', 'cor', 'observacoes', 'jornada', 'ativo', 'userId']) {
@@ -270,6 +381,9 @@ export async function excluirProfissional(tenantId, id, { usuario } = {}) {
 
   const temHistorico = Boolean(comAgendamento);
 
+  // Saiu da equipe: o login da agenda dele morre junto (sessoes caem na hora).
+  if ((await acessosDe(tenantId, [p.userId])).size > 0) await removerAcesso(tenantId, id, { usuario });
+
   if (temHistorico) {
     await db.update(professionals).set({ ativo: false }).where(and(base(tenantId), eq(professionals.id, id)));
   } else {
@@ -333,5 +447,6 @@ export async function listarAtendentes(tenantId) {
     .orderBy(asc(users.nome));
 
   // O perfil de desenvolvimento nao e gente da empresa: nao aparece na equipe.
-  return linhas.filter((u) => u.cargo !== 'dev').map((u) => ({ ...u, emAtendimento: Number(u.emAtendimento) || 0 }));
+  // O login `profissional` aparece na ficha do profissional, nao aqui.
+  return linhas.filter((u) => u.cargo !== 'dev' && u.cargo !== 'profissional').map((u) => ({ ...u, emAtendimento: Number(u.emAtendimento) || 0 }));
 }

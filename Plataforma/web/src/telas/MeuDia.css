@@ -1,0 +1,88 @@
+/* ================================================================
+ * MEU DIA — a tela do login de profissional (celular primeiro)
+ * ================================================================ */
+
+.md {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+  width: min(560px, 100%);
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: var(--e4) var(--e4) var(--e7);
+}
+
+/* ─── Topo: quem esta logado ─── */
+.md-topo { display: flex; align-items: center; gap: var(--e3); }
+.md-topo__foto {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--primaria);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+}
+.md-topo__foto img { width: 100%; height: 100%; object-fit: cover; }
+.md-topo__nome { flex: 1; display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.md-topo__nome strong { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ─── Troca de dia ─── */
+.md-dia {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  padding: var(--e2);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  background: var(--vidro, rgba(var(--tinta, 255, 255, 255), 0.04));
+}
+.md-dia__seta {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: rgba(var(--tinta, 255, 255, 255), 0.04);
+  color: var(--texto);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.md-dia__seta:hover { background: rgba(var(--tinta, 255, 255, 255), 0.09); }
+.md-dia__centro { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; text-align: center; }
+.md-dia__rotulo { min-height: 1.2em; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--primaria); }
+.md-dia__titulo { font-size: 15px; }
+.md-voltar { align-self: center; margin-top: calc(var(--e2) * -1); font-size: 13px; }
+
+.md-resumo { margin: 0; font-size: 13px; }
+
+/* ─── Cartoes ─── */
+.md-lista { display: flex; flex-direction: column; gap: var(--e3); margin: 0; padding: 0; list-style: none; }
+.md-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  padding: var(--e4);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  background: linear-gradient(180deg, var(--painel-solido, #111735) 0%, var(--painel-fundo, #0b1026) 100%);
+  box-shadow: var(--sombra);
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.md-cartao:hover { border-color: var(--borda-forte); box-shadow: var(--sombra-g); }
+.md-cartao:active { transform: scale(0.995); }
+.md-cartao:focus-visible { outline: 2px solid var(--primaria); outline-offset: 2px; }
+.md-cartao .os-cab__servico { margin-top: 0; }
+/* Na cadeira agora: o cartao se destaca na lista. */
+.md-cartao--agora { border-color: var(--primaria); box-shadow: 0 0 0 3px var(--primaria-suave), var(--sombra); }
+.md-cartao--fora { opacity: 0.6; }
+
+@media (max-width: 560px) {
+  .md-cartao .os-cab__servico { font-size: 20px; }
+}

@@ -22,6 +22,7 @@ import { Perfil } from './telas/Perfil.jsx';
 import { FuncoesDev } from './telas/FuncoesDev.jsx';
 import { TextosDev } from './telas/TextosDev.jsx';
 import { DadosDev } from './telas/DadosDev.jsx';
+import { MeuDia } from './telas/MeuDia.jsx';
 import { LicencaPagina } from './telas/LicencaPagina.jsx';
 import { GuardaLicenca } from './componentes/Licenca.jsx';
 import { ExigeFuncao } from './lib/funcoes.jsx';
@@ -58,6 +59,17 @@ export function App() {
   const { usuario, carregando } = useAuth();
 
   if (carregando) return <Carregando texto="Carregando..." />;
+
+  // Login de profissional: so a agenda do dia dele, sem menu nem outras telas
+  // (a API recusa o resto para este cargo; aqui e so para nao mostrar).
+  if (usuario?.cargo === 'profissional') {
+    return (
+      <Routes>
+        <Route path="/" element={<MeuDia />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
 
   return (
     <Routes>

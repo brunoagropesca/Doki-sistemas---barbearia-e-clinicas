@@ -8,6 +8,10 @@ import { tenants } from './tenants.js';
  * `owner`     — dono da empresa. Ve faturamento, mexe em tudo do tenant dele.
  * `admin`     — gerente. Mexe em catalogo, agenda, equipe. Nao apaga a empresa.
  * `atendente` — recepcao. Atende conversa, marca horario, ve o proprio desempenho.
+ * `profissional` — o barbeiro/esteticista com login SO para a propria agenda do
+ *                  dia. Nao entra em nenhuma outra tela nem rota: o plugin de
+ *                  autenticacao so deixa passar as rotas marcadas para ele
+ *                  (`apenas.profissional`). Nasce pela ficha do profissional.
  *
  * `dev` e um cargo especial e INVISIVEL: e o de quem configura a plataforma (o
  * desenvolvedor), nao da empresa cliente. Existe para as poucas coisas que o
@@ -16,16 +20,19 @@ import { tenants } from './tenants.js';
  * API e nem a validacao de entrada revela que o cargo existe. Nasce por linha
  * de comando (`npm run usuario:dev`).
  */
-export const CARGOS = ['dev', 'owner', 'admin', 'atendente'];
+export const CARGOS = ['dev', 'owner', 'admin', 'atendente', 'profissional'];
 
 /**
  * Cargos que uma empresa pode ver e atribuir. O `dev` fica de fora de
  * proposito: e a lista que a API aceita ao criar usuario e que a tela mostra.
+ * O `profissional` tambem: esse login so nasce (e some) pela ficha do
+ * profissional, ja ligado a ele — um "profissional" solto nao veria nada.
  */
-export const CARGOS_VISIVEIS = CARGOS.filter((c) => c !== 'dev');
+export const CARGOS_VISIVEIS = CARGOS.filter((c) => c !== 'dev' && c !== 'profissional');
 
 /** Nivel numerico de cada cargo — quanto maior, mais poder. Usado nas checagens. */
 export const NIVEL_CARGO = {
+  profissional: 5,
   atendente: 10,
   admin: 20,
   owner: 30,
