@@ -1,4 +1,5 @@
 import { pathToFileURL } from 'node:url';
+import { SENHA_DE_FABRICA } from '../modules/auth/auth.schemas.js';
 import { eq } from 'drizzle-orm';
 import { db, fecharBanco, inicializarBanco } from './client.js';
 import { rodarMigrations } from './migrate.js';
@@ -19,8 +20,12 @@ import { AGENTES_PADRAO } from '../ai/agentes-padrao.js';
 
 const SLUG_DEMO = 'barbearia-demo';
 
-/** Senha inicial. Em producao ela NAO e usada — veja a checagem no fim do arquivo. */
-const SENHA_PADRAO = 'trocar@123';
+/**
+ * Senha inicial dos dois acessos. E publica, entao nasce PROVISORIA: no
+ * primeiro login a pessoa so consegue criar a propria senha (ver o plugin de
+ * autenticacao) — ninguem continua entrando com ela.
+ */
+const SENHA_PADRAO = SENHA_DE_FABRICA;
 
 export async function semear({ forcar = false } = {}) {
   const existente = await db.query.tenants.findFirst({ where: eq(s.tenants.slug, SLUG_DEMO) });
@@ -55,6 +60,7 @@ export async function semear({ forcar = false } = {}) {
       nome: 'Ze da Barbearia',
       cargo: 'owner',
       passwordHash: hash,
+      senhaProvisoria: true,
       statusPresenca: 'offline'
     },
     {
@@ -64,6 +70,7 @@ export async function semear({ forcar = false } = {}) {
       nome: 'Beatriz Lima',
       cargo: 'atendente',
       passwordHash: hash,
+      senhaProvisoria: true,
       statusPresenca: 'online',
       capacidadeSimultanea: 6
     }
@@ -222,7 +229,7 @@ Empresa de demonstracao pronta.
   Acesso 1: dono      / ${SENHA_PADRAO}   (cargo: owner)
   Acesso 2: recepcao  / ${SENHA_PADRAO}   (cargo: atendente)
 
-TROQUE ESSAS SENHAS antes de colocar o sistema no ar.
+No primeiro acesso cada um cria a propria senha (o sistema obriga).
 `);
   } catch (err) {
     console.error('Falha ao semear:', err);

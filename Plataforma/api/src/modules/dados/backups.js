@@ -68,7 +68,8 @@ export const MOTIVOS = {
   automatico: 'Automático diário',
   antes_de_apagar: 'Antes de apagar dados',
   antes_de_restaurar: 'Antes de restaurar outro backup',
-  antes_de_exportar_demo: 'Antes de trazer os dados da demonstração'
+  antes_de_exportar_demo: 'Antes de trazer os dados da demonstração',
+  antes_de_trocar_segredo: 'Antes de trocar o segredo da instalação'
 };
 
 /** Quantos backups AUTOMATICOS guardar. Os outros so saem quando alguem apaga. */

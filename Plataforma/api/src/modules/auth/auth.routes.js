@@ -78,12 +78,14 @@ export async function rotasAuth(app) {
   });
 
   /** GET /api/auth/eu — quem sou eu? Usada pelo front no carregamento. */
-  app.get('/api/auth/eu', { config: apenas.profissional }, async (req) => {
+  // `comSenhaProvisoria`: as duas unicas rotas (alem das publicas) que quem
+  // esta com senha provisoria pode usar — saber quem e, e criar a propria senha.
+  app.get('/api/auth/eu', { config: { ...apenas.profissional, comSenhaProvisoria: true } }, async (req) => {
     return { usuario: req.usuario };
   });
 
   /** POST /api/auth/trocar-senha */
-  app.post('/api/auth/trocar-senha', { config: { ...apenas.profissional, bancoReal: true } }, async (req, res) => {
+  app.post('/api/auth/trocar-senha', { config: { ...apenas.profissional, bancoReal: true, comSenhaProvisoria: true } }, async (req, res) => {
     const { senhaAtual, novaSenha } = trocarSenhaSchema.parse(req.body);
 
     await service.trocarSenha({ userId: req.usuario.id, senhaAtual, novaSenha });

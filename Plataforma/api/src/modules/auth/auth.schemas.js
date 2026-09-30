@@ -32,6 +32,13 @@ export const loginSchema = z.object({
   empresa: z.string().trim().toLowerCase().optional()
 });
 
+/**
+ * A senha que a instalacao usa para os primeiros logins (db/seed.js). E publica
+ * (esta no git e no manual): por isso nasce provisoria, e ninguem pode escolhe-la
+ * como a PROPRIA senha.
+ */
+export const SENHA_DE_FABRICA = 'trocar@123';
+
 export const trocarSenhaSchema = z
   .object({
     senhaAtual: z.string().min(1, 'Informe a senha atual.'),
@@ -39,6 +46,10 @@ export const trocarSenhaSchema = z
   })
   .refine((d) => d.senhaAtual !== d.novaSenha, {
     message: 'A nova senha precisa ser diferente da atual.',
+    path: ['novaSenha']
+  })
+  .refine((d) => d.novaSenha !== SENHA_DE_FABRICA, {
+    message: 'Essa é a senha de fábrica, que todo mundo conhece. Escolha outra.',
     path: ['novaSenha']
   });
 

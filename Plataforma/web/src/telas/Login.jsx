@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/autenticacao.jsx';
 import { Aviso, Botao, Campo, Entrada } from '../componentes/ui.jsx';
 import { SeletorIdioma } from '../componentes/SeletorIdioma.jsx';
@@ -58,6 +59,8 @@ function animacaoLigadaDeInicio() {
 
 export function Login() {
   const { entrar } = useAuth();
+  // Recado de quem acabou de criar a senha (CriarSenha) e voltou para entrar de novo.
+  const recado = useLocation().state?.aviso;
   const [username, setUsername] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState(null);
@@ -111,7 +114,9 @@ export function Login() {
       await entrar(username, senha);
       // Nao navegamos daqui: o App redireciona sozinho ao ver o usuario.
     } catch (err) {
-      setErro(err.message);
+      // 429 = muitas tentativas: nao e "senha errada", e um aviso de espera
+      // (o usuario digitado fica, so a senha e limpa).
+      setErro({ texto: err.message, tom: err.status === 429 ? 'alerta' : 'perigo' });
       tremer();
       // Limpa so a senha. Apagar o usuario tambem obrigaria a redigitar
       // tudo por um erro de digitacao numa tecla.
@@ -171,7 +176,8 @@ export function Login() {
               Entre para acessar a mesa de atendimento.
             </p>
 
-            {erro && <Aviso tom="perigo">{erro}</Aviso>}
+            {recado && !erro && <Aviso tom="sucesso">{recado}</Aviso>}
+            {erro && <Aviso tom={erro.tom}>{erro.texto}</Aviso>}
 
             <div className="login__item" style={{ '--i': 2 }}>
               <Campo rotulo="Usuario" obrigatorio>

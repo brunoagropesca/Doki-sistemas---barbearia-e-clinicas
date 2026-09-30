@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
-import { env, isProd } from './config/env.js';
+import { env } from './config/env.js';
 import { logger } from './core/logger.js';
 import { cinza, fg, negrito, painelAtivo, resumir, ver } from './core/painel.js';
 import { bancoSaudavel } from './db/client.js';
@@ -44,11 +44,14 @@ import { pluginTravaDeLicenca, rotasLicenca } from './licenca/licenca.routes.js'
 export async function criarApp({ logger: loggerCustomizado } = {}) {
   const app = Fastify({
     loggerInstance: loggerCustomizado ?? logger,
-    // Confia no cabecalho de proxy pra descobrir o IP real do cliente.
-    // Em desenvolvimento, so quando quem repassa e ESTA maquina (o proxy do
-    // Vite): assim o acesso pela rede local registra o IP do celular, e
-    // ninguem de fora consegue forjar o proprio IP mandando o cabecalho.
-    trustProxy: isProd ? true : 'loopback',
+    // Confia no cabecalho de proxy pra descobrir o IP real do cliente — mas
+    // so quando quem repassa e ESTA maquina (o proxy do Vite, ou um proxy
+    // local): assim o acesso pela rede registra o IP do celular, e ninguem de
+    // fora consegue forjar o proprio IP mandando o cabecalho. Vale tambem em
+    // producao: antes era `true` la, e com a API direto na rede um atacante
+    // trocaria de "IP" a cada tentativa e escaparia do limite de login por
+    // aparelho (modules/auth/tentativas.js).
+    trustProxy: 'loopback',
     // Teto do corpo da requisicao: 5 MB. Sem limite, um POST gigante
     // derruba o servidor por consumo de memoria.
     bodyLimit: 5 * 1024 * 1024,

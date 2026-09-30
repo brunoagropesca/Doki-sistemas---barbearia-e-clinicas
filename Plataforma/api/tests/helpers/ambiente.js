@@ -54,7 +54,7 @@ export async function criarAppDeTeste() {
   conferirBancoDeTeste();
 
   const { rodarMigrations } = await import('../../src/db/migrate.js');
-  const { db, inicializarBanco } = await import('../../src/db/client.js');
+  const { db, fecharBanco, inicializarBanco } = await import('../../src/db/client.js');
   const { semear } = await import('../../src/db/seed.js');
   const { criarApp } = await import('../../src/app.js');
 
@@ -73,6 +73,22 @@ export async function criarAppDeTeste() {
   Object.assign(tempos, { aguardarConexaoMs: 300, esperasNovaTentativaMs: [20, 50], checarConexaoMs: 20, esperaNaTelaMs: null });
 
   const app = await criarApp();
+
+  /**
+   * Fecha a conexao do banco junto com o app — como o main.js faz ao desligar.
+   *
+   * Sem isto cada arquivo de teste terminava com a conexao NATIVA do libsql
+   * aberta, e no Windows o processo as vezes morria ao sair com violacao de
+   * acesso (codigo 3221225477 = 0xC0000005): todos os testes do arquivo
+   * passavam e, mesmo assim, o arquivo aparecia como reprovado, cada vez um
+   * diferente. A espera curta deixa terminar o que ainda roda em segundo plano
+   * (marcar uso da sessao, automacoes) antes de fechar.
+   */
+  app.addHook('onClose', async () => {
+    await new Promise((ok) => setTimeout(ok, 50));
+    fecharBanco();
+  });
+
   await app.ready();
 
   return { app, tenant };

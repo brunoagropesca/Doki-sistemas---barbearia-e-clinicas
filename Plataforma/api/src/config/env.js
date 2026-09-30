@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import { ehSegredoPadrao, SEGREDO_PADRAO } from './segredo-padrao.js';
 
 /**
  * Configuracao central da aplicacao.
@@ -55,7 +56,7 @@ const envSchema = z.object({
    * Chave usada para assinar/derivar segredos. Em producao e OBRIGATORIA
    * e precisa ter pelo menos 32 caracteres.
    */
-  APP_SECRET: z.string().min(32).default('dev-secret-trocar-em-producao-1234567890'),
+  APP_SECRET: z.string().min(32).default(SEGREDO_PADRAO),
 
   /** Quantos dias um login continua valido antes de exigir nova senha. */
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(7),
@@ -125,6 +126,14 @@ const envSchema = z.object({
    * entao nao da para depender do NODE_ENV. So os testes desligam.
    */
   LICENCA_EXIGIDA: bool(true),
+
+  /**
+   * SO VALE NOS TESTES (NODE_ENV=test). Fora deles, senha provisoria sempre
+   * trava o login ate a pessoa criar a propria — nao ha como desligar.
+   * Nos testes nasce desligada: dezenas de arquivos entram com a senha do
+   * seed ou com usuarios recem-cadastrados. Quem testa a regra liga.
+   */
+  SENHA_PROVISORIA_NOS_TESTES: bool(false),
   /** Onde fica o serial ativado desta instalacao (fora do banco: ver licenca.js). */
   LICENCA_ARQUIVO: z.string().default('./data/licenca.json'),
   /** Chave publica alternativa, em PEM. So para testes; em uso real vem de chave-publica.js. */
@@ -149,8 +158,20 @@ export const isProd = env.NODE_ENV === 'production';
 export const isTest = env.NODE_ENV === 'test';
 export const isDev = env.NODE_ENV === 'development';
 
-// Em producao o segredo padrao de desenvolvimento nao pode passar.
-if (isProd && env.APP_SECRET.startsWith('dev-secret')) {
-  console.error('\n[CONFIG] APP_SECRET ainda esta com o valor de desenvolvimento. Defina um segredo real em producao.\n');
+/**
+ * O segredo de fabrica nao pode passar em NENHUM ambiente fora dos testes.
+ *
+ * Antes a trava era so de producao — mas a instalacao do cliente roda como
+ * `development`, entao todas usavam o mesmo segredo, que esta no git. Ele cifra
+ * as chaves de IA no banco: qualquer copia do banco (um backup no pendrive, por
+ * exemplo) abriria as chaves. O INICIAR.bat gera um segredo proprio para cada
+ * instalacao (`npm run env:preparar`, ver db/preparar-env.js).
+ */
+if (!isTest && ehSegredoPadrao(env.APP_SECRET)) {
+  console.error(
+    '\n[CONFIG] O APP_SECRET ainda e o de fabrica (o mesmo de toda instalacao).\n' +
+      '         Rode o INICIAR.bat, que gera um segredo proprio para esta maquina\n' +
+      '         (ou, no terminal, na pasta api: npm run env:preparar).\n'
+  );
   process.exit(1);
 }

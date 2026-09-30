@@ -1,11 +1,13 @@
 import { existsSync } from 'node:fs';
 import { env } from '../../config/env.js';
 import { conferirSenha, gerarHashSenha, gerarTokenSessao, hashToken, precisaRehash } from '../../core/crypto.js';
-import { Conflito, NaoAutenticado, NaoEncontrado, RegraDeNegocio, SemPermissao } from '../../core/errors.js';
+import { Conflito, LimiteExcedido, NaoAutenticado, NaoEncontrado, RegraDeNegocio, SemPermissao } from '../../core/errors.js';
 import { comContexto } from '../../core/logger.js';
 import { EVENTOS, emitir } from '../../core/eventos.js';
 import { NIVEL_CARGO } from '../../db/schema/auth.js';
 import * as repo from './auth.repo.js';
+import * as tentativas from './tentativas.js';
+import { SENHA_DE_FABRICA } from './auth.schemas.js';
 import { apagarImagem, salvarImagem } from '../equipe/arquivos.js';
 import { registrarAuditoria } from '../auditoria/auditoria.service.js';
 
@@ -37,6 +39,8 @@ export function usuarioPublico(u) {
     email: u.email,
     telefone: u.telefone,
     cargo: u.cargo,
+    /** A tela so mostra "Crie sua senha" enquanto for true (e a API recusa o resto). */
+    senhaProvisoria: Boolean(u.senhaProvisoria),
     statusPresenca: u.statusPresenca,
     capacidadeSimultanea: u.capacidadeSimultanea,
     avatar: u.avatar,
@@ -86,6 +90,39 @@ async function atrasoConstante() {
 export async function login({ username, senha, tenantSlug, userAgent, ip }) {
   const generico = () => new NaoAutenticado('Usuario ou senha incorretos.');
 
+  // Limite de tentativas (tentativas.js), checado ANTES de buscar o usuario e
+  // de rodar o scrypt: bloqueado nao ocupa a fila de senhas de ninguem. A
+  // resposta e a mesma para login que existe e que nao existe.
+  const chave = { usuario: `${tenantSlug ?? ''}|${username}`, ip };
+  const espera = tentativas.bloqueio(chave);
+  if (espera > 0) {
+    const minutos = Math.max(1, Math.ceil(espera / 60_000));
+    throw new LimiteExcedido(`Muitas tentativas. Tente de novo em ${minutos} minuto${minutos === 1 ? '' : 's'}.`, {
+      code: 'MUITAS_TENTATIVAS'
+    });
+  }
+
+  /** Conta o erro (existindo ou nao o login) e registra quando ele bloqueia. */
+  const falhou = async (encontrado) => {
+    const bloqueou = tentativas.registrarErro(chave);
+    if (bloqueou) {
+      log.warn({ username, ip, motivo: bloqueou }, 'Login bloqueado por excesso de tentativas');
+      // Auditoria so com empresa conhecida (a tabela exige): login inexistente fica no log.
+      if (encontrado) {
+        await registrarAuditoria({
+          tenantId: encontrado.tenantId,
+          usuario: null,
+          acao: 'auth.bloqueio',
+          entidade: 'usuario',
+          entidadeId: encontrado.id,
+          dados: { username, motivo: bloqueou === 'ip' ? 'muitos erros deste aparelho' : 'muitos erros seguidos neste login' },
+          ip
+        });
+      }
+    }
+    return generico();
+  };
+
   let usuario = null;
 
   if (tenantSlug) {
@@ -101,25 +138,25 @@ export async function login({ username, senha, tenantSlug, userAgent, ip }) {
 
   if (!usuario) {
     await atrasoConstante();
-    throw generico();
+    throw await falhou(null);
   }
 
   const senhaConfere = await conferirSenha(senha, usuario.passwordHash);
   if (!senhaConfere) {
     log.warn({ username, tenantId: usuario.tenantId }, 'Tentativa de login com senha incorreta');
-    throw generico();
+    throw await falhou(usuario);
   }
 
   if (!usuario.ativo) {
     log.warn({ userId: usuario.id }, 'Login recusado: conta desativada');
-    throw generico();
+    throw await falhou(usuario);
   }
 
   // Mesma mensagem generica: dizer "falta o arquivo" confirmaria que o
   // perfil DEV existe.
   if (usuario.cargo === 'dev' && !devLiberado()) {
     log.warn({ userId: usuario.id }, 'Login DEV recusado: arquivo-chave ausente');
-    throw generico();
+    throw await falhou(usuario);
   }
 
   // Se o hash foi feito com parametros antigos, aproveitamos que temos a senha
@@ -142,6 +179,7 @@ export async function login({ username, senha, tenantSlug, userAgent, ip }) {
     ip
   });
   await repo.registrarLogin(usuario.id);
+  tentativas.registrarAcerto(chave);
 
   log.info({ userId: usuario.id, tenantId: usuario.tenantId }, 'Login efetuado');
 
@@ -232,14 +270,17 @@ export async function trocarSenha({ userId, senhaAtual, novaSenha }) {
   const usuario = await repo.buscarUsuarioPorId(userId);
   if (!usuario) throw new NaoEncontrado('Usuario');
 
+  // 422 e nao 401: a tela trata qualquer 401 como "sessao caiu" e manda para o
+  // login — um erro de digitacao na senha atual derrubaria a pessoa do sistema.
   if (!(await conferirSenha(senhaAtual, usuario.passwordHash))) {
-    throw new NaoAutenticado('A senha atual esta incorreta.');
+    throw new RegraDeNegocio('A senha atual está incorreta.');
   }
   if (senhaAtual === novaSenha) {
     throw new RegraDeNegocio('A nova senha precisa ser diferente da atual.');
   }
 
-  await repo.atualizarUsuario(userId, { passwordHash: await gerarHashSenha(novaSenha) });
+  // A pessoa escolheu a propria senha: deixa de ser provisoria.
+  await repo.atualizarUsuario(userId, { passwordHash: await gerarHashSenha(novaSenha), senhaProvisoria: false });
   await repo.revogarTodasDoUsuario(userId);
 
   log.info({ userId }, 'Senha alterada; todas as sessoes foram encerradas');
@@ -284,7 +325,9 @@ export async function criarUsuario({ solicitante, tenantId, username, senha, nom
     email: email ?? null,
     telefone: telefone ?? null,
     cargo,
-    passwordHash: await gerarHashSenha(senha)
+    passwordHash: await gerarHashSenha(senha),
+    // Quem cadastrou sabe a senha: a pessoa cria a propria no primeiro login.
+    senhaProvisoria: true
   });
 
   log.info({ userId: criado.id, cargo, porUserId: solicitante.id }, 'Usuario criado');
@@ -351,7 +394,11 @@ export async function editarUsuario({ solicitante, tenantId, id, dados }) {
   }
   if (dados.email !== undefined) mudancas.email = dados.email || null;
   if (dados.telefone !== undefined) mudancas.telefone = dados.telefone || null;
-  if (dados.novaSenha) mudancas.passwordHash = await gerarHashSenha(dados.novaSenha);
+  if (dados.novaSenha) {
+    mudancas.passwordHash = await gerarHashSenha(dados.novaSenha);
+    // Senha redefinida pela gerencia e provisoria; a pessoa mudando a propria, nao.
+    mudancas.senhaProvisoria = !proprio;
+  }
   if (dados.ativo === false) mudancas.statusPresenca = 'offline';
 
   const atualizado = await repo.atualizarUsuario(id, mudancas);
@@ -460,3 +507,29 @@ export async function definirPresenca(userId, statusPresenca) {
 }
 
 export { repo };
+
+/**
+ * Instalacoes feitas ANTES da senha provisoria existir: quem ainda entra com a
+ * senha de fabrica (publica) passa a ter de criar a propria no proximo login.
+ *
+ * Roda no boot, UMA vez por empresa (marca em `settings`): conferir a senha
+ * custa ~100 ms por login (scrypt), e so faz sentido na primeira subida depois
+ * da atualizacao. Depois disso, toda senha definida por outra pessoa ja nasce
+ * provisoria (criarUsuario, editarUsuario).
+ *
+ * @returns {Promise<number>} quantos logins passaram a ser provisorios
+ */
+export async function marcarSenhasDeFabrica() {
+  let marcados = 0;
+  for (const tenantId of await repo.empresasSemConferenciaDeSenha()) {
+    for (const u of await repo.loginsComSenhaDefinitiva(tenantId)) {
+      if (await conferirSenha(SENHA_DE_FABRICA, u.passwordHash)) {
+        await repo.atualizarUsuario(u.id, { senhaProvisoria: true });
+        marcados++;
+      }
+    }
+    await repo.marcarSenhasConferidas(tenantId);
+  }
+  if (marcados > 0) log.warn({ marcados }, 'Logins com a senha de fabrica passam a exigir senha propria');
+  return marcados;
+}

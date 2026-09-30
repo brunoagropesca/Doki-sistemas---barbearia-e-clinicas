@@ -10,7 +10,7 @@ import { fecharBanco, inicializarBanco } from './db/client.js';
 import { ativarAutoVacuumIncremental } from './db/manutencao.js';
 import { rodarMigrations } from './db/migrate.js';
 import { limparSessoesExpiradas } from './modules/auth/auth.repo.js';
-import { removerDevsAbandonados } from './modules/auth/auth.service.js';
+import { marcarSenhasDeFabrica, removerDevsAbandonados } from './modules/auth/auth.service.js';
 import {
   encerrarTodas,
   instalarAdaptadorWhatsapp,
@@ -62,6 +62,8 @@ async function principal() {
   const removidas = await limparSessoesExpiradas();
   if (removidas > 0) logger.info({ removidas }, 'Sessoes expiradas removidas');
   await removerDevsAbandonados();
+  // Instalacao antiga: quem ainda usa a senha de fabrica cria a propria no proximo login.
+  await marcarSenhasDeFabrica().catch((err) => logger.warn({ err }, 'Falha ao conferir senhas de fabrica'));
 
   // Respostas de atendente que estavam SAINDO quando o servidor caiu: sem
   // isto ficavam sem "entregue" e sem "falhou" — pareciam enviadas para sempre,

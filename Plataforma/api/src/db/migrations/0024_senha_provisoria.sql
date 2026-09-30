@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `senha_provisoria` integer DEFAULT false NOT NULL;

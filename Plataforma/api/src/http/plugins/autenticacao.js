@@ -1,6 +1,7 @@
 import fp from 'fastify-plugin';
 import { AppError, NaoAutenticado, SemPermissao } from '../../core/errors.js';
 import { NIVEL_CARGO } from '../../db/schema/auth.js';
+import { env, isTest } from '../../config/env.js';
 import { validarToken } from '../../modules/auth/auth.service.js';
 import { rodarNoBanco } from '../../db/client.js';
 import { abrir as abrirDemonstracao, COOKIE_DEMONSTRACAO, espelharUsuario, existe as existeDemonstracao } from '../../modules/demonstracao/demonstracao.js';
@@ -97,6 +98,13 @@ async function plugin(app) {
 
     if (!req.usuario) {
       throw new NaoAutenticado();
+    }
+
+    // SENHA PROVISORIA (definida por outra pessoa): o login so serve para
+    // criar a propria senha. Lista de permitidos (`comSenhaProvisoria: true`
+    // na rota), como a do profissional — rota nova nasce fechada.
+    if (req.usuario.senhaProvisoria && rota.comSenhaProvisoria !== true && (!isTest || env.SENHA_PROVISORIA_NOS_TESTES)) {
+      throw new AppError('Crie a sua senha antes de continuar.', { status: 403, code: 'SENHA_PROVISORIA' });
     }
 
     // Login de PROFISSIONAL: lista de permitidos, nao de proibidos. Ele so

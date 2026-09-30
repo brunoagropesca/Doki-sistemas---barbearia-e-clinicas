@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env --watch src/main.js",
     "start": "node --env-file-if-exists=.env src/main.js",
+    "env:preparar": "node src/db/preparar-env.js",
     "db:migrate": "node --env-file-if-exists=.env src/db/migrate.js",
     "db:seed": "node --env-file-if-exists=.env src/db/seed.js",
     "db:reset": "node --env-file-if-exists=.env src/db/reset.js",

@@ -81,10 +81,17 @@ if not exist "web\node_modules\" (
 echo  [4/5] Preparando o banco de dados...
 pushd api
 
-:: O .env guarda as configuracoes. Se nao existir, copia o modelo.
-if not exist ".env" (
-    copy ".env.example" ".env" >nul
-    echo         Arquivo de configuracao .env criado a partir do modelo.
+:: O .env guarda as configuracoes. Na primeira vez ele nasce do modelo, ja com
+:: um segredo PROPRIO desta maquina (o do modelo e igual em toda instalacao e
+:: cifra as chaves de IA). Instalacao antiga com o segredo de fabrica: troca e
+:: recifra as chaves, com backup antes. Ver api/src/db/preparar-env.js.
+call npm run env:preparar --silent
+if errorlevel 1 (
+    echo.
+    echo  [ERRO] Falha ao preparar a configuracao do .env - veja a mensagem acima.
+    popd
+    pause
+    exit /b 1
 )
 
 if not exist "data\plataforma.db" (

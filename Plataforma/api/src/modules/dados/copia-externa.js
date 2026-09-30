@@ -192,6 +192,15 @@ export function copiarParaExterna({ agora = new Date() } = {}) {
  */
 let rodando = null;
 let deNovo = false;
+/**
+ * Espera a copia em andamento terminar. Para scripts que fazem backup e depois
+ * encerram o processo (ex.: db/preparar-env.js): sair no meio deixaria uma copia
+ * pela metade no pendrive/nuvem.
+ */
+export async function aguardarCopiaExterna() {
+  while (rodando) await rodando;
+}
+
 export function agendarCopiaExterna() {
   if (!lerCopiaExterna().pasta) return;
   if (rodando) {

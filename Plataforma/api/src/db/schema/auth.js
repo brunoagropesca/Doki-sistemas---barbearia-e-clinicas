@@ -62,6 +62,15 @@ export const users = sqliteTable(
      */
     passwordHash: text('password_hash').notNull(),
 
+    /**
+     * A senha foi definida por OUTRA pessoa (instalacao, cadastro pela gerencia,
+     * "redefinir senha", acesso do profissional) e ainda nao foi trocada pelo
+     * dono dela. Enquanto for true, o login so serve para criar a propria senha
+     * (ver o plugin de autenticacao). Quem sabe a senha provisoria nao pode
+     * continuar entrando como aquela pessoa.
+     */
+    senhaProvisoria: integer('senha_provisoria', { mode: 'boolean' }).notNull().default(false),
+
     cargo: text('cargo', { enum: CARGOS }).notNull().default('atendente'),
 
     /** Disponibilidade para receber conversa na fila de atendimento. */

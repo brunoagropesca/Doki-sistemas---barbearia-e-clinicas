@@ -23,6 +23,7 @@ import { FuncoesDev } from './telas/FuncoesDev.jsx';
 import { TextosDev } from './telas/TextosDev.jsx';
 import { DadosDev } from './telas/DadosDev.jsx';
 import { MeuDia } from './telas/MeuDia.jsx';
+import { CriarSenha } from './telas/CriarSenha.jsx';
 import { LicencaPagina } from './telas/LicencaPagina.jsx';
 import { GuardaLicenca } from './componentes/Licenca.jsx';
 import { ExigeFuncao } from './lib/funcoes.jsx';
@@ -59,6 +60,11 @@ export function App() {
   const { usuario, carregando } = useAuth();
 
   if (carregando) return <Carregando texto="Carregando..." />;
+
+  // Senha provisoria (definida por outra pessoa): antes de QUALQUER tela,
+  // inclusive a do profissional, a pessoa cria a propria senha. A API tambem
+  // recusa o resto (SENHA_PROVISORIA); aqui e so para mostrar a tela certa.
+  if (usuario?.senhaProvisoria) return <CriarSenha />;
 
   // Login de profissional: so a agenda do dia dele, sem menu nem outras telas
   // (a API recusa o resto para este cargo; aqui e so para nao mostrar).

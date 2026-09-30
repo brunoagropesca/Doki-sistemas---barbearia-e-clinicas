@@ -43,6 +43,14 @@ export function ProvedorAuth({ children }) {
   // Qualquer 401 vindo de qualquer tela derruba a sessao aqui, num lugar so.
   useEffect(() => quandoPerderSessao(() => setUsuario(null)), []);
 
+  // Senha virou provisoria com a tela aberta: busca o usuario de novo (vem com
+  // `senhaProvisoria`) e o App troca para a tela de criar a senha.
+  useEffect(() => {
+    const recarregar = () => carregarUsuario();
+    window.addEventListener('senha-provisoria', recarregar);
+    return () => window.removeEventListener('senha-provisoria', recarregar);
+  }, [carregarUsuario]);
+
   const entrar = useCallback(async (username, senha) => {
     const { usuario: u } = await api.post('/api/auth/login', { username, senha });
     setUsuario(u);

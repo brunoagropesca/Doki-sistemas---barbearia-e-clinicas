@@ -103,8 +103,8 @@ export class RegraDeNegocio extends AppError {
 
 /** 429 — chamou demais, rapido demais. */
 export class LimiteExcedido extends AppError {
-  constructor(message = 'Muitas requisicoes. Tente novamente em instantes.') {
-    super(message, { status: 429, code: 'LIMITE_EXCEDIDO' });
+  constructor(message = 'Muitas requisicoes. Tente novamente em instantes.', { code = 'LIMITE_EXCEDIDO' } = {}) {
+    super(message, { status: 429, code });
   }
 }
 

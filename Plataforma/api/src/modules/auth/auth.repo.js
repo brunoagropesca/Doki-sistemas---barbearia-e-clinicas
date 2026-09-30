@@ -1,9 +1,10 @@
-import { and, asc, count, eq, gt, isNull, lt, or } from 'drizzle-orm';
+import { and, asc, count, eq, gt, isNull, lt, ne, or } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { sessions, teamAlerts, users } from '../../db/schema/auth.js';
 import { conversations } from '../../db/schema/conversations.js';
 import { EVENTOS, emitir } from '../../core/eventos.js';
 import { tenants } from '../../db/schema/tenants.js';
+import { settings } from '../../db/schema/ai.js';
 import { ID } from '../../core/ids.js';
 
 /**
@@ -290,4 +291,36 @@ export async function cancelarAvisosPendentes(tenantId) {
     .set({ canceladoEm: new Date() })
     .where(and(eq(teamAlerts.tenantId, tenantId), isNull(teamAlerts.lidoEm), isNull(teamAlerts.canceladoEm)));
   return r.rowsAffected ?? 0;
+}
+
+// ============================================================================
+// SENHA DE FABRICA EM INSTALACOES ANTIGAS (ver marcarSenhasDeFabrica)
+// ============================================================================
+
+const MARCA_SENHAS_CONFERIDAS = 'auth.senhas_de_fabrica_conferidas';
+
+/** Empresas cujos logins ainda nao foram conferidos contra a senha de fabrica. */
+export async function empresasSemConferenciaDeSenha() {
+  const todas = await db.select({ id: tenants.id }).from(tenants);
+  const conferidas = new Set(
+    (await db.select({ tenantId: settings.tenantId }).from(settings).where(eq(settings.chave, MARCA_SENHAS_CONFERIDAS))).map(
+      (l) => l.tenantId
+    )
+  );
+  return todas.map((t) => t.id).filter((id) => !conferidas.has(id));
+}
+
+/** Logins da empresa que hoje NAO estao provisorios (o dev fica de fora: nasce com senha propria). */
+export function loginsComSenhaDefinitiva(tenantId) {
+  return db
+    .select({ id: users.id, passwordHash: users.passwordHash })
+    .from(users)
+    .where(and(eq(users.tenantId, tenantId), eq(users.senhaProvisoria, false), ne(users.cargo, 'dev'), isNull(users.deletedAt)));
+}
+
+export async function marcarSenhasConferidas(tenantId) {
+  await db
+    .insert(settings)
+    .values({ tenantId, chave: MARCA_SENHAS_CONFERIDAS, valor: { em: new Date().toISOString() } })
+    .onConflictDoNothing();
 }

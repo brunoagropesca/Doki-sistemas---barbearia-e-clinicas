@@ -27,6 +27,14 @@ if not exist "node_modules\" (
     exit /b 1
 )
 
+:: Segredo proprio desta instalacao (o .env de fabrica e igual em todas).
+:: Nao faz nada se ja foi feito. Ver api/src/db/preparar-env.js.
+call npm run env:preparar --silent
+if errorlevel 1 (
+    pause
+    exit /b 1
+)
+
 call npm run licenca:gerar --silent
 
 echo.

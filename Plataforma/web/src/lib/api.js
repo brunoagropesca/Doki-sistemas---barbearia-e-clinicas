@@ -80,6 +80,9 @@ async function requisitar(caminho, { metodo = 'GET', corpo, params } = {}) {
     }
     // Licenca travou no meio do uso: a guarda de licenca troca a tela na hora.
     if (resposta.status === 402) window.dispatchEvent(new Event('licenca-bloqueada'));
+    // A senha virou provisoria com a tela aberta (redefinida pela gerencia, ou a
+    // atualizacao marcou a senha de fabrica): o auth recarrega e mostra "Crie sua senha".
+    if (resposta.status === 403 && erro.codigo === 'SENHA_PROVISORIA') window.dispatchEvent(new Event('senha-provisoria'));
 
     throw new ErroApi(erro.mensagem ?? 'Algo deu errado.', {
       status: resposta.status,

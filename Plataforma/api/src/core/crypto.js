@@ -187,9 +187,14 @@ export function hashToken(token) {
 // SEGREDOS GUARDADOS (chaves de API dos provedores de IA)
 // ============================================================================
 
-/** Deriva a chave de cifragem a partir do APP_SECRET. */
-function chaveDeCifragem() {
-  return createHash('sha256').update(`${env.APP_SECRET}:cofre-v1`).digest();
+/**
+ * Deriva a chave de cifragem de um segredo (por padrao, o APP_SECRET).
+ *
+ * O segredo e parametro para a TROCA de segredo (db/preparar-env.js): ela
+ * precisa abrir com o antigo e fechar com o novo no mesmo processo.
+ */
+function chaveDeCifragem(segredo = env.APP_SECRET) {
+  return createHash('sha256').update(`${segredo}:cofre-v1`).digest();
 }
 
 /**
@@ -201,10 +206,15 @@ function chaveDeCifragem() {
  * Formato: `v1.<iv>.<tag>.<dados>`, tudo em base64url.
  */
 export function cifrar(textoPuro) {
+  return cifrarCom(textoPuro, env.APP_SECRET);
+}
+
+/** `cifrar` com um segredo explicito (so a troca de segredo usa). */
+export function cifrarCom(textoPuro, segredo) {
   if (textoPuro == null || textoPuro === '') return null;
 
   const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', chaveDeCifragem(), iv);
+  const cipher = createCipheriv('aes-256-gcm', chaveDeCifragem(segredo), iv);
   const dados = Buffer.concat([cipher.update(String(textoPuro), 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
 
@@ -216,6 +226,11 @@ export function cifrar(textoPuro) {
  * APP_SECRET tiver mudado (caso em que as chaves precisam ser recadastradas).
  */
 export function decifrar(valorCifrado) {
+  return decifrarCom(valorCifrado, env.APP_SECRET);
+}
+
+/** `decifrar` com um segredo explicito (so a troca de segredo usa). */
+export function decifrarCom(valorCifrado, segredo) {
   if (!valorCifrado || typeof valorCifrado !== 'string') return null;
 
   const partes = valorCifrado.split('.');
@@ -223,7 +238,7 @@ export function decifrar(valorCifrado) {
 
   try {
     const [, ivB64, tagB64, dadosB64] = partes;
-    const decipher = createDecipheriv('aes-256-gcm', chaveDeCifragem(), Buffer.from(ivB64, 'base64url'));
+    const decipher = createDecipheriv('aes-256-gcm', chaveDeCifragem(segredo), Buffer.from(ivB64, 'base64url'));
     decipher.setAuthTag(Buffer.from(tagB64, 'base64url'));
     return Buffer.concat([decipher.update(Buffer.from(dadosB64, 'base64url')), decipher.final()]).toString('utf8');
   } catch {

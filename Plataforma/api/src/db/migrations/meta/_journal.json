@@ -169,6 +169,13 @@
       "when": 1790610725150,
       "tag": "0023_memoria_do_cliente",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1790787260530,
+      "tag": "0024_senha_provisoria",
+      "breakpoints": true
     }
   ]
 }
