@@ -216,6 +216,9 @@ describe('banco de demonstracao', () => {
 
     it('traz clientes, agenda e conversas, com backup antes', { timeout: 180_000 }, async () => {
       antes.leads = await conta(`select count(*) from leads`);
+      // O seed de exemplo tambem usa numeros impossiveis: separa os que ja existiam.
+      const jaEram = (await real(`select id from leads where telefone like '55109%'`)).map((l) => `'${l.id}'`);
+      antes.importado = `telefone like '55109%'${jaEram.length ? ` and id not in (${jaEram.join(',')})` : ''}`;
       antes.users = await conta(`select count(*) from users`);
       antes.canais = await conta(`select count(*) from channel_instances`);
       antes.bloqueiosGerais = await conta(`select count(*) from schedule_blocks where professional_id is null`);
@@ -241,16 +244,16 @@ describe('banco de demonstracao', () => {
 
     it('nada importado consegue falar com gente de verdade', async () => {
       // Todo telefone ficticio virou numero impossivel (DDD 10).
-      assert.equal(await conta(`select count(*) from leads where telefone like '55109%'`), antes.importados);
+      assert.equal(await conta(`select count(*) from leads where ${antes.importado}`), antes.importados);
       assert.equal(await conta(`select count(*) from campaign_targets where telefone not like '55109%'`), 0);
       // Os profissionais da demo nascem com 5511981xxxxxx (ver o gerador).
       assert.equal(await conta(`select count(*) from professionals where telefone like '5511981%'`), 0);
       // Nao entram em campanha, nao ha conversa aberta nem campanha enviando.
-      assert.equal(await conta(`select count(*) from leads where telefone like '55109%' and aceita_campanha = 1`), 0);
-      assert.equal(await conta(`select count(*) from conversations c join leads l on l.id = c.lead_id where l.telefone like '55109%' and c.status != 'finalizada'`), 0);
+      assert.equal(await conta(`select count(*) from leads where ${antes.importado} and aceita_campanha = 1`), 0);
+      assert.equal(await conta(`select count(*) from conversations c join leads l on l.id = c.lead_id where l.id in (select id from leads where ${antes.importado}) and c.status != 'finalizada'`), 0);
       assert.equal(await conta(`select count(*) from campaigns where status in ('enviando', 'gerando')`), 0);
       assert.equal(
-        await conta(`select count(*) from appointments where lembrete_enviado_em is null and inicio_em > ${Date.now()} and lead_id in (select id from leads where telefone like '55109%')`),
+        await conta(`select count(*) from appointments where lembrete_enviado_em is null and inicio_em > ${Date.now()} and lead_id in (select id from leads where ${antes.importado})`),
         0
       );
     });

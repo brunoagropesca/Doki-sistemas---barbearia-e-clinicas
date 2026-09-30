@@ -26,6 +26,7 @@ import { enviarMensagem } from './channels/gateway.js';
 import { retomarInterrompidas as retomarCampanhasInterrompidas } from './modules/campanhas/campanhas.service.js';
 import { entregarMensagem, marcarEntregasInterrompidas } from './modules/conversas/entrega.service.js';
 import { gravarFalhaFatal, quedaRecente } from './core/falhas.js';
+import { clientesDeExemploAntigos } from './modules/dados/exemplo-antigo.js';
 import { anotar, anotarAgora, comoTerminouOAnterior } from './core/diario.js';
 
 /**
@@ -147,6 +148,16 @@ async function principal() {
 
   // Painel: a faixa de abertura e como esta a cascata de IA de cada empresa.
   faixaDeAbertura({ url: `http://${env.HOST}:${env.PORT}`, ambiente: env.NODE_ENV });
+
+  // Instalacao antiga: os clientes de exemplo do seed velho (celulares de SP
+  // validos) ainda estao la, sem nenhuma conversa. So avisa; o DEV decide.
+  clientesDeExemploAntigos()
+    .then((achados) => {
+      if (achados.length > 0) {
+        ver('aviso', `${achados.length} cliente(s) de EXEMPLO da instalacao antiga ainda no cadastro`, 'ver Backups e dados (DEV)');
+      }
+    })
+    .catch(() => {});
 
   // Subiu logo depois de uma queda: diz o que foi e onde esta o detalhe.
   const queda = quedaRecente();

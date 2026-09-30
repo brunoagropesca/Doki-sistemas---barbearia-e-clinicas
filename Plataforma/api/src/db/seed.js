@@ -6,12 +6,15 @@ import { rodarMigrations } from './migrate.js';
 import * as s from './schema/index.js';
 import { ID } from '../core/ids.js';
 import { gerarHashSenha } from '../core/crypto.js';
-import { normalizarTelefone } from '../core/phone.js';
 import { logger } from '../core/logger.js';
-import { AGENTES_PADRAO } from '../ai/agentes-padrao.js';
+import { configuracaoDeFabrica } from './instalar.js';
 
 /**
- * Popula o banco com uma empresa de demonstracao.
+ * Popula o banco com uma empresa de EXEMPLO — para desenvolvimento e testes.
+ *
+ * NAO e a instalacao do cliente: essa e o `db/instalar.js` (empresa, dono e
+ * configuracao de fabrica, sem nada ficticio). Aqui entram profissionais,
+ * servicos, produtos, clientes e um canal de exemplo.
  *
  * Roda quantas vezes quiser: se a empresa de exemplo ja existir, o seed nao
  * faz nada. Isso importa porque ele e chamado em ambiente de desenvolvimento
@@ -152,14 +155,17 @@ export async function semear({ forcar = false } = {}) {
   );
 
   // --- Leads de exemplo ---
+  // Numeros IMPOSSIVEIS (DDD 10 nao existe), como na exportacao da demonstracao:
+  // cliente de exemplo nunca pode ser um celular de verdade — uma campanha para
+  // "todos os clientes" mandaria mensagem para um desconhecido.
   const leadsDemo = [
-    { nome: 'Marcos Antunes', telefone: '11988776655', observacoes: 'Prefere corte na tesoura.' },
-    { nome: 'Rafael Souza', telefone: '11977665544', observacoes: '' },
-    { nome: 'Joao Pedro', telefone: '11966554433', observacoes: 'Alergico a produto com alcool.' }
+    { nome: 'Marcos Antunes', telefone: '5510988776655', observacoes: 'Prefere corte na tesoura.' },
+    { nome: 'Rafael Souza', telefone: '5510977665544', observacoes: '' },
+    { nome: 'Joao Pedro', telefone: '5510966554433', observacoes: 'Alergico a produto com alcool.' }
   ].map((l) => ({
     id: ID.lead(),
     tenantId,
-    telefone: normalizarTelefone(l.telefone),
+    telefone: l.telefone,
     nome: l.nome,
     observacoes: l.observacoes,
     tags: [],
@@ -179,32 +185,8 @@ export async function semear({ forcar = false } = {}) {
     status: 'desconectado'
   });
 
-  // --- Agentes de IA: Sofia (frente) e Atena (dados e agenda) ---
-  // Os valores vem de um lugar so, para o seed e a tela de configuracao
-  // nunca discordarem sobre qual e o "padrao de fabrica".
-  await db.insert(s.agentProfiles).values(
-    Object.entries(AGENTES_PADRAO).map(([chave, a]) => ({
-      id: ID.agente(),
-      tenantId,
-      chave,
-      nome: a.nome,
-      avatar: a.avatar,
-      tom: a.tom,
-      temperaturaMilesimos: a.temperaturaMilesimos,
-      maxTokens: a.maxTokens,
-      systemPrompt: a.systemPrompt,
-      ferramentas: a.ferramentas
-    }))
-  );
-
-  // --- Configuracoes iniciais ---
-  await db.insert(s.settings).values(
-    [
-      { chave: 'modo_atendimento', valor: 'hibrido', descricao: 'hibrido | menu | ia' },
-      { chave: 'janela_contexto_mensagens', valor: 8, descricao: 'Quantas mensagens a IA lembra' },
-      { chave: 'agrupamento_segundos', valor: 8, descricao: 'Espera antes de responder mensagens picotadas' }
-    ].map((c) => ({ tenantId, ...c }))
-  );
+  // --- Agentes de IA e ajustes iniciais: os mesmos da instalacao de verdade ---
+  await configuracaoDeFabrica(tenantId);
 
   logger.info(
     { tenantId, usuarios: 2, servicos: servicos.length, leads: leadsDemo.length },

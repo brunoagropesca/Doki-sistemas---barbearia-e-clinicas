@@ -13,6 +13,7 @@ import {
   resumoDoCofre
 } from './backups.js';
 import { apagarDados, GRUPOS } from './apagar.js';
+import { clientesDeExemploAntigos } from './exemplo-antigo.js';
 
 const criarSchema = z.object({ incluirArquivos: z.boolean().default(true) });
 
@@ -32,6 +33,8 @@ const SO_REAL = { ...apenas.dev, bancoReal: true };
 /** Backups e limpeza de dados: so o perfil DEV (as rotas nao existem para os outros). */
 export async function rotasDados(app) {
   app.get('/api/dev/backups', { config: SO_REAL }, async () => ({
+    // Instalacao antiga com os clientes de exemplo do seed velho (so aviso).
+    clientesDeExemplo: await clientesDeExemploAntigos(),
     backups: listarBackups(),
     // As fotos e audios de TODOS os backups, uma copia so de cada.
     cofre: resumoDoCofre(),

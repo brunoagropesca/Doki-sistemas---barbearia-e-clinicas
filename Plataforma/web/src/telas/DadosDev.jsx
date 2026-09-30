@@ -74,6 +74,15 @@ export function DadosDev() {
         </Aviso>
       )}
 
+      {data.clientesDeExemplo?.length > 0 && (
+        <Aviso tom="alerta" titulo="Clientes de exemplo da instalação antiga">
+          O cadastro ainda tem {data.clientesDeExemplo.length === 1 ? 'o cliente' : 'os clientes'} de exemplo que as instalações
+          antigas criavam ({data.clientesDeExemplo.map((c) => c.nome).join(', ')}), sem nenhuma conversa. Os telefones são
+          celulares de verdade: uma campanha para "todos os clientes" mandaria mensagem para desconhecidos. Confira com a loja e
+          apague em Clientes, se forem mesmo de exemplo.
+        </Aviso>
+      )}
+
       {pendente && (
         <Aviso tom="alerta" titulo="Restauração agendada">
           O backup de <strong>{dataHora(pendente.agendadoEm)}</strong> ({pendente.id}) vai substituir o banco atual no{' '}

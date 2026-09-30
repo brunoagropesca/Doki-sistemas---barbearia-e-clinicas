@@ -94,20 +94,17 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if not exist "data\plataforma.db" (
-    echo         Criando o banco e a empresa de demonstracao...
-    call npm run db:seed
-    if errorlevel 1 (
-        echo.
-        echo  [ERRO] Falha ao criar o banco de dados.
-        popd
-        pause
-        exit /b 1
-    )
-) else (
-    :: Banco ja existe: so aplica mudancas de estrutura, sem tocar nos dados.
-    call npm run db:migrate >nul 2>nul
-    echo         Banco ja existe e esta atualizado.
+:: Uma chamada so, sempre: aplica as mudancas de estrutura e, se ainda nao ha
+:: empresa (primeira vez, ou instalacao interrompida no meio), pergunta o nome
+:: dela e o login do dono e mostra a senha inicial uma vez. Sem nenhum dado de
+:: exemplo. Ver api/src/db/instalar-cli.js.
+call npm run db:instalar --silent
+if errorlevel 1 (
+    echo.
+    echo  [ERRO] Falha ao preparar o banco de dados.
+    popd
+    pause
+    exit /b 1
 )
 popd
 
