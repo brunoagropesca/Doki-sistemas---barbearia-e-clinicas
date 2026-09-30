@@ -123,6 +123,14 @@ const envSchema = z.object({
    */
   PASTA_TELAS: z.string().default(fileURLToPath(new URL('../../../web/dist', import.meta.url))),
 
+  /**
+   * HTTPS na rede da loja (http/https.js). O painel.mjs liga no INICIAR-NA-REDE
+   * (modo loja); no INICIAR normal (so este computador) e em desenvolvimento
+   * fica desligado. Os certificados ficam em PASTA_HTTPS (fora do git).
+   */
+  HTTPS_ATIVO: bool(false),
+  PASTA_HTTPS: z.string().default('./data/https'),
+
   /** Pasta dos backups do banco (e das fotos/audios). Os testes usam outra. */
   BACKUP_DIR: z.string().default('./data/backups'),
 

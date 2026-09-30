@@ -32,6 +32,10 @@
  * aceitar conexao dos aparelhos do mesmo Wi-Fi (HOST=0.0.0.0); sem --rede ela
  * fica presa em 127.0.0.1. Em desenvolvimento, so o Vite abre para a rede e a
  * API continua em 127.0.0.1, atras do proxy dele.
+ *
+ * HTTPS (so loja + rede): a API atende HTTP e HTTPS na mesma porta, com o
+ * certificado desta instalacao (api/src/http/https.js). Cada aparelho instala
+ * a autoridade uma vez, pela pagina /instalar-certificado.
  */
 
 import { spawn, spawnSync } from 'node:child_process';
@@ -53,6 +57,8 @@ const PORTA_API = modoDev ? Number(process.env.PORT) || 3333 : PORTA_TELAS;
 const ENDERECO = `http://localhost:${PORTA_TELAS}`;
 const abrirNavegador = !process.argv.includes('--sem-navegador');
 const naRede = process.argv.includes('--rede') || process.env.ACESSO_REDE === '1';
+// HTTPS so faz sentido para quem vem pelo Wi-Fi, e so no modo loja.
+const comHttps = naRede && !modoDev;
 
 /**
  * Enderecos desta maquina na rede local (os que o celular consegue alcancar).
@@ -67,7 +73,11 @@ function enderecosNaRede() {
     if (virtual.test(nome)) continue;
     for (const i of ifaces ?? []) {
       if (i.family !== 'IPv4' || i.internal || i.address.startsWith('169.254.')) continue;
-      lista.push({ nome, url: `http://${i.address}:${PORTA_TELAS}` });
+      lista.push({
+        nome,
+        url: `${comHttps ? 'https' : 'http'}://${i.address}:${PORTA_TELAS}`,
+        instalar: `http://${i.address}:${PORTA_TELAS}/instalar-certificado`
+      });
     }
   }
   // Os tipicos de Wi-Fi de casa/escritorio primeiro.
@@ -222,7 +232,13 @@ let religando = false;
  */
 const ambienteDaApi = modoDev
   ? ambiente
-  : { ...ambiente, NODE_ENV: 'production', PORT: String(PORTA_API), HOST: naRede ? '0.0.0.0' : '127.0.0.1' };
+  : {
+      ...ambiente,
+      NODE_ENV: 'production',
+      PORT: String(PORTA_API),
+      HOST: naRede ? '0.0.0.0' : '127.0.0.1',
+      HTTPS_ATIVO: comHttps ? '1' : '0'
+    };
 
 function ligarApi() {
   const argumentos = modoDev
@@ -300,9 +316,14 @@ async function mostrarAcessoPelaRede() {
   linha(SISTEMA, negrito('Acesso pela rede local ligado.'), 'celulares e computadores do MESMO Wi-Fi');
   for (const e of enderecos) linha(SISTEMA, `   ${fg(45, e.url)}`, e.nome);
 
-  const qr = await qrNoTerminal(enderecos[0].url);
+  if (comHttps) {
+    // Primeira vez em cada aparelho: instalar o certificado da loja. O QR leva a essa pagina.
+    linha(SISTEMA, negrito('Conexao segura (HTTPS).'), 'na primeira vez, cada aparelho instala o certificado da loja:');
+    linha(SISTEMA, `   ${fg(45, enderecos[0].instalar)}`, 'a pagina explica o passo a passo (Android, iPhone, Windows)');
+  }
+  const qr = await qrNoTerminal(comHttps ? enderecos[0].instalar : enderecos[0].url);
   if (qr) {
-    linha(SISTEMA, 'Aponte a camera do celular:');
+    linha(SISTEMA, comHttps ? 'Aponte a camera do celular (instalar o certificado):' : 'Aponte a camera do celular:');
     process.stdout.write(`${qr}\n`);
   }
   linha(SISTEMA, cinza('Nao abriu no celular? Veja se o Wi-Fi esta como rede PRIVADA no Windows e se o firewall liberou a porta.'));

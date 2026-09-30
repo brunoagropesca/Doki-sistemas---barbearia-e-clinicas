@@ -33,6 +33,7 @@ import { rotasDados } from './modules/dados/dados.routes.js';
 import { rotasBackupsDoDono } from './modules/dados/backups-dono.routes.js';
 import { pluginTravaDeLicenca, rotasLicenca } from './licenca/licenca.routes.js';
 import { rotasTelas } from './http/telas.js';
+import { rotasCertificado } from './http/https.js';
 
 /**
  * Montagem do servidor.
@@ -42,8 +43,15 @@ import { rotasTelas } from './http/telas.js';
  * inteira em memoria, com `app.inject()`, sem ocupar porta nem depender de
  * rede — testes rapidos e que podem rodar em paralelo.
  */
-export async function criarApp({ logger: loggerCustomizado } = {}) {
+/**
+ * @param {object} [opcoes]
+ * @param {{ chave: string, cert: string, autoridadeDer: Buffer }} [opcoes.https]
+ *   certificados da loja (http/certificados.js). Com eles o app atende em HTTPS
+ *   (quem escuta a porta e o `escutarComHttps`, em http/https.js).
+ */
+export async function criarApp({ logger: loggerCustomizado, https } = {}) {
   const app = Fastify({
+    ...(https ? { https: { key: https.chave, cert: https.cert } } : {}),
     loggerInstance: loggerCustomizado ?? logger,
     // Confia no cabecalho de proxy pra descobrir o IP real do cliente — mas
     // so quando quem repassa e ESTA maquina (o proxy do Vite, ou um proxy
@@ -177,6 +185,15 @@ export async function criarApp({ logger: loggerCustomizado } = {}) {
   await app.register(rotasDemonstracao);
   // Hades: a parte do resto (config propria, chave propria). Ver modules/hades.
   await app.register(rotasHades);
+
+  if (https) {
+    // HSTS CURTO (1 dia): o navegador lembra de usar HTTPS, mas, se for preciso
+    // voltar atras (certificado com problema), ninguem fica preso mais que um dia.
+    app.addHook('onSend', async (req, res) => {
+      if (req.protocol === 'https') res.header('strict-transport-security', 'max-age=86400');
+    });
+    await app.register(rotasCertificado, { autoridadeDer: https.autoridadeDer });
+  }
 
   // Por ultimo: as telas compiladas (modo loja). Tudo que nao e /api cai aqui
   // e vira a tela; sem web/dist (desenvolvimento), nao registra nada.

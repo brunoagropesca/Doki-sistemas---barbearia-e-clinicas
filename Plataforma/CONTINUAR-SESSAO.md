@@ -274,6 +274,14 @@ Antes, as ferramentas da Sofia dependiam dos grupos da Atena (a Sofia lê direto
   - trava do `APP_SECRET` de fabrica: vale em todo ambiente fora dos testes (prompt 1).
 - Testes: `tests/telas.test.js` (telas, cache, 404 da API, `..` codificado, 500 em producao x desenvolvimento) e `tests/auth.test.js` (cookie Secure so com HTTPS).
 
+## HTTPS na rede da loja (30/09/2026)
+
+- **Quando liga:** so no INICIAR-NA-REDE (modo loja + rede): o `painel.mjs` passa `HTTPS_ATIVO=1`. INICIAR normal (so este computador) e DESENVOLVER continuam em HTTP.
+- **Certificados sem dependencia nova:** `api/src/http/certificados.js` monta o X.509 em DER a mao (o Node assina, mas nao monta certificado) e assina com `crypto.sign` (ECDSA P-256). Autoridade da instalacao: 10 anos, com **name constraints** (so `localhost`, o nome do computador, `<nome>.local` e IPs 127/8, 10/8, 172.16/12, 192.168/16) — a chave vazada nao falsifica site de banco num celular que confia nela. Certificado do servidor: 396 dias (+1 de folga = 397; o iPhone recusa mais de 398), refeito sozinho no boot quando os IPs mudam ou faltam 30 dias; IP fora das redes locais nao entra (o aparelho recusaria o certificado inteiro). Nome do computador mudou → autoridade nova (aviso no terminal: cada aparelho instala de novo). Tudo em `api/data/https` (PASTA_HTTPS; fora do git).
+- **Mesma porta (5173) para HTTP e HTTPS:** `api/src/http/https.js` (`escutarComHttps`) olha o 1o byte da conexao (0x16 = TLS → servidor HTTPS do Fastify; o resto → HTTP minimo que responde 308 para https://mesmo-host). O endereco http://IP:5173 que as pessoas salvaram continua funcionando. Ficam em HTTP: o proprio computador (localhost — o trafego nao passa pelo Wi-Fi) e `/instalar-certificado` (pagina + `/instalar-certificado/autoridade.crt` em DER), por onde o aparelho baixa a autoridade. O lado HTTP reaproveita o pipeline do Fastify (`app.server.listeners('request')[0]`).
+- Com HTTPS: cookie `Secure` (por `req.protocol`, prompt 5) e HSTS de 1 dia (`onSend` em `app.js`).
+- **Testes:** `tests/https.test.js` — o certificado conferido pelo Node e por um handshake TLS de verdade (OpenSSL 3.5); sem a autoridade o aparelho desconfia; certificado com nome fora da lista e recusado ("permitted subtree violation" — o Node mapeia o codigo como `UNSPECIFIED`); rodar de novo nao troca nada; IP novo refaz so o do servidor; redirecionamento, pagina e arquivo por HTTP, HSTS e cookie Secure por HTTPS.
+
 ## Pendências / próximos passos
 
 - **Testar de verdade no WhatsApp** as mudanças dos itens 8 e 9 (mesmos roteiros da Débora e do Lyu) e olhar os bastidores no Simulador — conferir se a Sofia oferece 2–3 horários (e não a lista inteira) e se passa a data "como o cliente falou".

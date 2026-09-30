@@ -18,6 +18,9 @@ import {
 } from './channels/whatsapp/baileys.adapter.js';
 import { testarModelosNoBoot } from './modules/ia/ia.service.js';
 import { criarApp } from './app.js';
+import { hostname } from 'node:os';
+import { prepararCertificados } from './http/certificados.js';
+import { escutarComHttps, ipsDaRede } from './http/https.js';
 import { iniciarRotinas } from './automacao/rotinas.js';
 import { AUSENTE_APOS_MS, marcarAusentesSemPainel } from './modules/equipe/presenca.js';
 import { sincronizarHistorico } from './modules/historico/historico.service.js';
@@ -86,9 +89,23 @@ async function principal() {
   // chegar no primeiro segundo, o adaptador ja precisa existir.
   instalarAdaptadorWhatsapp();
 
-  const app = await criarApp();
+  // HTTPS na rede da loja (INICIAR-NA-REDE): certificados desta instalacao,
+  // refeitos sozinhos quando o IP muda. HTTP e HTTPS na mesma porta.
+  let https = null;
+  if (env.HTTPS_ATIVO) {
+    https = prepararCertificados({ pasta: env.PASTA_HTTPS, computador: hostname(), ips: ipsDaRede() });
+    if (https.autoridadeNova) {
+      ver('aviso', 'certificado da loja NOVO: cada aparelho precisa instala-lo (uma vez)', `abra http://IP:${env.PORT}/instalar-certificado`);
+    } else if (https.servidorNovo) {
+      ver('sistema', 'certificado HTTPS renovado (IP novo ou perto de vencer)', 'os aparelhos nao precisam fazer nada');
+    }
+  }
 
-  await app.listen({ port: env.PORT, host: env.HOST });
+  const app = await criarApp({ https });
+
+  const escuta = https
+    ? await escutarComHttps(app, { port: env.PORT, host: env.HOST })
+    : (await app.listen({ port: env.PORT, host: env.HOST }), null);
 
   // O relogio da Atena: fechamento do dia, lembrete de vespera e demais rotinas.
   // O envio entra por injecao, como nas campanhas: as rotinas nao conhecem o canal.
@@ -142,12 +159,12 @@ async function principal() {
     .catch((err) => logger.warn({ err }, 'Falha ao retomar campanhas interrompidas'));
 
   logger.info(
-    { url: `http://${env.HOST}:${env.PORT}`, ambiente: env.NODE_ENV },
+    { url: `${https ? 'https' : 'http'}://${env.HOST}:${env.PORT}`, ambiente: env.NODE_ENV },
     'API no ar'
   );
 
   // Painel: a faixa de abertura e como esta a cascata de IA de cada empresa.
-  faixaDeAbertura({ url: `http://${env.HOST}:${env.PORT}`, ambiente: env.NODE_ENV });
+  faixaDeAbertura({ url: `${https ? 'https' : 'http'}://${env.HOST}:${env.PORT}`, ambiente: env.NODE_ENV });
 
   // Instalacao antiga: os clientes de exemplo do seed velho (celulares de SP
   // validos) ainda estao la, sem nenhuma conversa. So avisa; o DEV decide.
@@ -196,6 +213,7 @@ async function principal() {
     try {
       pararRotinas();
       pararBackups();
+      await escuta?.fechar(); // a porta HTTP+HTTPS (so no modo rede com HTTPS)
       await app.close(); // para de aceitar, termina o que esta em andamento
       // Fecha os WhatsApps antes do banco: o evento "fechou" de cada um tenta
       // gravar o estado, e nao pode encontrar o banco ja fechado.

@@ -50,7 +50,7 @@ export function conferirBancoDeTeste() {
  * Usa `app.inject()` em vez de uma porta de rede: e mais rapido, nao conflita
  * com o servidor de desenvolvimento e funciona sem rede.
  */
-export async function criarAppDeTeste() {
+export async function criarAppDeTeste(opcoesDoApp = {}) {
   conferirBancoDeTeste();
 
   const { rodarMigrations } = await import('../../src/db/migrate.js');
@@ -72,7 +72,8 @@ export async function criarAppDeTeste() {
   const { tempos } = await import('../../src/modules/conversas/entrega.service.js');
   Object.assign(tempos, { aguardarConexaoMs: 300, esperasNovaTentativaMs: [20, 50], checarConexaoMs: 20, esperaNaTelaMs: null });
 
-  const app = await criarApp();
+  // opcoesDoApp: o que o criarApp aceita (ex.: os certificados HTTPS).
+  const app = await criarApp(opcoesDoApp);
 
   /**
    * Fecha a conexao do banco junto com o app — como o main.js faz ao desligar.
