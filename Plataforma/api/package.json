@@ -25,6 +25,7 @@
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
+    "@fastify/static": "^10.1.5",
     "@libsql/client": "^0.18.0",
     "@whiskeysockets/baileys": "^7.0.0-rc14",
     "drizzle-orm": "^0.45.2",

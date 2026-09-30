@@ -109,10 +109,12 @@ if errorlevel 1 (
 popd
 
 :: --- 5. Sobe o sistema, numa unica janela com o painel de atividade ---
-:: `painel.mjs` liga a API e as telas como dois processos filhos desta mesma
-:: janela: a API narra cada acao (mensagem recebida, modelo que respondeu,
-:: Sofia falando com a Atena) e abre o navegador sozinho quando os dois
-:: estiverem no ar. Ver painel.mjs e api/src/core/painel.js.
+:: MODO LOJA (padrao): `painel.mjs` compila as telas se o codigo delas mudou
+:: e sobe SO a API, em producao, que serve as telas na porta 5173. A API narra
+:: cada acao (mensagem recebida, modelo que respondeu, Sofia falando com a
+:: Atena) e o navegador abre sozinho quando ela estiver no ar.
+:: DESENVOLVER.bat liga o modo de quem programa (Vite + recarga automatica).
+:: Ver painel.mjs e api/src/core/painel.js.
 echo  [5/5] Ligando o sistema...
 echo.
 

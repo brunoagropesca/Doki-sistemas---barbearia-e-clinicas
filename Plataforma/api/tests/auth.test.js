@@ -288,3 +288,32 @@ describe('validacao de entrada', () => {
     assert.equal(segundo.json().erro.codigo, 'CONFLITO');
   });
 });
+
+/**
+ * Cookie de sessao `Secure` so quando a requisicao veio por HTTPS. Antes era
+ * "em producao": na loja (producao, sem HTTPS ainda) o navegador recusaria o
+ * cookie e ninguem entraria pelo IP da rede.
+ */
+describe('cookie de sessao', () => {
+  const cookieDoLogin = async (headers = {}) => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      headers,
+      payload: { username: 'dono', senha: 'trocar@123' }
+    });
+    assert.equal(res.statusCode, 200, res.body);
+    return String(res.headers['set-cookie']);
+  };
+
+  it('por HTTP (a loja hoje, pelo IP da rede) sai sem Secure', async () => {
+    const cookie = await cookieDoLogin();
+    assert.match(cookie, /HttpOnly/i);
+    assert.doesNotMatch(cookie, /Secure/i);
+  });
+
+  it('por HTTPS (atras de um proxy desta maquina) sai com Secure', async () => {
+    const cookie = await cookieDoLogin({ 'x-forwarded-proto': 'https' });
+    assert.match(cookie, /Secure/i);
+  });
+});

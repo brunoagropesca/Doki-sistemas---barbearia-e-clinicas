@@ -1,5 +1,5 @@
 import pino from 'pino';
-import { env, isProd, isTest } from '../config/env.js';
+import { env, isTest } from '../config/env.js';
 import { painelAtivo } from './painel.js';
 
 /**
@@ -11,9 +11,10 @@ import { painelAtivo } from './painel.js';
  * pra buscar por cliente, e se um dia rodar num servidor os codigos de cor
  * viram lixo no meio do arquivo de log.
  *
- * Aqui o log e estruturado (JSON). Em desenvolvimento o `pino-pretty` deixa
- * ele colorido e legivel; em producao sai JSON puro, que qualquer ferramenta
- * de monitoramento consegue ler.
+ * Aqui o log e estruturado (JSON). Com LOG_PRETTY (o padrao) o `pino-pretty`
+ * deixa ele colorido e legivel — inclusive na loja, onde quem le a janela e
+ * uma pessoa. Num servidor com ferramenta de monitoramento, LOG_PRETTY=false
+ * devolve JSON puro.
  *
  * REGRA DE PRIVACIDADE: `redact` abaixo apaga automaticamente senhas, tokens e
  * chaves de API antes de escrever. Isso e uma rede de seguranca — nao uma
@@ -21,7 +22,7 @@ import { painelAtivo } from './painel.js';
  */
 
 const transport =
-  env.LOG_PRETTY && !isProd && !isTest
+  env.LOG_PRETTY && !isTest
     ? {
         target: 'pino-pretty',
         options: {

@@ -32,6 +32,7 @@ import { rotasTextos } from './modules/textos/textos.routes.js';
 import { rotasDados } from './modules/dados/dados.routes.js';
 import { rotasBackupsDoDono } from './modules/dados/backups-dono.routes.js';
 import { pluginTravaDeLicenca, rotasLicenca } from './licenca/licenca.routes.js';
+import { rotasTelas } from './http/telas.js';
 
 /**
  * Montagem do servidor.
@@ -176,6 +177,10 @@ export async function criarApp({ logger: loggerCustomizado } = {}) {
   await app.register(rotasDemonstracao);
   // Hades: a parte do resto (config propria, chave propria). Ver modules/hades.
   await app.register(rotasHades);
+
+  // Por ultimo: as telas compiladas (modo loja). Tudo que nao e /api cai aqui
+  // e vira a tela; sem web/dist (desenvolvimento), nao registra nada.
+  await app.register(rotasTelas);
 
   return app;
 }

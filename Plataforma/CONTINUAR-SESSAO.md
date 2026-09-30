@@ -259,6 +259,21 @@ Antes, as ferramentas da Sofia dependiam dos grupos da Atena (a Sofia lê direto
 - Testes: `tests/hades.test.js` (9; Gemini de mentira). Verificado no Chrome com um Gemini de mentira local (`GEMINI_BASE_URL`): config, teste de conexão, conversa com markdown e fontes, histórico após recarregar, DEV desliga/religa o botão, celular.
 - **Para usar de verdade:** colar uma chave do Google AI Studio no cartão do Hades. A pesquisa do Google depende do plano/cota da chave.
 
+## Modo loja x modo desenvolvimento (30/09/2026)
+
+- **INICIAR.bat / INICIAR-NA-REDE.bat = modo LOJA:** `painel.mjs` compila as telas (`vite build`) quando `web/dist` nao existe ou e mais velho que o codigo delas (inclui `api/src/modules/atendimento/fluxo.js`, que a tela importa), e sobe SO a API: `NODE_ENV=production`, sem `--watch`, na porta **5173** (a API passou a atender no endereco das telas; a 3333 saiu de uso na loja). `HOST=0.0.0.0` so no INICIAR-NA-REDE; no INICIAR normal, 127.0.0.1. A regra de firewall continua a da 5173. Religamento automatico: sem `--watch`, a queda e percebida pelo `exit` do processo (mesmo teto de `MAX_RELIGACOES`).
+- **DESENVOLVER.bat (ou `node painel.mjs --dev`, ou `MODO_DESENVOLVIMENTO=1`) = modo DESENVOLVIMENTO:** como era antes: API com `--watch` na 3333 e telas pelo Vite (5173) com proxy de `/api`.
+- **A API serve as telas:** `api/src/http/telas.js` (`@fastify/static` 10.1.5 so para enviar arquivos; a rota `/*` e nossa e PUBLICA, porque o plugin de autenticacao exige login em toda rota e a tela de login precisa dos arquivos). Arquivo que existe em `web/dist` → o arquivo; outro GET fora de `/api` → `index.html`; `/api/...` inexistente → 404 JSON. Cache: `/assets/*` 1 ano imutavel; `index.html`, `sw.js`, manifest e `offline.html` sem cache; icones 1 dia. Sem `web/dist` (desenvolvimento), nada e registrado. Pasta em `PASTA_TELAS` (env.js). **Cuidado:** a versao 8 do `@fastify/static` tem 4 vulnerabilidades altas (path traversal / contorno de rota); ficar na 10.1.5+.
+- **O que o `NODE_ENV=production` muda (conferido um por um):**
+  - erro 500: sem `debug`/`stack` na resposta. Agora o detalhe so aparece em **development** (lido na hora, em `http/plugins/erros.js`);
+  - cookie de sessao: `Secure` so quando a propria requisicao veio por HTTPS (`req.protocol`), e nao mais "em producao" — sem isso ninguem entraria pelo IP da rede antes do HTTPS (prompt 6);
+  - `trustProxy`: `'loopback'` em todo ambiente (ver o prompt 3);
+  - CORS: irrelevante no modo loja (mesma origem); `CORS_ORIGINS` continua valendo para o Vite em desenvolvimento;
+  - log: o formato segue so o `LOG_PRETTY` (legivel por padrao, tambem na loja, onde quem le a janela e uma pessoa); `LOG_PRETTY=false` volta ao JSON puro;
+  - painel colorido: vale fora dos testes (antes so em development); `PAINEL_ATIVO=false` desliga;
+  - trava do `APP_SECRET` de fabrica: vale em todo ambiente fora dos testes (prompt 1).
+- Testes: `tests/telas.test.js` (telas, cache, 404 da API, `..` codificado, 500 em producao x desenvolvimento) e `tests/auth.test.js` (cookie Secure so com HTTPS).
+
 ## Pendências / próximos passos
 
 - **Testar de verdade no WhatsApp** as mudanças dos itens 8 e 9 (mesmos roteiros da Débora e do Lyu) e olhar os bastidores no Simulador — conferir se a Sofia oferece 2–3 horários (e não a lista inteira) e se passa a data "como o cliente falou".

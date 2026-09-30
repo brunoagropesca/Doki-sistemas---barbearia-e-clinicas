@@ -11,7 +11,9 @@ import { env } from '../config/env.js';
  * o que era info aqui vira uma linha colorida em vez de duas linhas iguais.
  *
  * Regras:
- *  - So em desenvolvimento. Em producao e em teste tudo aqui vira no-op.
+ *  - Fora dos testes (em teste tudo aqui vira no-op). Vale TAMBEM em producao:
+ *    na loja, quem olha a janela e uma pessoa, nao uma ferramenta de
+ *    monitoramento. PAINEL_ATIVO=false desliga.
  *  - Nunca lanca. Um painel que derruba o atendimento seria pior que nenhum.
  *  - Telefone SEMPRE mascarado (quem chama usa `mascarar`). O texto que o
  *    cliente escreveu so aparece com PAINEL_CONTEUDO ligado.
@@ -19,7 +21,7 @@ import { env } from '../config/env.js';
  *    entao nao depende dessa chave.
  */
 
-export const painelAtivo = env.PAINEL_ATIVO && env.NODE_ENV === 'development';
+export const painelAtivo = env.PAINEL_ATIVO && env.NODE_ENV !== 'test';
 
 const ESC = '\x1b[';
 const RESET = `${ESC}0m`;

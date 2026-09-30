@@ -5,7 +5,7 @@ import {
   ehViolacaoDeChaveEstrangeira,
   ehViolacaoDeUnicidade
 } from '../../core/errors.js';
-import { isProd } from '../../config/env.js';
+import { env } from '../../config/env.js';
 
 /**
  * Tratamento central de erros.
@@ -81,9 +81,11 @@ export function registrarTratamentoDeErros(app) {
       erro: {
         codigo: 'ERRO_INTERNO',
         mensagem: 'Algo deu errado do nosso lado. A equipe foi notificada.',
-        // Em desenvolvimento devolvemos o detalhe pra facilitar a vida.
-        // Em producao, nunca.
-        ...(isProd ? {} : { debug: erro.message, stack: erro.stack?.split('\n').slice(0, 5) })
+        // So em DESENVOLVIMENTO devolvemos o detalhe (facilita a vida de quem
+        // programa). Na loja (producao), nunca: o stack trace mostra caminhos
+        // de arquivo e trechos do codigo para quem estiver no navegador. Lido
+        // na hora (e nao no import) para os testes conferirem os dois lados.
+        ...(env.NODE_ENV === 'development' ? { debug: erro.message, stack: erro.stack?.split('\n').slice(0, 5) } : {})
       }
     });
   });

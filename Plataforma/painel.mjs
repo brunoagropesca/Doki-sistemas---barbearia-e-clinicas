@@ -1,5 +1,17 @@
 /**
- * Liga o sistema inteiro NUMA janela so: a API (servidor) e as telas (Vite).
+ * Liga o sistema inteiro NUMA janela so.
+ *
+ * DOIS MODOS:
+ *
+ *   LOJA (padrao — o INICIAR.bat): as telas COMPILADAS (web/dist) servidas
+ *   pela propria API, que roda em producao, sem --watch, na porta das telas
+ *   (5173, o endereco que as pessoas ja usam). Se o codigo das telas mudou
+ *   desde o ultimo build (ou nao ha build), compila antes de subir. Nada do
+ *   servidor de desenvolvimento do Vite roda na loja.
+ *
+ *   DESENVOLVIMENTO (--dev, ou MODO_DESENVOLVIMENTO=1 — o DESENVOLVER.bat):
+ *   como sempre foi: API com --watch na 3333 e as telas pelo Vite (recarga
+ *   automatica), que repassa /api para a API.
  *
  * Antes eram tres janelas pretas (o instalador, o servidor e as telas), cada
  * uma com um pedaco da historia. Aqui os dois processos rodam como filhos deste
@@ -12,18 +24,18 @@
  *
  * Sem dependencias: so o que ja vem com o Node.
  *
- * Uso:   node painel.mjs [--sem-navegador] [--rede]
+ * Uso:   node painel.mjs [--dev] [--sem-navegador] [--rede]
  * Ctrl+C desliga os dois, com o desligamento ordenado da API.
  *
  * ACESSO PELA REDE LOCAL (--rede, ou ACESSO_REDE=1 — e o que o
- * INICIAR-NA-REDE.bat faz): so as TELAS passam a aceitar conexao de outros
- * aparelhos do mesmo Wi-Fi. A API continua presa em 127.0.0.1: quem fala com
- * ela e o proxy do Vite, nesta maquina. Assim o celular ve um endereco so
- * (sem CORS, cookie de sessao funcionando) e a API nunca fica exposta direto.
+ * INICIAR-NA-REDE.bat faz): na loja, a API (que serve as telas) passa a
+ * aceitar conexao dos aparelhos do mesmo Wi-Fi (HOST=0.0.0.0); sem --rede ela
+ * fica presa em 127.0.0.1. Em desenvolvimento, so o Vite abre para a rede e a
+ * API continua em 127.0.0.1, atras do proxy dele.
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { networkInterfaces } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -34,8 +46,10 @@ const PASTA_API = join(RAIZ, 'api');
 const PASTA_WEB = join(RAIZ, 'web');
 const VITE = join(PASTA_WEB, 'node_modules', 'vite', 'bin', 'vite.js');
 
-const PORTA_API = Number(process.env.PORT) || 3333;
+const modoDev = process.argv.includes('--dev') || process.env.MODO_DESENVOLVIMENTO === '1';
 const PORTA_TELAS = Number(process.env.VITE_PORT) || 5173;
+// Na loja a API atende no endereco das telas (5173); em desenvolvimento, na 3333, atras do Vite.
+const PORTA_API = modoDev ? Number(process.env.PORT) || 3333 : PORTA_TELAS;
 const ENDERECO = `http://localhost:${PORTA_TELAS}`;
 const abrirNavegador = !process.argv.includes('--sem-navegador');
 const naRede = process.argv.includes('--rede') || process.env.ACESSO_REDE === '1';
@@ -139,7 +153,46 @@ if (!existsSync(join(PASTA_API, 'node_modules')) || !existsSync(VITE)) {
 }
 
 process.stdout.write('\n');
-linha(SISTEMA, negrito('Ligando a plataforma...'), 'Ctrl+C desliga tudo');
+linha(SISTEMA, negrito('Ligando a plataforma...'), modoDev ? 'modo desenvolvimento · Ctrl+C desliga tudo' : 'Ctrl+C desliga tudo');
+
+/** O instante da mudanca mais recente dentro de uma pasta (ou de um arquivo). */
+function maisRecente(caminho) {
+  if (!existsSync(caminho)) return 0;
+  const info = statSync(caminho);
+  if (!info.isDirectory()) return info.mtimeMs;
+  let maior = 0;
+  for (const nome of readdirSync(caminho)) maior = Math.max(maior, maisRecente(join(caminho, nome)));
+  return maior;
+}
+
+/**
+ * O build das telas (web/dist) esta mais velho que o codigo delas? Conta tudo
+ * que entra no build — inclusive as regras do menu, que a tela importa da API.
+ */
+function telasDesatualizadas() {
+  const indice = join(PASTA_WEB, 'dist', 'index.html');
+  if (!existsSync(indice)) return true;
+  const fontes = [
+    join(PASTA_WEB, 'src'),
+    join(PASTA_WEB, 'public'),
+    join(PASTA_WEB, 'index.html'),
+    join(PASTA_WEB, 'vite.config.js'),
+    join(PASTA_WEB, 'package.json'),
+    join(PASTA_API, 'src', 'modules', 'atendimento', 'fluxo.js')
+  ];
+  return Math.max(...fontes.map(maisRecente)) > statSync(indice).mtimeMs;
+}
+
+if (!modoDev && telasDesatualizadas()) {
+  linha(SISTEMA, 'Preparando as telas...', 'primeira vez ou depois de uma atualizacao; leva alguns segundos');
+  const build = spawnSync(process.execPath, [VITE, 'build'], { cwd: PASTA_WEB, encoding: 'utf8' });
+  if (build.status !== 0) {
+    process.stdout.write(`${build.stdout ?? ''}${build.stderr ?? ''}\n`);
+    linha(ERRO, 'Nao consegui preparar as telas.', 'veja o erro acima');
+    process.exit(1);
+  }
+  linha(SISTEMA, 'Telas prontas.');
+}
 
 // --- Processos filhos ------------------------------------------------------
 
@@ -162,10 +215,22 @@ const religacoes = [];
 let api = null;
 let religando = false;
 
+/**
+ * Na loja: producao, sem --watch, na porta das telas, e para a rede so com
+ * --rede. (Variaveis passadas aqui ganham do .env: o --env-file nao
+ * sobrescreve o que ja veio do ambiente.)
+ */
+const ambienteDaApi = modoDev
+  ? ambiente
+  : { ...ambiente, NODE_ENV: 'production', PORT: String(PORTA_API), HOST: naRede ? '0.0.0.0' : '127.0.0.1' };
+
 function ligarApi() {
-  const filho = spawn(process.execPath, ['--env-file-if-exists=.env', '--watch', 'src/main.js'], {
+  const argumentos = modoDev
+    ? ['--env-file-if-exists=.env', '--watch', 'src/main.js']
+    : ['--env-file-if-exists=.env', 'src/main.js'];
+  const filho = spawn(process.execPath, argumentos, {
     cwd: PASTA_API,
-    env: ambiente,
+    env: ambienteDaApi,
     stdio: ['ignore', 'pipe', 'pipe']
   });
   api = filho;
@@ -200,11 +265,14 @@ function aoCairApi(filho) {
   }, 2000);
 }
 
-const web = spawn(process.execPath, [VITE, '--clearScreen', 'false', ...(naRede ? ['--host', '0.0.0.0'] : [])], {
-  cwd: PASTA_WEB,
-  env: ambiente,
-  stdio: ['ignore', 'pipe', 'pipe']
-});
+// O servidor de desenvolvimento das telas: SO no modo desenvolvimento.
+const web = modoDev
+  ? spawn(process.execPath, [VITE, '--clearScreen', 'false', ...(naRede ? ['--host', '0.0.0.0'] : [])], {
+      cwd: PASTA_WEB,
+      env: ambiente,
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
+  : null;
 
 /** Das telas, so o que importa. O resto do Vite e propaganda dele mesmo. */
 function linhaDasTelas(bruta) {
@@ -217,8 +285,10 @@ function linhaDasTelas(bruta) {
   if (/error|failed|cannot|unexpected/i.test(l)) return linha(ERRO, fg(196, l), 'telas');
   linha(TELAS, cinza(l));
 }
-porLinha(web.stdout, linhaDasTelas);
-porLinha(web.stderr, linhaDasTelas);
+if (web) {
+  porLinha(web.stdout, linhaDasTelas);
+  porLinha(web.stderr, linhaDasTelas);
+}
 
 /** Os enderecos para os outros aparelhos do Wi-Fi, com QR Code do principal. */
 async function mostrarAcessoPelaRede() {
@@ -243,7 +313,7 @@ async function mostrarAcessoPelaRede() {
 (async () => {
   for (let i = 0; i < 120; i++) {
     if ((await portaAberta(PORTA_API)) && (await portaAberta(PORTA_TELAS))) {
-      linha(SISTEMA, `${fg(46, '✓')} ${negrito('Sistema no ar')}  ${fg(45, ENDERECO)}`, 'login de demonstracao: dono / trocar@123');
+      linha(SISTEMA, `${fg(46, '✓')} ${negrito('Sistema no ar')}  ${fg(45, ENDERECO)}`, modoDev ? 'modo desenvolvimento' : undefined);
       if (naRede) await mostrarAcessoPelaRede();
       if (abrirNavegador) abrirNoNavegador(ENDERECO);
       return;
@@ -256,7 +326,7 @@ async function mostrarAcessoPelaRede() {
 // --- Desligamento ----------------------------------------------------------
 
 let desligando = false;
-const vivos = new Set([web]);
+const vivos = new Set(web ? [web] : []);
 
 function matarArvore(filho) {
   // taskkill /T leva junto os netos (o --watch cria um processo dentro do outro).
@@ -281,6 +351,9 @@ function vigiar(nome, filho) {
   filho.on('error', (err) => linha(ERRO, `Nao consegui iniciar ${nome}: ${err.message}`));
   filho.on('exit', (codigo) => {
     vivos.delete(filho);
+    // Na loja nao ha --watch: a API caindo ENCERRA o processo, e e aqui que
+    // sabemos. (Em desenvolvimento o --watch avisa por texto; ver ligarApi.)
+    if (!modoDev && nome === 'API' && filho === api && !desligando) aoCairApi(filho);
     // A API derrubada de proposito para religar nao e um erro a anunciar.
     if (!desligando && codigo && !(nome === 'API' && filho !== api)) {
       linha(ERRO, `${nome} encerrou com erro (codigo ${codigo}).`, 'veja as mensagens acima');
@@ -292,7 +365,7 @@ function vigiar(nome, filho) {
   });
 }
 
-vigiar('telas', web);
+if (web) vigiar('telas', web);
 ligarApi();
 
 process.on('SIGINT', desligar);

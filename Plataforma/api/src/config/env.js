@@ -116,6 +116,13 @@ const envSchema = z.object({
   WHATSAPP_AUTH_DIR: z.string().default('./data/whatsapp'),
   /** Pasta de uploads (audios recebidos, anexos). */
   UPLOADS_DIR: z.string().default('./data/uploads'),
+  /**
+   * As telas COMPILADAS (`vite build`), que a propria API serve no modo loja
+   * (ver http/telas.js). Em desenvolvimento quem serve as telas e o Vite, e
+   * esta pasta pode nem existir — ai a API simplesmente nao serve telas.
+   */
+  PASTA_TELAS: z.string().default(fileURLToPath(new URL('../../../web/dist', import.meta.url))),
+
   /** Pasta dos backups do banco (e das fotos/audios). Os testes usam outra. */
   BACKUP_DIR: z.string().default('./data/backups'),
 

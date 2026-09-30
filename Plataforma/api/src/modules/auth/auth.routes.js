@@ -1,4 +1,4 @@
-import { env, isProd } from '../../config/env.js';
+import { env } from '../../config/env.js';
 import { apenas, NOME_COOKIE } from '../../http/plugins/autenticacao.js';
 import * as service from './auth.service.js';
 import { exigirFuncao, funcaoLigada } from '../funcoes/funcoes.js';
@@ -21,14 +21,16 @@ import {
  */
 
 /** Opcoes do cookie de sessao. Cada uma bloqueia um ataque especifico. */
-function opcoesCookie(expiraEm) {
+function opcoesCookie(expiraEm, req) {
   return {
     path: '/',
     // O JavaScript da pagina nao consegue ler este cookie. Se alguem conseguir
     // injetar script no front, ainda assim nao rouba a sessao.
     httpOnly: true,
-    // Em producao, so trafega por HTTPS.
-    secure: isProd,
+    // So trafega por HTTPS quando a propria requisicao veio por HTTPS. Antes
+    // era "em producao": na loja (producao, mas sem HTTPS ainda) o navegador
+    // recusaria o cookie e ninguem conseguiria entrar pelo IP da rede.
+    secure: req?.protocol === 'https',
     // O navegador nao manda este cookie em requisicao vinda de outro site,
     // o que bloqueia CSRF (outro site agindo em nome do usuario logado).
     sameSite: 'lax',
@@ -52,7 +54,7 @@ export async function rotasAuth(app) {
       ip: req.ip
     });
 
-    res.setCookie(NOME_COOKIE, token, opcoesCookie(expiraEm));
+    res.setCookie(NOME_COOKIE, token, opcoesCookie(expiraEm, req));
 
     // O token tambem vai no corpo para clientes que nao usam cookie
     // (aplicativo de celular, integracao de terceiros).
