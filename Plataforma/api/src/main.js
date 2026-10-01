@@ -30,6 +30,7 @@ import { retomarInterrompidas as retomarCampanhasInterrompidas } from './modules
 import { entregarMensagem, marcarEntregasInterrompidas } from './modules/conversas/entrega.service.js';
 import { gravarFalhaFatal, quedaRecente } from './core/falhas.js';
 import { clientesDeExemploAntigos } from './modules/dados/exemplo-antigo.js';
+import { indexarArquivosAntigos } from './modules/dados/indexar-arquivos.js';
 import { anotar, anotarAgora, comoTerminouOAnterior } from './core/diario.js';
 
 /**
@@ -61,6 +62,8 @@ async function principal() {
   // Uma vez por banco: liga o auto_vacuum incremental (com o VACUUM que a troca
   // exige), para o arquivo voltar a encolher depois de exclusoes. ANTES de
   // abrir a porta: o VACUUM trava o banco enquanto roda. Ver db/manutencao.js.
+  // Arquivos de antes da tabela `arquivos`: de que empresa e cada um (uma vez so; ver indexar-arquivos.js).
+  await indexarArquivosAntigos().catch((err) => logger.warn({ err }, 'Falha ao associar os arquivos antigos as empresas'));
   await ativarAutoVacuumIncremental().catch((err) => logger.warn({ err }, 'Nao foi possivel ligar o auto_vacuum incremental'));
 
   const removidas = await limparSessoesExpiradas();

@@ -264,7 +264,7 @@ export async function obterProduto(tenantId, id) {
 export async function criarProduto(tenantId, dados, { usuario } = {}) {
   const { estoque: estoqueInicial = 0, foto, ...campos } = dados;
 
-  if (foto) campos.fotoUrl = await salvarImagem(foto, 'produto');
+  if (foto) campos.fotoUrl = await salvarImagem(foto, 'produto', { tenantId });
 
   const produto = await repo.criarProduto(tenantId, { ...campos, estoque: 0 });
 
@@ -301,7 +301,7 @@ export async function atualizarProduto(tenantId, id, dados, { usuario } = {}) {
   }
 
   if (foto) {
-    campos.fotoUrl = await salvarImagem(foto, 'produto');
+    campos.fotoUrl = await salvarImagem(foto, 'produto', { tenantId });
     // A antiga so sai depois que a nova esta em disco.
     if (atual.fotoUrl) await apagarImagem(atual.fotoUrl);
   } else if (removerFoto) {

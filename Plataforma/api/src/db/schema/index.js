@@ -15,3 +15,4 @@ export * from './scheduling.js';
 export * from './conversations.js';
 export * from './campaigns.js';
 export * from './ai.js';
+export * from './arquivos.js';

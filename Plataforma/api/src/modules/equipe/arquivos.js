@@ -1,10 +1,33 @@
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, normalize, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { eq } from 'drizzle-orm';
 import { RegraDeNegocio } from '../../core/errors.js';
 import { comContexto } from '../../core/logger.js';
+import { db } from '../../db/client.js';
+import { arquivos } from '../../db/schema/arquivos.js';
 
 const log = comContexto({ modulo: 'arquivos' });
+
+/**
+ * Toda funcao de salvar EXIGE a empresa do arquivo: e ela que decide quem pode
+ * abri-lo (GET /api/arquivos so entrega para a mesma empresa). Sem a empresa,
+ * erro alto — e assim que um ponto de gravacao novo nao passa despercebido.
+ */
+function exigirEmpresa(tenantId) {
+  if (!tenantId) throw new Error('Arquivo sem empresa: as funcoes de salvar exigem { tenantId }.');
+}
+
+/** Anota de quem e o arquivo (depois de gravado: se falhar, sobra um arquivo orfao, que a limpeza leva). */
+async function registrar(nome, tenantId) {
+  await db.insert(arquivos).values({ nome, tenantId }).onConflictDoNothing();
+}
+
+/** De que empresa e o arquivo (null = desconhecido: arquivo antigo que ninguem cita). */
+export async function donoDoArquivo(nome) {
+  const linha = await db.query.arquivos.findFirst({ where: eq(arquivos.nome, nome) });
+  return linha?.tenantId ?? null;
+}
 
 /**
  * Guarda de fotos enviadas pela tela.
@@ -67,9 +90,11 @@ const LIMITE_AUDIO_BYTES = 16 * 1024 * 1024;
  *
  * @param {Buffer|Uint8Array} bytes
  * @param {string} mimetype   como o canal declarou, ex: 'audio/ogg; codecs=opus'
+ * @param {{ tenantId: string }} empresa  de quem e o audio (obrigatorio)
  * @returns {Promise<{url: string, extensao: string, bytes: number}>}
  */
-export async function salvarAudio(bytes, mimetype = 'audio/ogg') {
+export async function salvarAudio(bytes, mimetype = 'audio/ogg', { tenantId } = {}) {
+  exigirEmpresa(tenantId);
   const dados = Buffer.from(bytes ?? []);
   if (dados.length === 0) throw new RegraDeNegocio('O audio chegou vazio.');
   if (dados.length > LIMITE_AUDIO_BYTES) {
@@ -90,6 +115,7 @@ export async function salvarAudio(bytes, mimetype = 'audio/ogg') {
 
   await mkdir(dirname(destino), { recursive: true });
   await writeFile(destino, dados);
+  await registrar(nome, tenantId);
 
   log.debug({ nome, bytes: dados.length }, 'Audio gravado');
   return { url: `/api/arquivos/${nome}`, extensao, bytes: dados.length };
@@ -131,9 +157,11 @@ export const LIMITE_ANEXO_BYTES = 16 * 1024 * 1024;
  *
  * @param {string} dataUrl       `data:<tipo>;base64,...`
  * @param {string} [nomeOriginal] so para exibir e para o WhatsApp mostrar ao cliente
+ * @param {{ tenantId: string }} empresa  de quem e o anexo (obrigatorio)
  * @returns {Promise<{ tipo: 'imagem'|'video'|'documento', url: string, mimetype: string, bytes: number, nomeArquivo: string }>}
  */
-export async function salvarAnexo(dataUrl, nomeOriginal = '') {
+export async function salvarAnexo(dataUrl, nomeOriginal = '', { tenantId } = {}) {
+  exigirEmpresa(tenantId);
   const bruta = String(dataUrl ?? '').trim();
   const MARCADOR = ';base64,';
   const posicao = bruta.startsWith('data:') ? bruta.indexOf(MARCADOR) : -1;
@@ -181,6 +209,7 @@ export async function salvarAnexo(dataUrl, nomeOriginal = '') {
   const destino = join(PASTA, nome);
   await mkdir(dirname(destino), { recursive: true });
   await writeFile(destino, bytes);
+  await registrar(nome, tenantId);
 
   log.debug({ nome, bytes: bytes.length, tipo }, 'Anexo gravado');
   return {
@@ -197,9 +226,11 @@ export async function salvarAnexo(dataUrl, nomeOriginal = '') {
  *
  * @param {string} dataUrl  `data:image/png;base64,...`
  * @param {string} prefixo  'produto' | 'profissional' — so para o nome do arquivo
+ * @param {{ tenantId: string }} empresa  de quem e a imagem (obrigatorio)
  * @returns {Promise<string>} caminho publico, ex: `/api/arquivos/produto-ab12.png`
  */
-export async function salvarImagem(dataUrl, prefixo = 'foto') {
+export async function salvarImagem(dataUrl, prefixo = 'foto', { tenantId } = {}) {
+  exigirEmpresa(tenantId);
   const casou = /^data:([^;]+);base64,(.+)$/s.exec(String(dataUrl ?? '').trim());
   if (!casou) {
     throw new RegraDeNegocio('Imagem invalida. Envie um arquivo PNG, JPG, WEBP ou GIF.');
@@ -226,6 +257,7 @@ export async function salvarImagem(dataUrl, prefixo = 'foto') {
 
   await mkdir(dirname(destino), { recursive: true });
   await writeFile(destino, bytes);
+  await registrar(nome, tenantId);
 
   log.debug({ nome, bytes: bytes.length }, 'Imagem gravada');
   return `/api/arquivos/${nome}`;
@@ -259,6 +291,7 @@ export async function apagarImagem(caminhoPublico) {
   } catch (err) {
     if (err.code !== 'ENOENT') log.warn({ err, nome }, 'Nao foi possivel apagar a imagem antiga');
   }
+  await db.delete(arquivos).where(eq(arquivos.nome, nome)).catch(() => {});
 }
 
 export const TIPOS_ACEITOS = TIPOS;

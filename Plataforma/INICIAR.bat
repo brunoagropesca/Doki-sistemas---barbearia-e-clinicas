@@ -43,11 +43,17 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3333" ^| findstr "LISTENING
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5173" ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>nul
 
 :: --- 3. Instala as dependencias, se ainda nao existirem ---
+:: Instala quando falta a pasta node_modules OU quando o package-lock.json pede
+:: versoes que nao estao instaladas (uma atualizacao trouxe dependencia nova).
+:: `npm ci` instala EXATAMENTE o que esta no lock: uma instalacao nova nunca
+:: pega outra versao (o WhatsApp, por exemplo, usa uma biblioteca nao oficial
+:: e cada versao muda comportamento). Ver dependencias.mjs.
 echo  [2/5] Conferindo as dependencias do servidor...
-if not exist "api\node_modules\" (
-    echo         Primeira execucao: instalando. Isso demora alguns minutos...
+node "%~dp0dependencias.mjs" api
+if errorlevel 1 (
+    echo         Instalando - primeira vez ou depois de uma atualizacao. Pode demorar alguns minutos...
     pushd api
-    call npm install --no-audit --no-fund
+    call npm ci --no-audit --no-fund
     if errorlevel 1 (
         echo.
         echo  [ERRO] Falha ao instalar as dependencias do servidor.
@@ -57,14 +63,15 @@ if not exist "api\node_modules\" (
     )
     popd
 ) else (
-    echo         Ja instaladas.
+    echo         Ja instaladas e em dia.
 )
 
 echo  [3/5] Conferindo as dependencias das telas...
-if not exist "web\node_modules\" (
-    echo         Primeira execucao: instalando...
+node "%~dp0dependencias.mjs" web
+if errorlevel 1 (
+    echo         Instalando - primeira vez ou depois de uma atualizacao. Pode demorar alguns minutos...
     pushd web
-    call npm install --no-audit --no-fund
+    call npm ci --no-audit --no-fund
     if errorlevel 1 (
         echo.
         echo  [ERRO] Falha ao instalar as dependencias das telas.
@@ -74,7 +81,7 @@ if not exist "web\node_modules\" (
     )
     popd
 ) else (
-    echo         Ja instaladas.
+    echo         Ja instaladas e em dia.
 )
 
 :: --- 4. Prepara o banco de dados ---

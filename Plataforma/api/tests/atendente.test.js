@@ -359,14 +359,14 @@ describe('foto do perfil', () => {
 
     const url = r.json().usuario.avatar;
     assert.match(url, /^\/api\/arquivos\/perfil-/);
-    assert.equal((await app.inject({ method: 'GET', url })).statusCode, 200);
+    assert.equal((await app.inject({ method: 'GET', url, headers: ana.cabecalho })).statusCode, 200);
 
     ctx.fotoAntiga = url;
   });
 
   it('trocar apaga a antiga do disco', async () => {
     await app.inject({ method: 'PUT', url: '/api/auth/foto', headers: ana.cabecalho, payload: { foto: PNG } });
-    assert.equal((await app.inject({ method: 'GET', url: ctx.fotoAntiga })).statusCode, 404, 'a antiga nao fica acumulando');
+    assert.equal((await app.inject({ method: 'GET', url: ctx.fotoAntiga, headers: ana.cabecalho })).statusCode, 404, 'a antiga nao fica acumulando');
   });
 
   it('remover volta para a inicial do nome', async () => {

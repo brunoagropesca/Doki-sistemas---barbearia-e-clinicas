@@ -82,11 +82,13 @@ export async function criarAppDeTeste(opcoesDoApp = {}) {
    * aberta, e no Windows o processo as vezes morria ao sair com violacao de
    * acesso (codigo 3221225477 = 0xC0000005): todos os testes do arquivo
    * passavam e, mesmo assim, o arquivo aparecia como reprovado, cada vez um
-   * diferente. A espera curta deixa terminar o que ainda roda em segundo plano
-   * (marcar uso da sessao, automacoes) antes de fechar.
+   * diferente. A espera deixa terminar o que ainda roda em segundo plano
+   * (marcar uso da sessao, automacoes da Atena disparadas por uma mudanca de
+   * status) antes de fechar: fechar com uma consulta nativa em andamento tambem
+   * travava. Com 50 ms o meu-dia.test.js travava ~1 vez em 10; com 300 ms, 0 em 20.
    */
   app.addHook('onClose', async () => {
-    await new Promise((ok) => setTimeout(ok, 50));
+    await new Promise((ok) => setTimeout(ok, 300));
     fecharBanco();
   });
 

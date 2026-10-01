@@ -3,7 +3,7 @@ import { stat } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { z } from 'zod';
 import { apenas } from '../../http/plugins/autenticacao.js';
-import { caminhoDe, EXTENSOES_DOCUMENTO } from './arquivos.js';
+import { caminhoDe, donoDoArquivo, EXTENSOES_DOCUMENTO } from './arquivos.js';
 import * as service from './equipe.service.js';
 import { senhaSchema, usernameSchema } from '../auth/auth.schemas.js';
 import { metricasDoProfissional } from '../historico/historico.service.js';
@@ -229,21 +229,34 @@ export async function rotasEquipe(app) {
   });
 
   /**
-   * GET /api/arquivos/:nome — serve as fotos enviadas e os audios recebidos.
+   * GET /api/arquivos/:nome — fotos, audios e documentos (inclusive os que os
+   * clientes mandam no WhatsApp: numa clinica, dado de saude).
    *
-   * Aberta de proposito: sao fotos de catalogo e recados de audio, exibidos em
-   * `<img>` e `<audio>`, e essas tags nao mandam cabecalho de autenticacao. O
-   * nome e um UUID sorteado na gravacao, entao nao da para adivinhar o arquivo
-   * de outra empresa, e `caminhoDe` recusa qualquer nome que tente sair da pasta.
+   * EXIGE LOGIN e so entrega para a MESMA empresa do arquivo (tabela
+   * `arquivos`, gravada ao salvar). `<img>` e `<audio>` nao mandam o cabecalho
+   * Authorization, mas mandam o COOKIE de sessao (mesma origem), entao as telas
+   * continuam funcionando. Qualquer cargo logado (inclusive o profissional, que
+   * ve a foto no Meu dia). Sem login, de outra empresa ou inexistente: o MESMO
+   * 404 — nunca confirma que o arquivo existe. Arquivo antigo sem dono
+   * conhecido: so o dono da empresa (e o DEV).
+   *
+   * Quem envia pelo WhatsApp e quem transcreve audio leem do DISCO
+   * (`caminhoDe`), nao desta URL — nao dependem de login.
    */
-  app.get('/api/arquivos/:nome', { config: apenas.publico }, async (req, res) => {
+  app.get('/api/arquivos/:nome', { config: { ...apenas.profissional, ocultar: true } }, async (req, res) => {
+    const naoEncontrado = () => {
+      res.status(404);
+      return { erro: { codigo: 'NAO_ENCONTRADO', mensagem: 'Arquivo nao encontrado.' } };
+    };
     const destino = caminhoDe(req.params.nome);
     const tipo = TIPO_POR_EXTENSAO[extname(req.params.nome ?? '').toLowerCase()];
 
-    if (!destino || !tipo) {
-      res.status(404);
-      return { erro: { codigo: 'NAO_ENCONTRADO', mensagem: 'Arquivo nao encontrado.' } };
-    }
+    if (!destino || !tipo) return naoEncontrado();
+
+    const dono = await donoDoArquivo(req.params.nome);
+    const podeVer =
+      req.usuario.cargo === 'dev' || (dono ? dono === req.tenantId : req.usuario.cargo === 'owner');
+    if (!podeVer) return naoEncontrado();
 
     let informacao;
     try {
@@ -253,8 +266,10 @@ export async function rotasEquipe(app) {
       return { erro: { codigo: 'NAO_ENCONTRADO', mensagem: 'Arquivo nao encontrado.' } };
     }
 
-    // O nome tem UUID: o conteudo nunca muda, entao pode ficar no cache.
-    res.header('cache-control', 'public, max-age=31536000, immutable');
+    // O nome tem UUID: o conteudo nunca muda, entao pode ficar no cache — mas
+    // so no do NAVEGADOR de quem esta logado (private), nunca num cache
+    // compartilhado (proxy da rede) que entregaria para outra pessoa.
+    res.header('cache-control', 'private, max-age=31536000, immutable');
     res.type(tipo);
     // Sem isto o navegador pode "adivinhar" que um .txt e HTML e executa-lo.
     res.header('x-content-type-options', 'nosniff');

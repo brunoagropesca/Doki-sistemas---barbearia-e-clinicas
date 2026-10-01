@@ -364,7 +364,7 @@ export async function sincronizarFoto(tenantId, leadId, buscarUrl, { forcar = fa
       return { ok: false, motivo: 'download_falhou' };
     }
 
-    const fotoUrl = await salvarImagem(dataUrl, 'lead');
+    const fotoUrl = await salvarImagem(dataUrl, 'lead', { tenantId });
     const anterior = lead.fotoUrl;
 
     await repo.atualizar(tenantId, leadId, { fotoUrl, fotoSincronizadaEm: new Date() });

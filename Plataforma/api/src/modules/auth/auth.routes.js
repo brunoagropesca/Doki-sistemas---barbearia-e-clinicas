@@ -1,6 +1,7 @@
 import { env } from '../../config/env.js';
 import { apenas, NOME_COOKIE } from '../../http/plugins/autenticacao.js';
 import * as service from './auth.service.js';
+import { REMETENTE_SISTEMA } from '../../channels/whatsapp/vigia.js';
 import { exigirFuncao, funcaoLigada } from '../funcoes/funcoes.js';
 import {
   avisoSchema,
@@ -170,9 +171,14 @@ export async function rotasAuth(app) {
 
   /** GET /api/avisos/pendentes — os avisos que EU ainda nao confirmei. */
   app.get('/api/avisos/pendentes', { config: apenas.atendente }, async (req) => {
-    // Avisos desligados pelo DEV: os pendentes deixam de aparecer.
-    if (!(await funcaoLigada(req.tenantId, 'avisos_gerencia'))) return { avisos: [] };
-    return { avisos: await service.avisosPendentes(req.usuario) };
+    const avisos = await service.avisosPendentes(req.usuario);
+    // Avisos da GERENCIA desligados pelo DEV: os deles deixam de aparecer. Os do
+    // SISTEMA (numero de WhatsApp fora do ar) continuam: nao sao recado de
+    // ninguem, sao o sistema dizendo que clientes nao estao sendo atendidos.
+    if (!(await funcaoLigada(req.tenantId, 'avisos_gerencia'))) {
+      return { avisos: avisos.filter((a) => a.deUserId === null && a.deNome === REMETENTE_SISTEMA) };
+    }
+    return { avisos };
   });
 
   /** POST /api/avisos/:id/lido — "Entendi". So o destinatario confirma. */

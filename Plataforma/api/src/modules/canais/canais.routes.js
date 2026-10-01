@@ -158,6 +158,8 @@ function apresentarInstancia(i, { verQr = false } = {}) {
     qrExpiraEm: verQr && i.status === 'aguardando_qr' ? (i.qrExpiraEm?.getTime() ?? null) : null,
     ultimoErro: i.ultimoErro,
     conectadoEm: i.conectadoEm?.getTime() ?? null,
+    /** Desde quando esta fora do ar (nulo se conectado). */
+    desconectadoEm: i.status === 'conectado' ? null : (i.desconectadoEm?.getTime() ?? null),
     ativo: i.ativo
   };
 }

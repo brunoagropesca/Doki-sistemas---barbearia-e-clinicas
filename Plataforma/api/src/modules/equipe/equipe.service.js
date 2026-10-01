@@ -237,7 +237,7 @@ export async function criarProfissional(tenantId, dados, { usuario } = {}) {
   };
 
   if (dados.jornada) registro.jornada = dados.jornada;
-  if (dados.foto) registro.fotoUrl = await salvarImagem(dados.foto, 'profissional');
+  if (dados.foto) registro.fotoUrl = await salvarImagem(dados.foto, 'profissional', { tenantId });
 
   await db.insert(professionals).values(registro);
 
@@ -280,7 +280,7 @@ export async function atualizarProfissional(tenantId, id, dados, { usuario } = {
   }
 
   if (dados.foto) {
-    mudancas.fotoUrl = await salvarImagem(dados.foto, 'profissional');
+    mudancas.fotoUrl = await salvarImagem(dados.foto, 'profissional', { tenantId });
     // So apaga a antiga depois que a nova esta gravada: se a gravacao falhar,
     // o cadastro continua com a foto que tinha.
     if (atual.fotoUrl) await apagarImagem(atual.fotoUrl);

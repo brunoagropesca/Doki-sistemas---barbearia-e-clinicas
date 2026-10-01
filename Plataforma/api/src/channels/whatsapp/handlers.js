@@ -252,7 +252,7 @@ async function prepararAudio({ tenantId, chave, msg, audio, telefone, baixarMidi
 
   let url;
   try {
-    ({ url } = await salvar(bytes, mimetype));
+    ({ url } = await salvar(bytes, mimetype, { tenantId }));
   } catch (err) {
     log.warn({ err, tenantId, chave }, 'Nao foi possivel guardar o audio recebido');
     registrarEvento(tenantId, {
@@ -316,7 +316,7 @@ async function prepararArquivo({ tenantId, chave, msg, arquivo, telefone, baixar
   const nome = arquivo.fileName || (extensaoDoTipo ? `arquivo.${extensaoDoTipo}` : '');
   try {
     const bytes = await baixarMidia(msg);
-    const salvo = await salvarArquivo(`data:${mimetype};base64,${Buffer.from(bytes).toString('base64')}`, nome);
+    const salvo = await salvarArquivo(`data:${mimetype};base64,${Buffer.from(bytes).toString('base64')}`, nome, { tenantId });
     return {
       tipo: salvo.tipo,
       url: salvo.url,

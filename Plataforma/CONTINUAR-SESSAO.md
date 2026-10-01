@@ -282,6 +282,28 @@ Antes, as ferramentas da Sofia dependiam dos grupos da Atena (a Sofia lê direto
 - Com HTTPS: cookie `Secure` (por `req.protocol`, prompt 5) e HSTS de 1 dia (`onSend` em `app.js`).
 - **Testes:** `tests/https.test.js` — o certificado conferido pelo Node e por um handshake TLS de verdade (OpenSSL 3.5); sem a autoridade o aparelho desconfia; certificado com nome fora da lista e recusado ("permitted subtree violation" — o Node mapeia o codigo como `UNSPECIFIED`); rodar de novo nao troca nada; IP novo refaz so o do servidor; redirecionamento, pagina e arquivo por HTTP, HSTS e cookie Secure por HTTPS.
 
+## Arquivos so para quem esta logado (01/10/2026)
+
+- **GET /api/arquivos/:nome exige login** (`apenas.profissional` + `ocultar`: qualquer cargo, inclusive o profissional) e so entrega para a **mesma empresa** do arquivo. Sem login, de outra empresa ou inexistente: 404 (sem login a resposta e a mesma de uma rota que nao existe). Arquivo sem dono conhecido: so o dono da empresa (e o DEV). Cache `private, max-age=1 ano, immutable` (nunca em cache compartilhado). `<img>`/`<audio>` mandam o cookie (mesma origem) — conferido no Chrome.
+- **Tabela `arquivos` (nome → tenant_id), migration 0025.** Gravada no momento de salvar: `salvarImagem`, `salvarAnexo` e `salvarAudio` (modules/equipe/arquivos.js) **exigem `{ tenantId }`** no ultimo argumento e lancam erro sem ele — um ponto de gravacao novo que esqueca a empresa falha nos testes. `apagarImagem` apaga a linha junto.
+- **Arquivos de antes:** `modules/dados/indexar-arquivos.js` roda no boot, so com a tabela VAZIA: varre toda coluna de texto que cita `/api/arquivos/` (como a limpeza de orfaos; `NOME_NA_URL` agora e exportado de `orfaos.js`) e anota o `tenant_id` da linha (em `tenants`, o `id`).
+- Quem le esses arquivos fora do navegador le do DISCO (`caminhoDe`): envio de midia pelo WhatsApp (`entrega.service.js`) e transcricao — nao dependem de login. O service worker so intercepta abertura de pagina (`mode === 'navigate'`), nunca fotos/audios.
+- Testes: `tests/arquivos-acesso.test.js` (duas empresas, sem login, profissional, Range, sem dono, salvar sem empresa, indexacao). Os testes antigos que liam arquivo sem sessao passaram a mandar a sessao.
+
+## Riscos: o WhatsApp e uma biblioteca NAO oficial (01/10/2026)
+
+- **O que e:** o WhatsApp do sistema e o **Baileys** (`@whiskeysockets/baileys`), uma biblioteca de codigo aberto que conversa com o WhatsApp **como se fosse o WhatsApp Web**. Nao e a API oficial (WhatsApp Business Platform, da Meta). Vantagem: sem custo por mensagem e com o numero que a loja ja usa. Risco: a Meta nao garante nada — pode mudar o protocolo (a biblioteca para de funcionar ate sair uma versao nova) ou **banir o numero** se o uso parecer de robo/spam.
+- **Versao travada:** `7.0.0-rc14` EXATA no `api/package.json` (sem `^`) — a que esta instalada e testada. Uma instalacao nova nunca pega outra versao: o INICIAR.bat instala com `npm ci` (exatamente o `package-lock.json`). Trocar de versao e decisao consciente: testar conexao, envio de texto/foto/audio, recebimento e reconexao antes de levar para as lojas.
+- **Instalacao em dia:** `dependencias.mjs` (na raiz da Plataforma) compara as versoes do `package-lock.json` com o que esta instalado (`node_modules/.package-lock.json`); se divergir, o INICIAR.bat roda `npm ci`. Antes so instalava quando faltava a pasta `node_modules` — uma atualizacao com dependencia nova (ex.: o `@fastify/static` do modo loja) quebrava a instalacao existente.
+- **Numero fora do ar = aviso:** `channels/whatsapp/vigia.js`. Queda comum (rede) que nao volta em **5 minutos**, ou queda definitiva (sessao encerrada pelo celular, conta recusada, sessao invalida, conta aberta em outro lugar, sessao salva sumiu ao iniciar) → **um** aviso urgente (o popup dos avisos da gerencia, remetente `Sistema (WhatsApp)`) para o dono e os administradores (nao para atendentes). Voltou → o aviso some. Nao avisa: QR expirado no pareamento, botao Desconectar. O aviso do sistema aparece mesmo com "Avisos da gerencia" desligado, e desligar a funcao nao o cancela. Conexoes mostra "Fora do ar desde…" (coluna `channel_instances.desconectado_em`, migration 0026).
+- **Boas praticas para nao ser banido (passar para o cliente):**
+  - numero **novo**: comecar devagar — conversas normais por alguns dias antes de qualquer campanha; nunca disparar campanha grande num numero recem-conectado;
+  - campanhas: respeitar os ritmos ja configurados (perfil Cauteloso/Equilibrado, intervalo aleatorio, limite por dia, janela de horario) — nao "acelerar" para terminar logo;
+  - so mandar campanha para quem e cliente de verdade e nao pediu para sair (o sistema ja bloqueia quem pediu e quem recebeu nos ultimos 15 dias);
+  - nao usar o mesmo numero em dois sistemas ao mesmo tempo (um derruba o outro — "conta aberta em outro lugar");
+  - manter o celular do numero ligado e com internet de vez em quando: o WhatsApp encerra sessoes de aparelhos esquecidos.
+- Testes: bloco "vigia: aviso quando o numero cai" em `tests/whatsapp-adapter.test.js` (adaptador de verdade com socket falso e relogio de mentira).
+
 ## Pendências / próximos passos
 
 - **Testar de verdade no WhatsApp** as mudanças dos itens 8 e 9 (mesmos roteiros da Débora e do Lyu) e olhar os bastidores no Simulador — conferir se a Sofia oferece 2–3 horários (e não a lista inteira) e se passa a data "como o cliente falou".

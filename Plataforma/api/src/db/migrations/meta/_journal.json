@@ -176,6 +176,20 @@
       "when": 1790787260530,
       "tag": "0024_senha_provisoria",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1790868402573,
+      "tag": "0025_arquivos_da_empresa",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1790872249140,
+      "tag": "0026_desconectado_em",
+      "breakpoints": true
     }
   ]
 }

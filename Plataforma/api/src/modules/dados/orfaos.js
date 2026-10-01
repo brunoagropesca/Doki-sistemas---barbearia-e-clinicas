@@ -33,7 +33,7 @@ export const CARENCIA_MS = 24 * 3_600_000;
 /** De quanto em quanto tempo a limpeza automatica roda. */
 const INTERVALO_MS = 7 * 24 * 3_600_000;
 
-const NOME_NA_URL = /\/api\/arquivos\/([A-Za-z0-9._-]+)/g;
+export const NOME_NA_URL = /\/api\/arquivos\/([A-Za-z0-9._-]+)/g;
 
 /** Os arquivos da pasta de uploads, com nome relativo (com "/"), tamanho e data. */
 function arquivosDosUploads() {

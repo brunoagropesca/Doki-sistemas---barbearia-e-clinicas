@@ -1644,13 +1644,13 @@ describe('audio recebido do cliente', () => {
     const { mensagens } = await mensagensDe(telefone);
     const url = mensagens.find((m) => m.tipo === 'audio').midiaUrl;
 
-    const inteiro = await app.inject({ method: 'GET', url });
+    const inteiro = await app.inject({ method: 'GET', url, headers: cabDono });
     assert.equal(inteiro.statusCode, 200);
     assert.equal(inteiro.headers['content-type'], 'audio/ogg');
     assert.equal(inteiro.headers['accept-ranges'], 'bytes', 'sem isto o player nao deixa arrastar a barra');
     assert.equal(inteiro.rawPayload.length, BYTES.length);
 
-    const faixa = await app.inject({ method: 'GET', url, headers: { range: 'bytes=0-4' } });
+    const faixa = await app.inject({ method: 'GET', url, headers: { ...cabDono, range: 'bytes=0-4' } });
     assert.equal(faixa.statusCode, 206);
     assert.equal(faixa.headers['content-range'], `bytes 0-4/${BYTES.length}`);
     assert.equal(faixa.rawPayload.toString(), BYTES.subarray(0, 5).toString());
@@ -1694,5 +1694,183 @@ describe('audio recebido do cliente', () => {
       descricao: 'o aviso no console de conexoes'
     });
     assert.equal(sock.enviados.length, 0);
+  });
+});
+
+// ============================================================================
+
+/**
+ * Vigia (channels/whatsapp/vigia.js): o dono e os administradores sao avisados
+ * quando um numero cai e nao volta — pelo adaptador de verdade, com socket falso.
+ * O relogio de 5 minutos do vigia e de mentira: `rodarRelogio()` faz o tempo passar.
+ */
+describe('vigia: aviso quando o numero cai', () => {
+  let vigia;
+  let s;
+  let cabGerente;
+  let relogio = [];
+  const rodarRelogio = async () => {
+    for (const item of relogio.splice(0)) if (!item.cancelado) await item.fn();
+  };
+
+  /** Os avisos do sistema ainda na tela (nao confirmados nem cancelados), por pessoa. */
+  async function avisosAbertos() {
+    const { and, eq, isNull } = await import('drizzle-orm');
+    return db
+      .select()
+      .from(s.teamAlerts)
+      .where(
+        and(
+          eq(s.teamAlerts.tenantId, tenantId),
+          eq(s.teamAlerts.deNome, vigia.REMETENTE_SISTEMA),
+          isNull(s.teamAlerts.lidoEm),
+          isNull(s.teamAlerts.canceladoEm)
+        )
+      );
+  }
+
+  before(async () => {
+    vigia = await import('../src/channels/whatsapp/vigia.js');
+    s = await import('../src/db/schema/index.js');
+    // Um administrador, alem do dono (os dois devem ser avisados; a recepcao nao).
+    const criado = await app.inject({
+      method: 'POST',
+      url: '/api/usuarios',
+      headers: cabDono,
+      payload: { username: 'gerente.vigia', senha: 'senha-do-gerente-1', nome: 'Gerente Vigia', cargo: 'admin' }
+    });
+    assert.equal(criado.statusCode, 201, criado.body);
+    ({ cabecalho: cabGerente } = await entrar(app, 'gerente.vigia', 'senha-do-gerente-1'));
+  });
+
+  afterEach(async () => {
+    vigia._paraTestes({ agendador: (fn, ms) => registrarNoRelogio(fn, ms) });
+    relogio = [];
+    await db.delete(s.teamAlerts);
+  });
+
+  const registrarNoRelogio = (fn, ms) => {
+    const item = { fn, ms, cancelado: false };
+    relogio.push(item);
+    return { cancelar: () => (item.cancelado = true) };
+  };
+
+  // O bloco comeca limpo: os testes de logout de antes (do adaptador) tambem
+  // acionam o vigia e deixam avisos; e o relogio passa a ser o de mentira.
+  before(async () => {
+    vigia._paraTestes({ agendador: registrarNoRelogio });
+    await db.delete(s.teamAlerts);
+  });
+
+  it('oscilacao: cai e volta antes de 5 minutos — ninguem e incomodado', async () => {
+    const f = await conectarEAbrir();
+    fechar(f.sock, 428); // conexao fechada: o adaptador tenta voltar
+    await esperar(() => agendados.length > 0, { descricao: 'reconexao agendada' });
+    agendados.at(-1).fn(); // a reconexao roda...
+    await esperar(() => fabricados.length > 1, { descricao: 'socket novo' });
+    fabricados.at(-1).sock.emitir('connection.update', { connection: 'open' }); // ...e volta
+    await esperar(() => estaConectada(tenantId, 'W1'), { descricao: 'voltou' });
+
+    await rodarRelogio(); // 5 minutos depois
+    assert.equal((await avisosAbertos()).length, 0);
+  });
+
+  it('nao voltou em 5 minutos: UM aviso para o dono e para cada administrador, nao para a recepcao', async () => {
+    const f = await conectarEAbrir();
+    fechar(f.sock, 428);
+    await esperar(() => agendados.length > 0, { descricao: 'reconexao agendada' });
+    // Mais uma tentativa que falha: nao pode virar um segundo aviso.
+    agendados.at(-1).fn();
+    await esperar(() => fabricados.length > 1, { descricao: 'socket novo' });
+    fechar(fabricados.at(-1).sock, 428);
+    await esperar(() => agendados.length > 1, { descricao: 'segunda reconexao agendada' });
+
+    assert.equal((await avisosAbertos()).length, 0, 'antes dos 5 minutos, nada');
+    await rodarRelogio();
+    await rodarRelogio(); // um segundo "tique" nao duplica
+
+    const avisos = await avisosAbertos();
+    const usuarios = await db.select().from(s.users);
+    const cargoDe = (id) => usuarios.find((u) => u.id === id)?.cargo;
+    assert.deepEqual(avisos.map((a) => cargoDe(a.userId)).sort(), ['admin', 'owner']);
+    assert.match(avisos[0].mensagem, /\[W1\]/);
+    assert.match(avisos[0].mensagem, /não voltou sozinho em 5 minutos/);
+
+    // Pela API, como a tela: aparece para o dono e o gerente; a recepcao nao ve.
+    const pendentes = async (cab) => (await app.inject({ method: 'GET', url: '/api/avisos/pendentes', headers: cab })).json().avisos;
+    assert.equal((await pendentes(cabDono)).length, 1);
+    assert.equal((await pendentes(cabGerente)).length, 1);
+    assert.equal((await pendentes(cabRecepcao)).length, 0);
+  });
+
+  it('sessao encerrada pelo celular (logout): aviso NA HORA, sem esperar 5 minutos — e some quando o numero volta', async () => {
+    const f = await conectarEAbrir();
+    fechar(f.sock, 401, 'logged out');
+    await esperar(async () => (await avisosAbertos()).length === 2, { descricao: 'aviso imediato' });
+    assert.equal(relogio.filter((i) => !i.cancelado).length, 0, 'nenhum relogio: e definitivo');
+    assert.match((await avisosAbertos())[0].mensagem, /encerrada pelo celular/);
+
+    // A pessoa le o QR de novo e o numero volta: o aviso sai da tela.
+    await conectarEAbrir();
+    await esperar(async () => (await avisosAbertos()).length === 0, { descricao: 'aviso fechado' });
+  });
+
+  it('com "Avisos da gerencia" desligado, o aviso do SISTEMA continua aparecendo', async () => {
+    const { definirFuncao } = await import('../src/modules/funcoes/funcoes.js');
+    const f = await conectarEAbrir();
+    fechar(f.sock, 401, 'logged out');
+    await esperar(async () => (await avisosAbertos()).length === 2, { descricao: 'aviso' });
+    await definirFuncao(tenantId, 'avisos_gerencia', false);
+    try {
+      const r = await app.inject({ method: 'GET', url: '/api/avisos/pendentes', headers: cabDono });
+      assert.equal(r.json().avisos.length, 1);
+    } finally {
+      await definirFuncao(tenantId, 'avisos_gerencia', true);
+    }
+  });
+
+  it('QR Code que expirou no pareamento nao e queda: nao avisa', async () => {
+    ganchosDeTeste.pareado = false;
+    await conectar(tenantId, 'W1');
+    fechar(fabricados.at(-1).sock, 408, 'QR refs attempts ended');
+    await esperar(async () => (await instancia('W1')).status === 'desconectado', { descricao: 'desistiu do QR' });
+    await rodarRelogio();
+    assert.equal((await avisosAbertos()).length, 0);
+  });
+
+  it('desconectar de proposito (botao) nao avisa', async () => {
+    const f = await conectarEAbrir();
+    fechar(f.sock, 428);
+    await esperar(() => agendados.length > 0, { descricao: 'reconexao agendada' });
+    await desconectar(tenantId, 'W1');
+    await rodarRelogio();
+    assert.equal((await avisosAbertos()).length, 0);
+  });
+
+  it('a tela sabe desde quando o numero esta fora do ar', async () => {
+    const f = await conectarEAbrir();
+    assert.equal((await instancia('W1')).desconectadoEm, null);
+
+    fechar(f.sock, 428);
+    await esperar(async () => (await instancia('W1')).desconectadoEm !== null, { descricao: 'marcou o inicio' });
+    const desde = (await instancia('W1')).desconectadoEm.getTime();
+
+    // Outra tentativa que falha nao renova o "desde".
+    agendados.at(-1).fn();
+    await esperar(() => fabricados.length > 1, { descricao: 'socket novo' });
+    fechar(fabricados.at(-1).sock, 428);
+    await esperar(() => agendados.length > 1, { descricao: 'segunda tentativa' });
+    assert.equal((await instancia('W1')).desconectadoEm.getTime(), desde);
+
+    const canal = (await app.inject({ method: 'GET', url: '/api/canais', headers: cabDono })).json();
+    const w1 = (canal.canais ?? canal.instancias ?? canal).find?.((c) => c.chave === 'W1');
+    assert.equal(w1?.desconectadoEm, desde);
+
+    // A proxima reconexao da certo (o socket ja fechado nao conta: e de uma geracao encerrada).
+    const antes = fabricados.length;
+    agendados.at(-1).fn();
+    await esperar(() => fabricados.length > antes, { descricao: 'socket da reconexao' });
+    fabricados.at(-1).sock.emitir('connection.update', { connection: 'open' });
+    await esperar(async () => (await instancia('W1')).desconectadoEm === null, { descricao: 'voltou: limpa' });
   });
 });

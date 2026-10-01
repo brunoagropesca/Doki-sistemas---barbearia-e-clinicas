@@ -244,7 +244,7 @@ export async function definirFoto(usuario, { foto, remover }) {
   let avatar = atual.avatar;
 
   if (foto) {
-    avatar = await salvarImagem(foto, 'perfil');
+    avatar = await salvarImagem(foto, 'perfil', { tenantId: usuario.tenantId });
     // A antiga so sai depois que a nova esta em disco.
     if (atual.avatar?.startsWith('/api/arquivos/')) await apagarImagem(atual.avatar);
   } else if (remover) {

@@ -658,7 +658,7 @@ export async function responder(tenantId, id, { conteudo, audio, duracaoSegundos
   const conteudoMensagem = audio
     ? await prepararRespostaDeAudio({ tenantId, audio, duracaoSegundos })
     : anexo
-      ? await prepararAnexo(anexo, conteudo)
+      ? await prepararAnexo(anexo, conteudo, tenantId)
       : { tipo: 'texto', conteudo, midiaUrl: null, transcricao: null, metadados: {} };
 
   const mensagemId = await repo.registrarMensagem(tenantId, id, {
@@ -702,7 +702,7 @@ async function prepararRespostaDeAudio({ tenantId, audio, duracaoSegundos }) {
     throw new RegraDeNegocio('Não foi possível processar este áudio. Tente gravar de novo.');
   }
 
-  const { url } = await salvarAudio(ogg, 'audio/ogg');
+  const { url } = await salvarAudio(ogg, 'audio/ogg', { tenantId });
 
   return {
     tipo: 'audio',
@@ -784,8 +784,8 @@ const ROTULO_ANEXO = { imagem: '📷 Foto', video: '🎥 Vídeo' };
  * Prepara foto/video/documento do atendente. O CONTEUDO e a legenda (ou um
  * rotulo), para a previa da lista e a busca funcionarem sem caso especial.
  */
-async function prepararAnexo({ dataUrl, nome }, legenda) {
-  const salvo = await salvarAnexo(dataUrl, nome);
+async function prepararAnexo({ dataUrl, nome }, legenda, tenantId) {
+  const salvo = await salvarAnexo(dataUrl, nome, { tenantId });
   const texto = legenda?.trim() || null;
   return {
     tipo: salvo.tipo,

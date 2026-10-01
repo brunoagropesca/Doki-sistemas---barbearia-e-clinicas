@@ -41,6 +41,21 @@ const SUBTITULO = {
   conectado: 'Recebendo mensagens'
 };
 
+/**
+ * "Fora do ar desde 01/10 14:32 (ha 12 min)": quanto tempo o numero esta sem
+ * atender. E o que o dono precisa saber ao abrir a tela depois do aviso.
+ */
+function ForaDoAr({ desde }) {
+  if (!desde) return null;
+  const minutos = Math.max(0, Math.round((Date.now() - desde) / 60_000));
+  const ha = minutos < 60 ? `${minutos} min` : minutos < 60 * 48 ? `${Math.round(minutos / 60)} h` : `${Math.round(minutos / 1440)} dias`;
+  return (
+    <p className="texto-fraco">
+      Fora do ar desde {formatarDataHora(desde)} (há {ha})
+    </p>
+  );
+}
+
 export function PainelPareamento({ canal, ehDev }) {
   // Uma mutacao so para todos os botoes do cartao: so uma acao roda por vez.
   const acao = useAcaoCanal(canal.chave);
@@ -77,6 +92,7 @@ export function PainelPareamento({ canal, ehDev }) {
           <span className="carregando__girando" aria-hidden="true" />
           <span>Iniciando a conexão…</span>
         </p>
+        <ForaDoAr desde={canal.desconectadoEm} />
         <p className="texto-fraco">Isso costuma levar alguns segundos. O QR Code aparece aqui assim que estiver pronto.</p>
         {/* Sem isto, uma conexao que travasse em "conectando" deixaria a pessoa sem saida. */}
         <div className="linha">
@@ -91,6 +107,7 @@ export function PainelPareamento({ canal, ehDev }) {
     conteudo = (
       <>
         {canal.ultimoErro && <Aviso tom={estado.chave === 'erro' ? 'perigo' : 'alerta'}>{canal.ultimoErro}</Aviso>}
+        <ForaDoAr desde={canal.desconectadoEm} />
         <div className="cx-desligado">
           <span className="cx-desligado__icone" aria-hidden="true">
             <IconeQr />

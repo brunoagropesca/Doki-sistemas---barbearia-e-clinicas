@@ -578,20 +578,20 @@ describe('transcricao de audio', () => {
 
 describe('arquivo de audio recebido', () => {
   it('a extensao sai do mimetype do canal, mesmo com o "codecs" junto', async () => {
-    const ogg = await salvarAudio(Buffer.from('a'), 'audio/ogg; codecs=opus');
+    const ogg = await salvarAudio(Buffer.from('a'), 'audio/ogg; codecs=opus', { tenantId });
     assert.match(ogg.url, /^\/api\/arquivos\/audio-.+\.ogg$/);
 
-    assert.match((await salvarAudio(Buffer.from('a'), 'audio/mpeg')).url, /\.mp3$/);
-    assert.match((await salvarAudio(Buffer.from('a'), 'audio/mp4')).url, /\.m4a$/);
+    assert.match((await salvarAudio(Buffer.from('a'), 'audio/mpeg', { tenantId })).url, /\.mp3$/);
+    assert.match((await salvarAudio(Buffer.from('a'), 'audio/mp4', { tenantId })).url, /\.m4a$/);
   });
 
   /** Melhor um arquivo com extensao generica do que perder o recado do cliente. */
   it('mimetype desconhecido vira .ogg, que e o que o WhatsApp manda', async () => {
-    assert.match((await salvarAudio(Buffer.from('a'), 'audio/esquisito')).url, /\.ogg$/);
+    assert.match((await salvarAudio(Buffer.from('a'), 'audio/esquisito', { tenantId })).url, /\.ogg$/);
   });
 
   it('audio vazio e recusado', async () => {
-    await assert.rejects(() => salvarAudio(Buffer.alloc(0), 'audio/ogg'), /vazio/i);
+    await assert.rejects(() => salvarAudio(Buffer.alloc(0), 'audio/ogg', { tenantId }), /vazio/i);
   });
 });
 

@@ -6,6 +6,7 @@ import { EVENTOS, emitir } from '../../core/eventos.js';
 import { tenants } from '../../db/schema/tenants.js';
 import { settings } from '../../db/schema/ai.js';
 import { ID } from '../../core/ids.js';
+import { REMETENTE_SISTEMA } from '../../channels/whatsapp/vigia.js';
 
 /**
  * Camada de acesso ao banco para autenticacao.
@@ -289,7 +290,17 @@ export async function cancelarAvisosPendentes(tenantId) {
   const r = await db
     .update(teamAlerts)
     .set({ canceladoEm: new Date() })
-    .where(and(eq(teamAlerts.tenantId, tenantId), isNull(teamAlerts.lidoEm), isNull(teamAlerts.canceladoEm)));
+    // Os do SISTEMA (numero de WhatsApp fora do ar) ficam: nao sao recado da
+    // gerencia, e o desligamento da funcao nao pode esconder que clientes nao
+    // estao sendo atendidos (ver channels/whatsapp/vigia.js).
+    .where(
+      and(
+        eq(teamAlerts.tenantId, tenantId),
+        isNull(teamAlerts.lidoEm),
+        isNull(teamAlerts.canceladoEm),
+        ne(teamAlerts.deNome, REMETENTE_SISTEMA)
+      )
+    );
   return r.rowsAffected ?? 0;
 }
 

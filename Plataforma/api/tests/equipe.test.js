@@ -93,14 +93,15 @@ describe('profissionais', () => {
   });
 
   it('serve a foto que acabou de guardar', async () => {
-    const res = await app.inject({ method: 'GET', url: ctx.fotoUrl });
+    const res = await app.inject({ method: 'GET', url: ctx.fotoUrl, headers: cab });
     assert.equal(res.statusCode, 200);
     assert.match(res.headers['content-type'], /image\/png/);
   });
 
   it('recusa ler arquivo fora da pasta publica', async () => {
     for (const nome of ['..%2F..%2F.env', '....//....//package.json']) {
-      const res = await app.inject({ method: 'GET', url: `/api/arquivos/${nome}` });
+      // Logado, para provar que nem com sessao se sai da pasta.
+      const res = await app.inject({ method: 'GET', url: `/api/arquivos/${nome}`, headers: cab });
       assert.equal(res.statusCode, 404, `devia recusar "${nome}"`);
     }
   });
@@ -218,7 +219,7 @@ describe('produtos com foto', () => {
     // O caminho e curto: a imagem NAO esta dentro do JSON do produto.
     assert.ok(p.fotoUrl.length < 120, 'o banco deve guardar o caminho, nao a imagem');
 
-    const arquivo = await app.inject({ method: 'GET', url: p.fotoUrl });
+    const arquivo = await app.inject({ method: 'GET', url: p.fotoUrl, headers: cab });
     assert.equal(arquivo.statusCode, 200);
   });
 });

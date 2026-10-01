@@ -9,7 +9,7 @@ import makeWASocket, {
 } from '@whiskeysockets/baileys';
 import QRCode from 'qrcode';
 import pino from 'pino';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { env } from '../../config/env.js';
 import { db } from '../../db/client.js';
 import { channelInstances } from '../../db/schema/conversations.js';
@@ -18,6 +18,7 @@ import { normalizarTelefone } from '../../core/phone.js';
 import { receberMensagem, registrarAdaptador } from '../gateway.js';
 import { registrarEvento } from '../eventos.js';
 import { criarTratadorDeChamadas, processarMensagem } from './handlers.js';
+import * as vigia from './vigia.js';
 
 const log = comContexto({ modulo: 'whatsapp' });
 
@@ -138,9 +139,17 @@ function temSessaoSalva(tenantId, instanciaChave) {
 }
 
 async function atualizarInstancia(tenantId, instanciaChave, campos) {
+  // "Desconectado desde" (tela de Conexoes): limpo ao conectar; ao sair do ar,
+  // so o PRIMEIRO instante conta (coalesce) — tentativa de reconexao nao o renova.
+  const desde =
+    campos.status === undefined
+      ? {}
+      : campos.status === 'conectado'
+        ? { desconectadoEm: null }
+        : { desconectadoEm: sql`coalesce(${channelInstances.desconectadoEm}, ${Date.now()})` };
   await db
     .update(channelInstances)
-    .set(campos)
+    .set({ ...campos, ...desde })
     .where(
       and(
         eq(channelInstances.tenantId, tenantId),
@@ -402,6 +411,7 @@ async function aoMudarConexao(registro, state, { connection, lastDisconnect, qr 
 
     evento(tenantId, instanciaChave, 'sucesso', 'WhatsApp conectado.');
     log.info({ id }, 'WhatsApp conectado');
+    await vigia.aoConectar(tenantId, instanciaChave).catch((err) => log.warn({ err, id }, 'Vigia: falha ao fechar o aviso'));
     return;
   }
 
@@ -444,6 +454,7 @@ async function aoFecharConexao(registro, state, lastDisconnect) {
     tentativas.delete(id);
     evento(tenantId, instanciaChave, nivel, mensagem);
     log.warn({ id, motivo }, mensagem);
+    await vigia.aoCair(tenantId, instanciaChave, { definitiva: true, motivo: mensagem }).catch((err) => log.warn({ err, id }, 'Vigia: falha ao avisar'));
   };
 
   // A pessoa desconectou pelo celular ("Aparelhos conectados"). As credenciais
@@ -522,6 +533,7 @@ async function aoFecharConexao(registro, state, lastDisconnect) {
     `Conexão caiu${porque ? ` (${porque})` : ''}. Tentativa ${n} de reconexão em ${Math.round(atraso / 1000)}s.`
   );
   log.warn({ id, motivo, tentativa: n }, 'Conexao caiu; reconectando');
+  await vigia.aoCair(tenantId, instanciaChave, { motivo: porque || null }).catch((err) => log.warn({ err, id }, 'Vigia: falha ao vigiar'));
 
   agendarReconexao(tenantId, instanciaChave, atraso);
 }
@@ -748,6 +760,7 @@ export async function desconectar(tenantId, instanciaChave = 'W1', { sair = fals
     'aviso',
     sair ? 'Conta desconectada e sessão encerrada. Será preciso ler o QR Code de novo.' : 'Conexão encerrada. A sessão continua salva.'
   );
+  await vigia.aoDesconectarDeProposito(tenantId, instanciaChave).catch(() => {});
 
   return { ok: true };
 }
@@ -810,11 +823,11 @@ export async function reconectarInstanciasSalvas() {
     );
 
   for (const instancia of salvas) {
+    vigia.esperarConexao(instancia.tenantId, instancia.chave);
     if (!temSessaoSalva(instancia.tenantId, instancia.chave)) {
-      await atualizarInstancia(instancia.tenantId, instancia.chave, {
-        status: 'desconectado',
-        ultimoErro: 'A sessão salva não foi encontrada. É preciso ler o QR Code de novo.'
-      }).catch(() => {});
+      const mensagem = 'A sessão salva não foi encontrada. É preciso ler o QR Code de novo.';
+      await atualizarInstancia(instancia.tenantId, instancia.chave, { status: 'desconectado', ultimoErro: mensagem }).catch(() => {});
+      await vigia.aoCair(instancia.tenantId, instancia.chave, { definitiva: true, motivo: mensagem }).catch(() => {});
       continue;
     }
 

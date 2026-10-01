@@ -96,7 +96,7 @@ export async function salvar(tenantId, dados, usuario) {
 
   let logo = atual.logo;
   if (logoArquivo) {
-    logo = await salvarImagem(logoArquivo, 'logo');
+    logo = await salvarImagem(logoArquivo, 'logo', { tenantId });
     if (atual.logo) await apagarImagem(atual.logo);
   } else if (removerLogo) {
     if (atual.logo) await apagarImagem(atual.logo);

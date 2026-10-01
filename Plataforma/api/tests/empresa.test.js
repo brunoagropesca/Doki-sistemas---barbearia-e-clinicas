@@ -82,11 +82,11 @@ describe('base de conhecimento', () => {
     const r1 = await chamar('PUT', '/api/empresa', cabDono, { logoArquivo: PNG });
     const logo1 = r1.json().empresa.logo;
     assert.match(logo1, /^\/api\/arquivos\/logo-/);
-    assert.equal((await app.inject({ method: 'GET', url: logo1 })).statusCode, 200);
+    assert.equal((await app.inject({ method: 'GET', url: logo1, headers: cabDono })).statusCode, 200);
 
     const r2 = await chamar('PUT', '/api/empresa', cabDono, { logoArquivo: PNG });
     assert.notEqual(r2.json().empresa.logo, logo1);
-    assert.equal((await app.inject({ method: 'GET', url: logo1 })).statusCode, 404);
+    assert.equal((await app.inject({ method: 'GET', url: logo1, headers: cabDono })).statusCode, 404);
 
     const r3 = await chamar('PUT', '/api/empresa', cabDono, { removerLogo: true });
     assert.equal(r3.json().empresa.logo, null);

@@ -49,6 +49,12 @@ export const channelInstances = sqliteTable(
 
     ultimoErro: text('ultimo_erro'),
     conectadoEm: instante('conectado_em'),
+    /**
+     * Desde quando esta FORA do ar (nulo enquanto conectado). Preenchido na
+     * primeira mudanca para um estado que nao e "conectado" e mantido nas
+     * tentativas seguintes — a tela de Conexoes mostra "desconectado desde".
+     */
+    desconectadoEm: instante('desconectado_em'),
 
     ativo: integer('ativo', { mode: 'boolean' }).notNull().default(true),
 

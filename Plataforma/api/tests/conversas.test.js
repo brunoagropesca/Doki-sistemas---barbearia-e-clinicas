@@ -334,7 +334,7 @@ describe('responder com anexo', () => {
     assert.equal(m.metadados.nomeArquivo, 'corte.png');
     assert.equal(m.metadados.legenda, null);
 
-    const arquivo = await app.inject({ method: 'GET', url: m.midiaUrl });
+    const arquivo = await app.inject({ method: 'GET', url: m.midiaUrl, headers: cabDono });
     assert.equal(arquivo.statusCode, 200);
     assert.equal(arquivo.headers['content-type'], 'image/png');
   });
@@ -355,7 +355,7 @@ describe('responder com anexo', () => {
     assert.equal(m.conteudo, 'Segue a tabela');
     assert.equal(m.metadados.nomeArquivo, 'Tabela.pdf', 'o caminho do computador de quem enviou nao vaza');
 
-    const arquivo = await app.inject({ method: 'GET', url: m.midiaUrl });
+    const arquivo = await app.inject({ method: 'GET', url: m.midiaUrl, headers: cabDono });
     assert.equal(arquivo.headers['content-disposition'], 'attachment');
     assert.equal(arquivo.headers['x-content-type-options'], 'nosniff');
   });
