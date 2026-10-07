@@ -1,0 +1,14 @@
+Reels "Sistema para barbearias" (9:16, 1080x1920, 30 fps, 30 s) - feito com GSAP
+
+cena/index.html -> animação inteira (timeline GSAP pausada). window.render(t) desenha o instante t.
+                   As telas do sistema foram VETORIZADAS em HTML/SVG a partir dos prints reais
+                   (pasta ../prints-do-sistema, banco de demonstração "Estilo & Arte"):
+                   dashboard, agenda, estoque (catálogo), equipe/comissões e conexões W1..W5.
+renderizar.mjs  -> node renderizar.mjs quadros 1.5,9,22.5 saida/   (PNGs de conferência)
+                   node renderizar.mjs video video_mudo.mp4 4      (4 sub-quadros/quadro = motion blur real)
+gerar-audio.mjs -> node gerar-audio.mjs audio.wav  (trilha + SFX sintetizados, sem licença de terceiros)
+Juntar:
+  ffmpeg -i video_mudo.mp4 -i audio.wav -map 0:v -map 1:a -c:v copy -af "loudnorm=I=-14:TP=-1.5:LRA=11" -c:a aac -b:a 192k -shortest -movflags +faststart DOKI_barbearia_reels.mp4
+
+Observação: "Comissões (40%)" é um percentual de exemplo aplicado ao faturamento real de cada barbeiro
+(o sistema ainda não guarda percentual de comissão). Ajuste em cena/index.html (fat * .4).

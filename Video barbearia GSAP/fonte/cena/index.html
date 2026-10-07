@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>DOKI Barbearia — Reels GSAP</title>
+<link rel="stylesheet" href="fonts.css">
+<style>
+@font-face { font-family: 'Caveat'; src: url(caveat.ttf); font-weight: 600; }
+:root {
+  --bg: #121212; --ink: #0b0b0b; --card: #1a1a1a; --card2: #202020; --line: rgba(255,255,255,.08);
+  --text: #f4f0e6; --muted: #9b968b; --gold: #e2b04a; --gold-l: #fbe3a0; --gold-d: #8a5f12;
+  --neon: #3dff8c; --amber: #ffb627; --red: #ff4b4b;
+  --metal: linear-gradient(135deg, #fff3c4 0%, #e9bb52 28%, #a9741b 52%, #f6d47c 74%, #8a5f12 100%);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #000; }
+body { font-family: 'Inter', sans-serif; color: var(--text); -webkit-font-smoothing: antialiased; }
+#stage { position: absolute; inset: 0; width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+.abs { position: absolute; }
+.fill { position: absolute; inset: 0; }
+#bg { background:
+  radial-gradient(1200px 900px at 50% 38%, #1d1d1d 0%, #121212 55%, #0b0b0b 100%); }
+#tex { opacity: .55; mix-blend-mode: overlay; }
+#cam, #shake { position: absolute; inset: 0; transform-origin: 540px 960px; }
+.mono { font-family: 'JetBrains Mono', monospace; }
+.syne { font-family: 'Syne', sans-serif; font-weight: 800; }
+.goldtxt { background: var(--metal); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* ---------- títulos ---------- */
+.titulo { position: absolute; left: 0; right: 0; text-align: center; font-family: 'Syne', sans-serif; font-weight: 800;
+  text-transform: uppercase; letter-spacing: -0.025em; line-height: .92; pointer-events: none; }
+.titulo .ln { display: block; white-space: nowrap; will-change: transform; }
+.titulo .ln > span { display: inline-block; }
+
+/* ---------- cena 1 ---------- */
+#s1 .paper { position: absolute; width: 430px; height: 540px; background:
+   repeating-linear-gradient(180deg, transparent 0 46px, rgba(60,90,160,.35) 46px 48px),
+   linear-gradient(90deg, transparent 0 70px, rgba(200,40,40,.5) 70px 73px, transparent 73px),
+   linear-gradient(160deg, #efe9da, #d8d0bb 60%, #c9bfa6);
+  clip-path: polygon(2% 3%, 30% 0%, 55% 4%, 82% 1%, 99% 6%, 96% 34%, 100% 58%, 95% 82%, 98% 99%, 70% 96%, 44% 100%, 18% 96%, 0% 99%, 4% 70%, 0% 45%, 3% 22%);
+  font-family: 'Caveat', cursive; color: #2a3f7a; font-size: 40px; padding: 30px 30px 0 90px; line-height: 48px; }
+#s1 .paper::after { content: ''; position: absolute; inset: 0; background:
+   linear-gradient(115deg, rgba(0,0,0,.18), transparent 30%, rgba(0,0,0,.16) 50%, transparent 62%, rgba(0,0,0,.2) 85%),
+   linear-gradient(30deg, transparent 40%, rgba(255,255,255,.25) 48%, transparent 56%); }
+.risco { position: relative; }
+.risco::after { content: ''; position: absolute; left: -6px; right: -6px; top: 52%; height: 4px; background: #b3261e; transform: rotate(-3deg); border-radius: 3px; }
+#s1 .sticky { position: absolute; width: 260px; height: 250px; background: linear-gradient(160deg, #ffe46b, #f2c736); color: #4a3b00;
+  font-family: 'Caveat', cursive; font-size: 44px; line-height: 1; padding: 34px 26px; box-shadow: 0 30px 60px rgba(0,0,0,.6); }
+#s1 .chat { position: absolute; width: 560px; background: #0e1512; border-radius: 34px; padding: 26px; box-shadow: 0 40px 90px rgba(0,0,0,.7); border: 1px solid #1f2b26; }
+.chat .hd { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+.chat .av { width: 62px; height: 62px; border-radius: 50%; background: #2a3a33; display: grid; place-items: center; font-weight: 700; font-size: 26px; color: #9fb8ad; }
+.chat .nm { font-weight: 700; font-size: 28px; }
+.chat .st { font-size: 20px; color: #7f8f88; }
+.bolha { background: #1f2c26; border-radius: 22px 22px 22px 6px; padding: 16px 20px; font-size: 26px; margin: 10px 0; max-width: 88%; color: #dfe9e4; }
+.bolha small { display: block; text-align: right; font-size: 17px; color: #7f8f88; margin-top: 4px; }
+.badge99 { position: absolute; background: #ff3b30; color: #fff; font-weight: 800; font-size: 30px; padding: 8px 18px; border-radius: 40px; box-shadow: 0 10px 30px rgba(255,59,48,.5); }
+#s1 .tela-trav { position: absolute; width: 320px; height: 120px; border-radius: 26px; background: #1a1a1a; border: 1px solid #333; display: flex; align-items: center; gap: 16px; padding: 0 22px; font-size: 24px; color: #bbb; box-shadow: 0 30px 60px rgba(0,0,0,.6); }
+.spin { width: 46px; height: 46px; border-radius: 50%; border: 6px solid #333; border-top-color: #aaa; }
+#s1veil { background: radial-gradient(700px 520px at 50% 50%, rgba(10,10,10,.82), rgba(10,10,10,.35) 70%, transparent); opacity: 0; }
+
+/* ---------- celular ---------- */
+#phoneWrap { position: absolute; left: 240px; top: 540px; width: 600px; height: 1240px; perspective: 2200px; }
+#phone { position: absolute; inset: 0; transform-style: preserve-3d; }
+#phoneBody { position: absolute; inset: 0; border-radius: 96px; background: linear-gradient(145deg, #2c2c2c, #0a0a0a 40%, #1c1c1c);
+  box-shadow: 0 80px 160px rgba(0,0,0,.75), 0 0 0 2px rgba(226,176,74,.55), inset 0 0 0 3px #000, inset 0 2px 0 rgba(255,255,255,.12); }
+#screen { position: absolute; left: 14px; top: 14px; right: 14px; bottom: 14px; border-radius: 84px; overflow: hidden; background: #0f0f0f; }
+#island { position: absolute; left: 50%; top: 26px; width: 160px; height: 44px; margin-left: -80px; border-radius: 30px; background: #000; z-index: 20; }
+#glare { position: absolute; inset: 0; border-radius: 84px; background: linear-gradient(115deg, rgba(255,255,255,.10) 0%, transparent 32%); pointer-events: none; z-index: 21; }
+.view { position: absolute; inset: 0; padding: 92px 28px 28px; }
+.sbar { position: absolute; left: 50px; right: 50px; top: 34px; display: flex; justify-content: space-between; font-size: 22px; font-weight: 600; color: #ddd; }
+.apphd { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.appico { width: 54px; height: 54px; border-radius: 16px; background: var(--metal); display: grid; place-items: center; }
+.apphd h3 { font-size: 34px; font-weight: 800; letter-spacing: -.02em; }
+.apphd p { font-size: 18px; color: var(--muted); }
+.live { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 17px; color: var(--neon); font-weight: 600; background: rgba(61,255,140,.08); border: 1px solid rgba(61,255,140,.3); padding: 6px 12px; border-radius: 30px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--neon); box-shadow: 0 0 10px var(--neon); }
+.kpi { background: linear-gradient(160deg, #1f1f1f, #161616); border: 1px solid var(--line); border-radius: 26px; padding: 18px 20px; }
+.kpi .r { font-size: 16px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; }
+.kpi .v { font-size: 38px; font-weight: 800; letter-spacing: -.02em; margin-top: 6px; }
+.kpi .d { font-size: 16px; color: var(--muted); margin-top: 4px; }
+.kpi .up { color: var(--neon); font-weight: 700; }
+.kpi.hero { border-color: rgba(226,176,74,.45); background: linear-gradient(160deg, #2a2316, #171511 60%); }
+.kpi.hero .v { font-size: 50px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+.chart { margin-top: 14px; height: 300px; position: relative; }
+.chart .bars { position: absolute; left: 20px; right: 20px; bottom: 50px; top: 70px; display: flex; align-items: flex-end; gap: 5px; }
+.chart .b { flex: 1; display: flex; flex-direction: column-reverse; transform-origin: bottom; }
+.chart .b i { display: block; border-radius: 4px 4px 0 0; }
+.legend { display: flex; gap: 16px; font-size: 15px; color: var(--muted); }
+.legend b { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* agenda */
+.seg { display: flex; background: #181818; border: 1px solid var(--line); border-radius: 18px; padding: 5px; width: max-content; font-size: 19px; }
+.seg span { padding: 8px 18px; border-radius: 13px; color: var(--muted); }
+.seg span.on { background: #2a2416; color: var(--gold-l); }
+.week { display: flex; gap: 8px; margin: 18px 0; }
+.week div { flex: 1; text-align: center; padding: 10px 0; border-radius: 18px; background: #181818; border: 1px solid var(--line); font-size: 15px; color: var(--muted); }
+.week div b { display: block; font-size: 26px; color: var(--text); margin-top: 2px; }
+.week div.on { background: var(--metal); color: #2a1d02; border: 0; }
+.week div.on b { color: #1b1200; }
+.slot { display: flex; gap: 16px; align-items: stretch; margin-bottom: 12px; }
+.slot .hr { width: 82px; font-size: 20px; color: var(--muted); padding-top: 16px; }
+.slot .ap { flex: 1; border-radius: 20px; padding: 14px 18px; background: #191919; border: 1px solid var(--line); border-left: 6px solid var(--c, #666); }
+.slot .ap b { font-size: 22px; display: block; }
+.slot .ap span { font-size: 17px; color: var(--muted); }
+.pill { display: inline-block; font-size: 15px; font-weight: 600; padding: 4px 12px; border-radius: 30px; margin-top: 8px; }
+.pill.ok { color: var(--neon); background: rgba(61,255,140,.1); border: 1px solid rgba(61,255,140,.35); }
+.pill.ia { color: var(--gold-l); background: rgba(226,176,74,.12); border: 1px solid rgba(226,176,74,.4); }
+.slot.novo .ap { background: linear-gradient(90deg, rgba(61,255,140,.18), #191919 70%); border-color: rgba(61,255,140,.45); }
+
+/* estoque */
+.prod { display: flex; gap: 16px; align-items: center; background: #181818; border: 1px solid var(--line); border-radius: 22px; padding: 16px; margin-bottom: 12px; }
+.prod .ic { width: 74px; height: 74px; border-radius: 18px; background: #222; display: grid; place-items: center; flex: none; }
+.prod .info { flex: 1; }
+.prod .info b { font-size: 21px; display: block; }
+.prod .info span { font-size: 16px; color: var(--muted); }
+.lvl { height: 12px; border-radius: 10px; background: #2a2a2a; margin-top: 10px; overflow: hidden; }
+.lvl i { display: block; height: 100%; width: 10%; border-radius: 10px; background: var(--amber); }
+.prod .qt { font-size: 30px; font-weight: 800; width: 60px; text-align: right; }
+.alerta { border-radius: 22px; padding: 16px 18px; background: rgba(255,182,39,.1); border: 1px solid rgba(255,182,39,.55); display: flex; gap: 14px; align-items: center; font-size: 19px; color: #ffd27a; }
+
+/* notificações */
+.notif { position: absolute; left: 150px; width: 780px; height: 132px; border-radius: 34px; background: rgba(28,28,28,.92); border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 40px 80px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.08); display: flex; align-items: center; gap: 22px; padding: 0 28px; backdrop-filter: blur(14px); }
+.notif .ni { width: 78px; height: 78px; border-radius: 22px; display: grid; place-items: center; flex: none; }
+.notif .nt { flex: 1; }
+.notif .nt small { font-size: 19px; color: var(--muted); display: block; text-transform: uppercase; letter-spacing: .08em; }
+.notif .nt b { font-size: 31px; display: block; margin-top: 4px; }
+.notif .when { font-size: 19px; color: var(--muted); align-self: flex-start; margin-top: 26px; }
+
+/* cena 4 */
+#floor { position: absolute; left: -600px; right: -600px; top: 900px; height: 1500px; transform-origin: 50% 0;
+  background: linear-gradient(90deg, rgba(226,176,74,.16) 2px, transparent 2px) 0 0/120px 120px, linear-gradient(0deg, rgba(226,176,74,.16) 2px, transparent 2px) 0 0/120px 120px;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 25%, #000 60%, transparent); }
+#team { position: absolute; left: 60px; right: 60px; top: 420px; height: 470px; border-radius: 40px; background: linear-gradient(160deg, rgba(34,34,34,.95), rgba(20,20,20,.95)); border: 1px solid rgba(226,176,74,.3); padding: 30px 34px; box-shadow: 0 50px 100px rgba(0,0,0,.6); }
+#team h4 { font-size: 28px; font-weight: 800; display: flex; align-items: center; gap: 12px; }
+#team h4 span { margin-left: auto; font-size: 20px; color: var(--muted); font-weight: 500; }
+.tm { display: flex; align-items: center; gap: 18px; margin-top: 22px; }
+.tm .av { width: 74px; height: 74px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 30px; border: 4px solid var(--c); color: var(--c); background: #151515; flex: none; }
+.tm .tx { flex: 1; }
+.tm .tx b { font-size: 25px; }
+.tm .tx span { font-size: 18px; color: var(--muted); margin-left: 8px; }
+.tm .bar { height: 16px; border-radius: 10px; background: #2a2a2a; margin-top: 10px; position: relative; overflow: hidden; }
+.tm .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 10px; background: linear-gradient(90deg, #8a5f12, #e2b04a, #fbe3a0); }
+.tm .val { text-align: right; width: 210px; }
+.tm .val b { font-size: 30px; font-weight: 800; display: block; color: var(--gold-l); }
+.tm .val span { font-size: 17px; color: var(--muted); }
+.pct { position: absolute; right: 0; top: -40px; }
+#hub { position: absolute; inset: 0; }
+.wnode { position: absolute; width: 180px; text-align: center; }
+.wnode .c { width: 116px; height: 116px; margin: 0 auto; border-radius: 34px; background: #121a15; border: 2px solid rgba(61,255,140,.6); display: grid; place-items: center; box-shadow: 0 0 40px rgba(61,255,140,.25); }
+.wnode b { display: block; font-size: 24px; margin-top: 12px; }
+.wnode span { font-size: 16px; color: var(--muted); }
+.wnode .tag { position: absolute; top: -12px; right: 18px; background: var(--neon); color: #002b12; font-weight: 800; font-size: 16px; border-radius: 12px; padding: 3px 9px; font-family: 'JetBrains Mono', monospace; }
+#central { position: absolute; left: 400px; top: 1080px; width: 280px; height: 280px; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, #2b2b2b, #0e0e0e 70%); border: 3px solid rgba(226,176,74,.75); box-shadow: 0 0 80px rgba(61,255,140,.25), 0 0 0 18px rgba(226,176,74,.06); text-align: center; }
+#central b { font-family: 'Syne'; font-size: 34px; display: block; }
+#central span { font-size: 17px; color: var(--muted); }
+.msg { position: absolute; padding: 12px 18px; border-radius: 20px 20px 20px 6px; background: #1d2a23; border: 1px solid rgba(61,255,140,.35); font-size: 21px; white-space: nowrap; box-shadow: 0 20px 40px rgba(0,0,0,.5); }
+#fila { position: absolute; left: 290px; width: 500px !important; top: 1020px; width: 380px; text-align: center; font-size: 22px; color: var(--neon); font-weight: 700; font-family: 'JetBrains Mono'; }
+
+/* cena 5 */
+#seal { position: absolute; left: 240px; top: 560px; width: 600px; height: 600px; perspective: 1600px; }
+#sealIn { position: absolute; inset: 0; transform-style: preserve-3d; }
+.ring { position: absolute; left: 540px; top: 860px; width: 600px; height: 600px; margin: -300px; border-radius: 50%; border: 10px solid rgba(246,212,124,.9); box-shadow: 0 0 60px rgba(226,176,74,.8), inset 0 0 40px rgba(226,176,74,.6); opacity: 0; }
+.mens { position: absolute; top: 1290px; width: 280px; height: 200px; border-radius: 30px; background: #1a1a1a; border: 1px solid #333; text-align: center; padding-top: 26px; }
+.mens .cal { width: 90px; height: 84px; margin: 0 auto; border-radius: 14px; background: #262626; overflow: hidden; border: 1px solid #3a3a3a; }
+.mens .cal i { display: block; height: 26px; background: #6b2a2a; font-style: normal; font-size: 16px; font-weight: 800; color: #fff; line-height: 26px; }
+.mens .cal b { display: block; font-size: 30px; line-height: 56px; color: #ddd; }
+.mens p { font-size: 22px; color: #bbb; margin-top: 14px; }
+.mens .strike { position: absolute; left: 10px; right: 10px; top: 50%; height: 10px; border-radius: 6px; background: var(--red); box-shadow: 0 0 20px rgba(255,75,75,.7); transform: rotate(-12deg) scaleX(0); transform-origin: left; }
+#zero { position: absolute; left: 0; right: 0; top: 1560px; text-align: center; font-size: 40px; font-weight: 600; color: var(--text); }
+#zero b { font-weight: 800; }
+
+/* cena 6 */
+#cta { position: absolute; left: 90px; width: 900px; top: 760px; height: 190px; border-radius: 100px; display: grid; place-items: center; overflow: hidden;
+  background: linear-gradient(135deg, #fff1bd 0%, #f0c35c 30%, #c48b26 60%, #f6d47c 100%); color: #1a1100;
+  box-shadow: 0 30px 80px rgba(226,176,74,.45), inset 0 3px 0 rgba(255,255,255,.6), inset 0 -6px 0 rgba(0,0,0,.2); }
+#cta span { white-space: nowrap; font-family: 'Syne'; font-weight: 800; font-size: 60px; letter-spacing: -.02em; position: relative; z-index: 2; }
+#ctaShine { position: absolute; top: -50px; bottom: -50px; width: 160px; left: -200px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.85), transparent); transform: skewX(-20deg); }
+#ctaRing { position: absolute; left: 90px; width: 900px; top: 760px; height: 190px; border-radius: 100px; border: 4px solid rgba(246,212,124,.8); }
+.conf { position: absolute; width: 14px; height: 26px; border-radius: 3px; background: var(--metal); }
+#beam { position: absolute; left: 470px; width: 140px; top: -100px; height: 900px; background: linear-gradient(0deg, rgba(246,212,124,.0), rgba(246,212,124,.55), rgba(255,255,255,.0)); filter: blur(20px); transform-origin: 50% 100%; }
+.micro { display: flex; gap: 18px; align-items: center; justify-content: center; }
+.micro div { display: flex; align-items: center; gap: 10px; font-size: 22px; color: var(--muted); background: #191919; border: 1px solid #2c2c2c; border-radius: 40px; padding: 12px 22px; }
+
+#sweep { position: absolute; top: -600px; left: -900px; width: 520px; height: 3200px; transform: rotate(24deg);
+  background: linear-gradient(90deg, transparent, rgba(255,230,170,.10) 30%, rgba(255,240,200,.32) 50%, rgba(255,230,170,.10) 70%, transparent); mix-blend-mode: screen; filter: blur(8px); }
+#vignette { background: radial-gradient(ellipse 80% 70% at 50% 48%, transparent 55%, rgba(0,0,0,.75) 100%); pointer-events: none; }
+#flash { background: #fff; opacity: 0; mix-blend-mode: screen; }
+#black { background: #000; opacity: 0; }
+.part { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #fbe3a0; box-shadow: 0 0 14px 4px rgba(246,212,124,.7); opacity: 0; }
+.floater { position: absolute; opacity: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg" class="fill"></div>
+  <svg id="tex" class="fill" width="1080" height="1920"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="3" seed="7"/><feColorMatrix values="0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 .9 0"/></filter>
+    <filter id="n2"><feTurbulence type="fractalNoise" baseFrequency=".012 .03" numOctaves="4" seed="3"/><feColorMatrix values="0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 .6 0"/></filter>
+    <rect width="1080" height="1920" filter="url(#n2)"/><rect width="1080" height="1920" filter="url(#n)" opacity=".5"/></svg>
+
+  <div id="cam"><div id="shake">
+
+    <!-- elementos 3D flutuantes (profundidade de campo) -->
+    <svg id="fScissor" class="floater" width="300" height="300" viewBox="0 0 100 100" style="left:-40px;top:1500px">
+      <defs><linearGradient id="gm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3c4"/><stop offset=".35" stop-color="#e2b04a"/><stop offset=".6" stop-color="#8a5f12"/><stop offset="1" stop-color="#f6d47c"/></linearGradient>
+      <linearGradient id="st" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f4f4f4"/><stop offset=".5" stop-color="#9a9a9a"/><stop offset="1" stop-color="#e8e8e8"/></linearGradient></defs>
+      <g transform="rotate(-30 50 50)"><path d="M50 50 L92 40 L94 44 Z" fill="url(#st)"/><path d="M50 50 L92 60 L94 56 Z" fill="url(#st)"/>
+      <circle cx="30" cy="38" r="11" fill="none" stroke="url(#gm)" stroke-width="5"/><circle cx="30" cy="62" r="11" fill="none" stroke="url(#gm)" stroke-width="5"/>
+      <path d="M39 42 L52 50 L39 58" fill="none" stroke="url(#gm)" stroke-width="5"/><circle cx="50" cy="50" r="2.5" fill="#222"/></g></svg>
+    <svg id="fBlade" class="floater" width="260" height="160" viewBox="0 0 130 80" style="left:850px;top:430px">
+      <path d="M8 10 H122 V70 H8 Z M8 10" fill="url(#st)" stroke="#bbb" stroke-width="1.5"/>
+      <rect x="20" y="34" width="90" height="12" rx="6" fill="#121212"/><circle cx="34" cy="40" r="9" fill="#121212"/><circle cx="96" cy="40" r="9" fill="#121212"/>
+      <path d="M8 10 H122" stroke="#fff" stroke-width="2"/></svg>
+    <svg id="fComb" class="floater" width="220" height="120" viewBox="0 0 110 60" style="left:860px;top:1640px">
+      <rect x="5" y="8" width="100" height="16" rx="5" fill="url(#gm)"/><g fill="url(#gm)">
+      <rect x="10" y="22" width="4" height="30" rx="2"/><rect x="19" y="22" width="4" height="30" rx="2"/><rect x="28" y="22" width="4" height="30" rx="2"/><rect x="37" y="22" width="4" height="30" rx="2"/><rect x="46" y="22" width="4" height="30" rx="2"/><rect x="55" y="22" width="4" height="30" rx="2"/><rect x="64" y="22" width="4" height="22" rx="2"/><rect x="73" y="22" width="4" height="22" rx="2"/><rect x="82" y="22" width="4" height="22" rx="2"/><rect x="91" y="22" width="4" height="22" rx="2"/></g></svg>
+
+    <!-- CENA 1 -->
+    <section id="s1" class="fill">
+      <div id="c1paper" class="paper" style="left:40px;top:360px">
+        <div>Sáb — agenda</div><div><span class="risco">João 14h</span></div><div>Pedro corte+barba ??</div><div><span class="risco">Lucas 15h</span> 15h30</div><div>ligar p/ Marcos!!</div><div>pomada acabou?</div>
+      </div>
+      <div id="c1sticky" class="sticky" style="left:740px;top:300px">quem marcou o das 16h???</div>
+      <div id="c1chat" class="chat" style="left:430px;top:1120px">
+        <div class="hd"><div class="av">CL</div><div><div class="nm">Cliente</div><div class="st">visto por último ontem</div></div></div>
+        <div class="bolha">Oi, tem horário hoje às 15h?<small>14:02 ✓✓</small></div>
+        <div class="bolha">Alô?? Alguém aí?<small>14:47 ✓✓</small></div>
+        <div class="bolha">Deixa, vou em outra barbearia.<small>16:10 ✓✓</small></div>
+      </div>
+      <div id="c1badge" class="badge99" style="left:880px;top:1080px">99+</div>
+      <div id="c1trav" class="tela-trav" style="left:60px;top:1060px"><div class="spin"></div>WhatsApp não responde…</div>
+      <svg id="c1sc" class="abs" width="360" height="360" viewBox="0 0 100 100" style="left:110px;top:1430px">
+        <g transform="rotate(20 50 50)"><path d="M50 50 L95 38 L97 43 Z" fill="url(#st)"/><path d="M50 50 L95 62 L97 57 Z" fill="url(#st)"/>
+        <circle cx="28" cy="37" r="12" fill="none" stroke="#b9b9b9" stroke-width="5"/><circle cx="28" cy="63" r="12" fill="none" stroke="#b9b9b9" stroke-width="5"/>
+        <path d="M38 42 L52 50 L38 58" fill="none" stroke="#b9b9b9" stroke-width="5"/><circle cx="50" cy="50" r="2.5" fill="#222"/></g></svg>
+      <div id="s1veil" class="fill"></div>
+    </section>
+    <div id="parts" class="fill"></div>
+
+    <!-- grid 2.5D -->
+    <div id="floorWrap" class="fill" style="perspective:900px;opacity:0"><div id="floor"></div></div>
+
+    <!-- CELULAR -->
+    <div id="phoneWrap"><div id="phone">
+      <div id="phoneBody"></div>
+      <div id="screen">
+        <div class="sbar"><span>9:41</span><span>●●● 5G ▮</span></div>
+
+        <div id="vDash" class="view">
+          <div class="apphd lay"><div class="appico"><svg width="30" height="30" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="#1b1200"/></svg></div>
+            <div><h3>Dashboard</h3><p>Estilo &amp; Arte · 30 dias</p></div><div class="live"><i class="dot"></i>ao vivo</div></div>
+          <div class="kpi hero lay"><div class="r">Faturamento do dia · 03/10</div><div class="v goldtxt" id="kFat">R$ 12.105,00</div><div class="d"><span class="up">▲ 1,8%</span> · 30 dias: R$ 207.346,70</div></div>
+          <div class="grid2">
+            <div class="kpi lay"><div class="r">Cadeiras ativas</div><div class="v"><span id="kCad">19</span><span style="color:var(--muted);font-size:26px"> / 20</span></div><div class="d"><span class="up">●</span> profissionais em jornada</div></div>
+            <div class="kpi lay"><div class="r">Comissões (40%)</div><div class="v" id="kCom">R$ 63.018</div><div class="d">calculadas sozinhas</div></div>
+            <div class="kpi lay"><div class="r">Atendimentos</div><div class="v" id="kAt">2.266</div><div class="d"><span class="up">▲ 1,5%</span></div></div>
+            <div class="kpi lay"><div class="r">Ticket médio</div><div class="v">R$ 69,53</div><div class="d"><span class="up">▲ 2,6%</span></div></div>
+          </div>
+          <div class="kpi chart lay"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:21px">Faturamento no tempo</b><div class="legend"><span><b style="background:#e2b04a"></b>Serviços</span><span><b style="background:#3dff8c"></b>Produtos</span></div></div>
+            <div class="bars" id="bars"></div></div>
+        </div>
+
+        <div id="vAgenda" class="view" style="opacity:0">
+          <div class="apphd"><div class="appico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1b1200" stroke-width="2.4"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div>
+            <div><h3>Agenda</h3><p>quarta-feira, 7 de outubro</p></div><div class="live"><i class="dot"></i>IA ligada</div></div>
+          <div style="display:flex;gap:12px;align-items:center"><div class="seg"><span>Lista</span><span class="on">Calendário</span></div><div style="margin-left:auto;font-size:19px;color:var(--muted)"><b style="color:var(--text);font-size:24px">97</b> no dia · <b style="color:var(--neon);font-size:24px">59</b> confirm.</div></div>
+          <div class="week"><div>seg<b>5</b></div><div>ter<b>6</b></div><div class="on">qua<b>7</b></div><div>qui<b>8</b></div><div>sex<b>9</b></div><div>sáb<b>10</b></div></div>
+          <div id="slots">
+            <div class="slot"><div class="hr">09:00</div><div class="ap" style="--c:#3b82f6"><b>Corte Degradê</b><span>Gabriel Souza · Carlos Mendes</span><br><span class="pill ok">Confirmado</span></div></div>
+            <div class="slot"><div class="hr">10:20</div><div class="ap" style="--c:#e2b04a"><b>Barba Desenhada</b><span>Rodrigo Lima · Mateus Costa</span><br><span class="pill ok">Confirmado</span></div></div>
+            <div class="slot"><div class="hr">13:40</div><div class="ap" style="--c:#f472b6"><b>Barba Terapia</b><span>Thiago Alves · Rafael Lima</span><br><span class="pill ia">Marcado pela Sofia (IA)</span></div></div>
+            <div class="slot novo" id="slotNovo"><div class="hr" style="color:var(--neon)">15:30</div><div class="ap" style="--c:#3dff8c"><b>Corte + Barba</b><span>Novo cliente · Carlos Mendes</span><br><span class="pill ok" id="pillNovo">✓ Confirmou via IA</span></div></div>
+            <div class="slot" id="slotLast"><div class="hr">16:10</div><div class="ap" style="--c:#a78bfa"><b>Pigmentação de Barba</b><span>Bruno Rocha · Lucas Oliveira</span><br><span class="pill ia">Lembrete enviado</span></div></div>
+          </div>
+        </div>
+
+        <div id="vEstoque" class="view" style="opacity:0">
+          <div class="apphd"><div class="appico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1b1200" stroke-width="2.4"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4 9-4V7M12 11v10"/></svg></div>
+            <div><h3>Estoque</h3><p>Catálogo · produtos do balcão</p></div><div class="live"><i class="dot"></i>tempo real</div></div>
+          <div class="grid2" style="grid-template-columns:1fr 1fr 1fr;margin:0 0 16px">
+            <div class="kpi"><div class="r" style="font-size:13px">Produtos</div><div class="v" style="font-size:32px">101</div></div>
+            <div class="kpi"><div class="r" style="font-size:13px">Estoque baixo</div><div class="v" style="font-size:32px;color:var(--amber)">30</div></div>
+            <div class="kpi"><div class="r" style="font-size:13px">Em estoque</div><div class="v" style="font-size:25px;padding-top:6px">R$ 78,8 mil</div></div>
+          </div>
+          <div class="prod" data-q="27" data-max="45"><div class="ic"><svg width="50" height="50" viewBox="0 0 40 40"><rect x="6" y="8" width="28" height="8" rx="3" fill="url(#gm)"/><rect x="8" y="16" width="24" height="18" rx="4" fill="#ddd"/><rect x="8" y="21" width="24" height="7" fill="#e2b04a"/></svg></div>
+            <div class="info"><b>Pomada Modeladora Matte</b><span>100 ml · mín. 6</span><div class="lvl"><i></i></div></div><div class="qt">0</div></div>
+          <div class="prod" data-q="43" data-max="45"><div class="ic"><svg width="50" height="50" viewBox="0 0 40 40"><rect x="17" y="3" width="6" height="9" rx="2" fill="#111" stroke="#e2b04a" stroke-width="1.5"/><path d="M13 14h14l2 5v15a3 3 0 0 1-3 3H14a3 3 0 0 1-3-3V19z" fill="#8a5f12"/><rect x="13" y="22" width="14" height="8" rx="1" fill="#fbe3a0"/></svg></div>
+            <div class="info"><b>Óleo para Barba</b><span>100 ml · mín. 4</span><div class="lvl"><i></i></div></div><div class="qt">0</div></div>
+          <div class="prod" data-q="45" data-max="45"><div class="ic"><svg width="50" height="50" viewBox="0 0 40 40"><rect x="7" y="10" width="26" height="6" rx="2" fill="#e2b04a"/><rect x="9" y="16" width="22" height="18" rx="5" fill="#cfcfcf"/><rect x="9" y="22" width="22" height="6" fill="#3dff8c" opacity=".7"/></svg></div>
+            <div class="info"><b>Balm para Barba</b><span>250 ml · mín. 7</span><div class="lvl"><i></i></div></div><div class="qt">0</div></div>
+          <div class="prod" id="prodAlerta" data-q="4" data-max="45"><div class="ic"><svg width="50" height="50" viewBox="0 0 40 40"><rect x="6" y="8" width="28" height="8" rx="3" fill="#bbb"/><rect x="8" y="16" width="24" height="18" rx="4" fill="#2b2b2b" stroke="#ffb627" stroke-width="1.5"/><path d="M12 25h16" stroke="#ffb627" stroke-width="3"/></svg></div>
+            <div class="info"><b>Pomada Brilho Molhado</b><span>100 ml · mín. 7</span><div class="lvl"><i></i></div></div><div class="qt" style="color:var(--amber)">0</div></div>
+          <div class="alerta" id="alerta"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#ffb627" stroke-width="2.4"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17v.5"/></svg><div><b>Reposição necessária:</b> 4 unidades restantes<br><span style="font-size:15px;color:#c9a35a">Pomada Brilho Molhado 100 ml</span></div></div>
+        </div>
+      </div>
+      <div id="island"></div><div id="glare"></div>
+    </div></div>
+
+    <!-- notificações -->
+    <div id="notifs" class="fill">
+      <div class="notif" id="n1"><div class="ni" style="background:var(--metal)"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1b1200" stroke-width="2.4"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div><div class="nt"><small>Novo agendamento</small><b>Corte + Barba — 15:30</b></div><div class="when">agora</div></div>
+      <div class="notif" id="n2"><div class="ni" style="background:rgba(61,255,140,.15);border:2px solid var(--neon)"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#3dff8c" stroke-width="3"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="nt"><small style="color:var(--neon)">Sofia · IA</small><b>Cliente confirmou via IA</b></div><div class="when">agora</div></div>
+      <div class="notif" id="n3"><div class="ni" style="background:#262626"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fbe3a0" stroke-width="2.2"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 10h8"/></svg></div><div class="nt"><small>Lembrete automático</small><b>Barba Terapia — 16:10 ✓</b></div><div class="when">1 min</div></div>
+    </div>
+
+    <!-- CENA 4 -->
+    <section id="s4" class="fill">
+      <div id="team">
+        <h4><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#e2b04a" stroke-width="2.2"><circle cx="6" cy="7" r="3"/><circle cx="6" cy="17" r="3"/><path d="M8.5 8.5 20 18M8.5 15.5 20 6"/></svg>Comissões · 30 dias<span>calculo automático · 40%</span></h4>
+        <div class="tm" data-fat="8955"><div class="av" style="--c:#3b82f6">C</div><div class="tx"><b>Carlos Mendes</b><span>157 atend.</span><div class="bar"><i></i></div></div><div class="val"><b>R$ 0</b><span>de R$ 8.955</span></div></div>
+        <div class="tm" data-fat="8705"><div class="av" style="--c:#e2b04a">M</div><div class="tx"><b>Mateus Costa</b><span>163 atend.</span><div class="bar"><i></i></div></div><div class="val"><b>R$ 0</b><span>de R$ 8.705</span></div></div>
+        <div class="tm" data-fat="8645"><div class="av" style="--c:#3dff8c">R</div><div class="tx"><b>Rafael Lima</b><span>150 atend.</span><div class="bar"><i></i></div></div><div class="val"><b>R$ 0</b><span>de R$ 8.645</span></div></div>
+        <div class="tm" data-fat="7865"><div class="av" style="--c:#f472b6">L</div><div class="tx"><b>Lucas Oliveira</b><span>156 atend.</span><div class="bar"><i></i></div></div><div class="val"><b>R$ 0</b><span>de R$ 7.865</span></div></div>
+      </div>
+      <div id="hub">
+        <svg id="wires" class="abs" width="1080" height="1920" style="left:0;top:0">
+          <defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+          <g id="wireG" filter="url(#glow)" fill="none" stroke-linecap="round"></g>
+          <g id="pulseG" filter="url(#glow)"></g>
+        </svg>
+        <div id="central"><div><svg width="74" height="74" viewBox="0 0 24 24" fill="none" stroke="#3dff8c" stroke-width="1.8"><path d="M20 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20l1.2-4.2A8.5 8.5 0 1 1 20 11.5z"/><path d="M8.5 9.5c.5 2.5 2.5 4.5 5 5l1.2-1.2 2 .9-.6 1.8c-4 .3-8.4-4.1-8.1-8.1l1.8-.6.9 2z" fill="#3dff8c" stroke="none"/></svg><b class="goldtxt">CENTRAL</b><span>1 painel · 1 equipe</span></div></div>
+        <div id="fila">fila de espera: 0</div>
+      </div>
+    </section>
+
+    <!-- CENA 5 -->
+    <section id="s5" class="fill">
+      <div class="ring" id="r1"></div><div class="ring" id="r2"></div><div class="ring" id="r3"></div>
+      <div id="seal"><div id="sealIn">
+        <svg width="600" height="600" viewBox="0 0 600 600">
+          <defs>
+            <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3c4"/><stop offset=".28" stop-color="#e9bb52"/><stop offset=".5" stop-color="#9c6a17"/><stop offset=".72" stop-color="#f6d47c"/><stop offset="1" stop-color="#7a520e"/></linearGradient>
+            <linearGradient id="sg2" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbe3a0"/><stop offset=".5" stop-color="#b98323"/><stop offset="1" stop-color="#fff0c0"/></linearGradient>
+            <radialGradient id="sIn" cx=".4" cy=".35"><stop offset="0" stop-color="#2c2617"/><stop offset="1" stop-color="#0d0b07"/></radialGradient>
+            <path id="arcT" d="M 120 300 A 180 180 0 0 1 480 300"/><path id="arcB" d="M 100 300 A 200 200 0 0 0 500 300"/>
+          </defs>
+          <g id="burst"><polygon id="burstPoly" fill="url(#sg)"/></g>
+          <circle cx="300" cy="300" r="238" fill="url(#sg2)"/>
+          <circle cx="300" cy="300" r="222" fill="url(#sIn)"/>
+          <circle cx="300" cy="300" r="206" fill="none" stroke="url(#sg)" stroke-width="3" stroke-dasharray="2 9"/>
+          <text font-family="Syne" font-weight="800" font-size="30" letter-spacing="8" fill="url(#sg2)"><textPath href="#arcT" startOffset="50%" text-anchor="middle">LICENÇA DOKI</textPath></text>
+          <text font-family="Syne" font-weight="800" font-size="26" letter-spacing="6" fill="url(#sg2)" dy="22"><textPath href="#arcB" startOffset="50%" text-anchor="middle">★ PAGAMENTO ÚNICO ★</textPath></text>
+          <text x="300" y="322" text-anchor="middle" font-family="Syne" font-weight="800" font-size="70" textLength="350" lengthAdjust="spacingAndGlyphs" fill="url(#sg)">VITALÍCIO</text>
+          <rect x="190" y="342" width="220" height="4" rx="2" fill="url(#sg)"/>
+          <text x="300" y="384" text-anchor="middle" font-family="Inter" font-weight="700" font-size="22" letter-spacing="5" fill="#c9a35a">PARA SEMPRE</text>
+          <path id="sealShine" d="M0 0" fill="rgba(255,255,255,.35)"/>
+        </svg>
+      </div></div>
+      <div class="mens" id="m1" style="left:60px"><div class="cal"><i>JAN</i><b>05</b></div><p>Mensalidade</p><div class="strike"></div></div>
+      <div class="mens" id="m2" style="left:400px"><div class="cal"><i>FEV</i><b>05</b></div><p>Mensalidade</p><div class="strike"></div></div>
+      <div class="mens" id="m3" style="left:740px"><div class="cal"><i>MAR</i><b>05</b></div><p>Mensalidade</p><div class="strike"></div></div>
+      <div id="zero"><b class="goldtxt">Zero mensalidades.</b><br><span style="color:var(--muted)">Uma única vez, seu para sempre.</span></div>
+    </section>
+
+    <!-- CENA 6 -->
+    <section id="s6" class="fill">
+      <div id="beam"></div>
+      <div id="eyebrow" class="abs" style="left:0;right:0;top:470px;text-align:center;font-size:30px;letter-spacing:.32em;color:var(--gold);font-weight:700">SISTEMA PARA BARBEARIAS</div>
+      <div id="ctaHead" class="titulo" style="top:560px;font-size:88px"><span class="ln">Garanta o seu</span></div>
+      <div id="ctaRing"></div>
+      <div id="cta"><div id="ctaShine"></div><span>DIGITE “BARBA” NO DIRECT</span></div>
+      <div id="confs" class="fill"></div>
+      <div id="ouBio" class="abs" style="left:0;right:0;top:1020px;text-align:center;font-size:36px;color:var(--text);font-weight:600">ou <span class="goldtxt" style="font-weight:800">clique no link da bio</span> ↑</div>
+      <div id="sub" class="abs" style="left:0;right:0;top:1090px;text-align:center;font-size:30px;color:var(--muted)">Condição vitalícia por tempo limitado.</div>
+      <img id="logoBox" class="abs" src="logo_t.png" style="left:390px;top:1240px;width:300px">
+      <div id="micro" class="abs micro" style="left:0;right:0;top:1680px">
+        <div><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3dff8c" stroke-width="2"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2" y="14" width="5" height="6" rx="2"/><rect x="17" y="14" width="5" height="6" rx="2"/></svg>Suporte</div>
+        <div><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3dff8c" stroke-width="2"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>Seguro</div>
+        <div><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3dff8c" stroke-width="2"><path d="M20 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20l1.2-4.2A8.5 8.5 0 1 1 20 11.5z"/></svg>WhatsApp</div>
+      </div>
+      <svg id="hand" class="abs" width="150" height="180" viewBox="0 0 50 60" style="left:760px;top:1300px">
+        <path d="M18 4c2.2 0 4 1.8 4 4v15l2-1c2-.8 4 .2 4.6 2l.4.8 1.4-.5c2-.6 4 .5 4.6 2.4l.2.6c2-.5 4 .8 4.4 2.8l1.4 9c.8 5-1.5 10-6 12.6L32 54H18l-9-14c-1.3-2-.7-4.6 1.4-5.8 1.8-1 4-.6 5.3 1L14 26V8c0-2.2 1.8-4 4-4z" fill="#f4f0e6" stroke="#121212" stroke-width="2"/></svg>
+    </section>
+
+    <div id="sweep"></div>
+  </div></div>
+
+  <!-- títulos -->
+  <div id="t1" class="titulo" style="top:600px">
+    <span class="ln" style="font-size:96px">Sua barbearia</span>
+    <span class="ln" style="font-size:72px;color:#cfcac0">ainda depende de</span>
+    <span class="ln goldtxt" style="font-size:150px;margin-top:20px">papel e</span>
+    <span class="ln goldtxt" style="font-size:132px">WhatsApp</span>
+    <span class="ln" style="font-size:150px;color:#ff5a4e">travado?</span>
+  </div>
+  <div id="t2" class="titulo" style="top:150px"><span class="ln" style="font-size:112px">Gestão total</span><span class="ln goldtxt" style="font-size:96px">na palma da mão.</span></div>
+  <div id="t3a" class="titulo" style="top:150px"><span class="ln" style="font-size:112px">Agenda 100%</span><span class="ln goldtxt" style="font-size:112px">automática</span></div>
+  <div id="t3b" class="titulo" style="top:150px"><span class="ln" style="font-size:96px">Estoque preciso</span><span class="ln goldtxt" style="font-size:96px">em tempo real</span></div>
+  <div id="t4a" class="titulo" style="top:130px"><span class="ln" style="font-size:96px">Comissões da equipe</span><span class="ln goldtxt" style="font-size:104px">sem confusão</span></div>
+  <div id="t4b" class="titulo" style="top:130px"><span class="ln goldtxt" style="font-size:118px">1 central :</span><span class="ln" style="font-size:86px">5 WhatsApps integrados</span></div>
+  <div id="t5a" class="titulo" style="top:150px"><span class="ln" style="font-size:100px">Chega de pagar</span><span class="ln" style="font-size:112px;color:#ff5a4e">mensalidade.</span></div>
+  <div id="t5b" class="titulo" style="top:150px"><span class="ln" style="font-size:100px">Acesso</span><span class="ln goldtxt" style="font-size:150px">vitalício.</span></div>
+
+  <div id="vignette" class="fill"></div>
+  <div id="flash" class="fill"></div>
+  <div id="black" class="fill"></div>
+</div>
+
+<script src="gsap.min.js"></script>
+<script>
+const $ = (s) => document.querySelector(s), $$ = (s) => [...document.querySelectorAll(s)];
+const brl = (v, dec = 0) => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+let sementeR = 42; const rnd = () => ((sementeR = (sementeR * 1664525 + 1013904223) >>> 0) / 4294967296);
+
+// ---------- dados reais (demonstração Estilo & Arte, 30 dias) ----------
+const SERIE = [[3695,1569],[5835,1848],[5670,1567],[6280,1520],[7645,1191],[8765,2256],[0,0],[3460,1861],[5295,1534],[5820,1441],[6610,3057],[6320,1768],[8970,2729],[0,0],[2930,702],[4990,2155],[6060,1938],[6230,2200],[6955,1755],[8415,2844],[0,0],[3505,1420],[6950,2720],[5005,2203],[6640,2047],[7145,3050],[9940,2165],[0,0],[2810,1031],[5605,1232]];
+const bars = $('#bars');
+SERIE.forEach(([s, p]) => { const b = document.createElement('div'); b.className = 'b';
+  b.innerHTML = `<i style="height:${s / 12500 * 170}px;background:linear-gradient(#f6d47c,#a8741c)"></i><i style="height:${p / 12500 * 170}px;background:#3dff8c;opacity:.85"></i>`; bars.appendChild(b); });
+
+// estrela do selo
+(() => { const pts = []; const n = 48; for (let i = 0; i < n * 2; i++) { const r = i % 2 ? 268 : 298, a = Math.PI * i / n; pts.push((300 + r * Math.cos(a)).toFixed(1) + ',' + (300 + r * Math.sin(a)).toFixed(1)); } $('#burstPoly').setAttribute('points', pts.join(' ')); })();
+
+// partículas
+const parts = []; for (let i = 0; i < 90; i++) { const d = document.createElement('div'); d.className = 'part'; const s = 4 + rnd() * 12; d.style.width = d.style.height = s + 'px';
+  $('#parts').appendChild(d); parts.push({ el: d, x0: 120 + rnd() * 840, y0: 350 + rnd() * 1300, a: rnd() * Math.PI * 2, r: 200 + rnd() * 500 }); }
+// confete
+const confs = []; for (let i = 0; i < 46; i++) { const d = document.createElement('div'); d.className = 'conf'; $('#confs').appendChild(d);
+  confs.push({ el: d, vx: (rnd() - .5) * 1500, vy: -600 - rnd() * 1100, rot: (rnd() - .5) * 1440, s: .6 + rnd() * .8 }); }
+
+// fios do hub: centro (540,1220) para 5 números
+const NUMS = [['W1', 'Recepção'], ['W2', 'Unid. Centro'], ['W3', 'Barbeiros'], ['W4', 'Vendas'], ['W5', 'Pós-venda']];
+const NX = [150, 345, 540, 735, 930], NY = [1560, 1700, 1740, 1700, 1560];
+const wires = [], hubEl = $('#hub');
+NX.forEach((x, i) => {
+  const d = `M540 1300 C ${540 + (x - 540) * .2} 1420, ${x} ${NY[i] - 170}, ${x} ${NY[i] - 64}`;
+  const base = document.createElementNS('http://www.w3.org/2000/svg', 'path'); base.setAttribute('d', d); base.setAttribute('stroke', 'rgba(61,255,140,.9)'); base.setAttribute('stroke-width', '5');
+  const flow = base.cloneNode(); flow.setAttribute('stroke', '#eafff2'); flow.setAttribute('stroke-width', '3'); flow.setAttribute('stroke-dasharray', '14 46');
+  $('#wireG').append(base, flow);
+  const L = base.getTotalLength(); base.style.strokeDasharray = L; base.style.strokeDashoffset = L; flow.style.opacity = 0;
+  const pk = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); pk.setAttribute('r', '11'); pk.setAttribute('fill', '#3dff8c'); pk.style.opacity = 0; $('#pulseG').appendChild(pk);
+  const n = document.createElement('div'); n.className = 'wnode'; n.style.left = (x - 90) + 'px'; n.style.top = (NY[i] - 60) + 'px';
+  n.innerHTML = `<div class="c"><svg width="58" height="58" viewBox="0 0 24 24" fill="none" stroke="#3dff8c" stroke-width="1.8"><path d="M20 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20l1.2-4.2A8.5 8.5 0 1 1 20 11.5z"/><path d="M8.5 9.5c.5 2.5 2.5 4.5 5 5l1.2-1.2 2 .9-.6 1.8c-4 .3-8.4-4.1-8.1-8.1l1.8-.6.9 2z" fill="#3dff8c" stroke="none"/></svg></div><div class="tag">${NUMS[i][0]}</div><b>${NUMS[i][1]}</b><span class="mono">+55 11 98765-000${i + 1}</span>`;
+  hubEl.appendChild(n);
+  wires.push({ base, flow, pk, L, node: n });
+});
+const MSGS = ['Tem horário hoje?', 'Quero cortar sábado', 'Quanto é a barba?', 'Pode ser 15h30?', 'Confirmo amanhã ✓'];
+const msgEls = MSGS.map((m, i) => { const e = document.createElement('div'); e.className = 'msg'; e.textContent = m; hubEl.appendChild(e); return e; });
+
+// ---------- timeline ----------
+gsap.defaults({ ease: 'power3.out' });
+const tl = gsap.timeline({ paused: true });
+const premium = 'expo.out';      // arrancada explosiva + desaceleração suave
+const elastico = 'back.out(1.7)';
+
+// estado inicial
+gsap.set(['#phoneWrap', '#notifs .notif', '#s4', '#s5', '#s6', '.titulo', '#t1 .ln'], { opacity: 0 });
+gsap.set('.titulo:not(#t1) .ln', { opacity: 0 });
+gsap.set('#vDash .lay', { opacity: 0 });
+
+// CENA 1 — gancho (0–3)
+tl.fromTo('#cam', { scale: 1.9, filter: 'blur(26px) brightness(.45)' }, { scale: 1, filter: 'blur(0px) brightness(1)', duration: .55, ease: 'expo.out' }, 0);
+tl.from('#c1paper', { x: -700, rotation: -60, duration: .5, ease: 'back.out(2.2)' }, 0.02);
+tl.to('#c1paper', { rotation: -11, duration: .01 }, 0);
+tl.from('#c1sticky', { x: 600, y: -300, rotation: 80, duration: .5, ease: 'back.out(2.5)' }, 0.08);
+tl.to('#c1sticky', { rotation: 9, duration: .01 }, 0);
+tl.from('#c1chat', { y: 900, rotation: 25, duration: .55, ease: 'back.out(1.8)' }, 0.12);
+tl.to('#c1chat', { rotation: -6, duration: .01 }, 0);
+tl.from('#c1trav', { x: -600, rotation: -30, duration: .5, ease: 'back.out(2)' }, 0.18);
+tl.from('#c1badge', { scale: 0, duration: .45, ease: 'back.out(4)' }, 0.42);
+tl.from('#c1sc', { x: -500, y: 300, rotation: -200, duration: .6, ease: 'back.out(1.6)' }, 0.1);
+// colisão: tudo empurra levemente
+tl.to(['#c1paper', '#c1chat', '#c1trav', '#c1sticky'], { x: '+=18', y: '-=12', duration: .08, yoyo: true, repeat: 1, ease: 'power1.inOut' }, 0.55);
+tl.to('#s1veil', { opacity: 1, duration: .35 }, 0.8);
+tl.to('#t1', { opacity: 1, duration: .01 }, 0.86);
+tl.fromTo('#t1 .ln', { scale: 1.2, opacity: 0, filter: 'blur(14px)' }, { scale: 1, opacity: 1, filter: 'blur(0px)', duration: .42, ease: 'expo.out', stagger: .13 }, 0.86);
+tl.fromTo('#flash', { opacity: .55 }, { opacity: 0, duration: .25, ease: 'power2.out' }, 0.86);
+tl.fromTo('#flash', { opacity: .35 }, { opacity: 0, duration: .2, ease: 'power2.out' }, 1.38);
+tl.to('#t1', { scale: 1.04, duration: 1.4, ease: 'none' }, 1.4);
+// dissolve em partículas
+tl.to('#t1', { opacity: 0, scale: .85, filter: 'blur(20px)', duration: .35, ease: 'power2.in' }, 2.62);
+tl.to('#s1 > *', { opacity: 0, scale: .4, filter: 'blur(16px)', duration: .4, ease: 'power3.in', stagger: .02 }, 2.6);
+
+// CENA 2 — solução (3–8)
+tl.fromTo('#phoneWrap', { opacity: 0 }, { opacity: 1, duration: .3 }, 3.0);
+tl.fromTo('#phone', { scale: .45, rotationY: -75, rotationX: 20, y: 300 }, { scale: 1, rotationY: -15, rotationX: 6, y: 0, duration: 1.1, ease: 'back.out(1.3)' }, 3.0);
+tl.fromTo('#vDash .lay', { opacity: 0, y: (i) => [-260, 220, -180, 260, -240, 200, 320][i], x: (i) => [-200, 260, -300, 300, -260, 280, 0][i], scale: 1.25, rotation: (i) => (i % 2 ? 8 : -8) },
+  { opacity: 1, y: 0, x: 0, scale: 1, rotation: 0, duration: .7, ease: elastico, stagger: .09 }, 3.35);
+tl.fromTo('#bars .b', { scaleY: 0 }, { scaleY: 1, duration: .6, ease: 'back.out(2)', stagger: .018 }, 4.0);
+tl.to('#t2', { opacity: 1, duration: .01 }, 3.55);
+tl.fromTo('#t2 .ln', { y: 90, opacity: 0, scale: 1.15 }, { y: 0, opacity: 1, scale: 1, duration: .55, ease: premium, stagger: .12 }, 3.55);
+tl.fromTo('#sweep', { x: 0 }, { x: 2400, duration: 1.3, ease: 'power2.inOut' }, 4.7);
+// explode view e volta a encaixar
+tl.to('#vDash .lay', { y: (i) => (i - 3) * 28, scale: 1.05, duration: .35, ease: 'power2.out' }, 6.0);
+tl.to('#vDash .lay', { y: 0, scale: 1, duration: .6, ease: 'elastic.out(1, .45)' }, 6.38);
+tl.to('#phone', { rotationY: -8, duration: 2, ease: 'sine.inOut' }, 6.0);
+tl.to('#t2 .ln', { y: -60, opacity: 0, duration: .3, ease: 'power2.in', stagger: .05 }, 7.8);
+
+// CENA 3 — agenda & estoque (8–15)
+tl.to('#phone', { scale: 1.08, rotationY: 8, rotationX: 4, x: -40, duration: .8, ease: 'power3.inOut' }, 7.9);
+tl.to('#vDash', { scale: 1.6, opacity: 0, filter: 'blur(10px)', duration: .45, ease: 'power3.in' }, 7.95);
+tl.fromTo('#vAgenda', { opacity: 0, scale: .82 }, { opacity: 1, scale: 1, duration: .6, ease: premium }, 8.3);
+gsap.set('#slotNovo', { height: 0, opacity: 0, marginBottom: 0, overflow: 'hidden' });
+tl.fromTo('#vAgenda .slot:not(#slotNovo)', { x: 120, opacity: 0 }, { x: 0, opacity: 1, duration: .5, ease: premium, stagger: .07 }, 8.45);
+tl.to('#t3a', { opacity: 1, duration: .01 }, 8.25);
+tl.fromTo('#t3a .ln', { y: 90, opacity: 0, scale: 1.15 }, { y: 0, opacity: 1, scale: 1, duration: .55, ease: premium, stagger: .12 }, 8.25);
+// notificações em cascata
+const NOT_Y = 1480;
+tl.fromTo('#n1', { opacity: 0, y: NOT_Y + 300, scale: .8 }, { opacity: 1, y: NOT_Y, scale: 1, duration: .55, ease: elastico }, 9.0);
+tl.to('#slotNovo', { height: 128, opacity: 1, marginBottom: 12, duration: .5, ease: elastico }, 9.15);
+tl.fromTo('#pillNovo', { opacity: 0 }, { opacity: 1, duration: .2 }, 9.8);
+tl.to('#n1', { y: NOT_Y - 150, scale: .96, duration: .45, ease: elastico }, 9.75);
+tl.fromTo('#n2', { opacity: 0, y: NOT_Y + 300, scale: .8 }, { opacity: 1, y: NOT_Y, scale: 1, duration: .55, ease: elastico }, 9.75);
+tl.to('#n1', { y: NOT_Y - 300, scale: .92, opacity: .75, duration: .45, ease: elastico }, 10.5);
+tl.to('#n2', { y: NOT_Y - 150, scale: .96, duration: .45, ease: elastico }, 10.5);
+tl.fromTo('#n3', { opacity: 0, y: NOT_Y + 300, scale: .8 }, { opacity: 1, y: NOT_Y, scale: 1, duration: .55, ease: elastico }, 10.5);
+tl.to('#notifs .notif', { x: -1200, opacity: 0, duration: .45, ease: 'power3.in', stagger: .05 }, 11.35);
+tl.to('#t3a .ln', { y: -60, opacity: 0, duration: .3, ease: 'power2.in', stagger: .05 }, 11.5);
+// máscara: agenda sai pela esquerda, estoque entra
+tl.fromTo('#vAgenda', { clipPath: 'inset(0% 0% 0% 0%)' }, { clipPath: 'inset(0% 100% 0% 0%)', xPercent: -30, duration: .6, ease: 'power4.inOut' }, 11.7);
+tl.fromTo('#vEstoque', { opacity: 1, clipPath: 'inset(0% 0% 0% 100%)', xPercent: 30 }, { clipPath: 'inset(0% 0% 0% 0%)', xPercent: 0, duration: .6, ease: 'power4.inOut' }, 11.7);
+tl.to('#phone', { rotationY: -10, x: 0, duration: 1.2, ease: 'power3.inOut' }, 11.7);
+tl.to('#t3b', { opacity: 1, duration: .01 }, 11.95);
+tl.fromTo('#t3b .ln', { y: 90, opacity: 0, scale: 1.15 }, { y: 0, opacity: 1, scale: 1, duration: .55, ease: premium, stagger: .12 }, 11.95);
+$$('#vEstoque .prod').forEach((p, i) => {
+  const q = +p.dataset.q, max = +p.dataset.max, bar = p.querySelector('.lvl i'), qt = p.querySelector('.qt');
+  const o = { v: 0 };
+  tl.fromTo(p, { x: 140, opacity: 0 }, { x: 0, opacity: 1, duration: .45, ease: premium }, 12.1 + i * .08);
+  tl.to(o, { v: q, duration: 1.3, ease: 'power2.out', onUpdate: () => { qt.textContent = Math.round(o.v); bar.style.width = Math.max(4, o.v / max * 100) + '%';
+    const ok = o.v > 7; bar.style.background = ok ? gsap.utils.interpolate('#ffb627', '#3dff8c', Math.min(1, (o.v - 7) / 12)) : '#ffb627'; bar.style.boxShadow = ok && o.v > 15 ? '0 0 12px rgba(61,255,140,.7)' : 'none'; } }, 12.5 + i * .12);
+});
+tl.fromTo('#alerta', { opacity: 0, y: 40, scale: .9 }, { opacity: 1, y: 0, scale: 1, duration: .5, ease: elastico }, 13.4);
+tl.to('#t3b .ln', { y: -60, opacity: 0, duration: .3, ease: 'power2.in', stagger: .05 }, 14.7);
+
+// CENA 4 — equipe & 5 números (15–22)
+tl.to('#phone', { scale: .5, y: -300, rotationY: 50, duration: .55, ease: 'power3.in' }, 14.75);
+tl.to('#phoneWrap', { opacity: 0, filter: 'blur(14px)', duration: .45, ease: 'power2.in' }, 14.85);
+tl.to('#s4', { opacity: 1, duration: .01 }, 15.0);
+tl.fromTo('#floorWrap', { opacity: 0 }, { opacity: 1, duration: .6 }, 15.0);
+tl.fromTo('#floor', { rotationX: 80 }, { rotationX: 62, duration: 1.2, ease: premium }, 15.0);
+tl.fromTo('#team', { y: 300, opacity: 0, rotationX: 30, scale: .9 }, { y: 0, opacity: 1, rotationX: 0, scale: 1, duration: .7, ease: elastico, transformPerspective: 1400 }, 15.1);
+tl.fromTo('#team .tm', { x: -80, opacity: 0 }, { x: 0, opacity: 1, duration: .45, ease: premium, stagger: .1 }, 15.45);
+$$('#team .tm').forEach((t, i) => {
+  const fat = +t.dataset.fat, com = fat * .4, bar = t.querySelector('.bar i'), val = t.querySelector('.val b'), o = { v: 0 };
+  tl.to(o, { v: 1, duration: 1.4, ease: 'power3.out', onUpdate: () => { bar.style.width = (o.v * fat / 9000 * 100) + '%'; val.textContent = brl(com * o.v, 2); } }, 15.8 + i * .15);
+});
+tl.to('#t4a', { opacity: 1, duration: .01 }, 15.2);
+tl.fromTo('#t4a .ln', { y: 90, opacity: 0, scale: 1.15 }, { y: 0, opacity: 1, scale: 1, duration: .55, ease: premium, stagger: .12 }, 15.2);
+tl.to('#t4a .ln', { y: -60, opacity: 0, duration: .3, ease: 'power2.in', stagger: .05 }, 18.0);
+tl.to('#team', { y: -40, scale: .9, opacity: .55, duration: .6, ease: 'power3.inOut' }, 18.0);
+tl.to('#t4b', { opacity: 1, duration: .01 }, 18.3);
+tl.fromTo('#t4b .ln', { y: 90, opacity: 0, scale: 1.15 }, { y: 0, opacity: 1, scale: 1, duration: .55, ease: premium, stagger: .12 }, 18.3);
+tl.fromTo('#central', { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: .6, ease: 'back.out(2.2)' }, 18.2);
+wires.forEach((w, i) => {
+  tl.to(w.base.style, { strokeDashoffset: 0, duration: .5, ease: 'power2.out' }, 18.55 + i * .08);
+  tl.fromTo(w.node, { scale: 0, opacity: 0, y: 40 }, { scale: 1, opacity: 1, y: 0, duration: .5, ease: 'back.out(2.4)' }, 18.85 + i * .08);
+  tl.to(w.flow.style, { opacity: 1, duration: .3 }, 19.1);
+});
+tl.fromTo('#fila', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: .4 }, 19.6);
+
+// CENA 5 — vitalício (22–26)
+tl.to('#s4', { scale: .75, opacity: .0, filter: 'blur(14px)', duration: .45, ease: 'power3.in' }, 21.85);
+tl.to('#floorWrap', { opacity: .25, duration: .4 }, 21.85);
+tl.to('#t4b .ln', { opacity: 0, y: -60, duration: .3, ease: 'power2.in' }, 21.8);
+tl.to('#s5', { opacity: 1, duration: .01 }, 22.1);
+tl.fromTo('#seal', { scale: 4, opacity: 0, filter: 'blur(30px)' }, { scale: 1, opacity: 1, filter: 'blur(0px)', duration: .3, ease: 'power4.in' }, 22.1);
+['#r1', '#r2', '#r3'].forEach((r, i) => tl.fromTo(r, { scale: .9, opacity: .95 }, { scale: 2.6 + i * .5, opacity: 0, duration: 1 + i * .15, ease: 'expo.out' }, 22.4 + i * .1));
+tl.fromTo('#flash', { opacity: .6, background: '#ffe2a0' }, { opacity: 0, duration: .35 }, 22.4);
+tl.to('#t5a', { opacity: 1, duration: .01 }, 22.45);
+tl.fromTo('#t5a .ln', { scale: 1.25, opacity: 0, filter: 'blur(10px)' }, { scale: 1, opacity: 1, filter: 'blur(0px)', duration: .4, ease: premium, stagger: .12 }, 22.45);
+tl.fromTo('.mens', { y: 200, opacity: 0 }, { y: 0, opacity: 1, duration: .5, ease: elastico, stagger: .08 }, 22.6);
+tl.to('.mens .strike', { scaleX: 1, duration: .22, ease: 'power3.out', stagger: .14 }, 23.2);
+tl.to('.mens', { y: -120, scale: 1.25, opacity: 0, filter: 'blur(22px)', duration: .7, ease: 'power2.in', stagger: .08 }, 23.75);
+tl.to('#t5a .ln', { opacity: 0, y: -60, duration: .3, ease: 'power2.in' }, 24.1);
+tl.to('#t5b', { opacity: 1, duration: .01 }, 24.3);
+tl.fromTo('#t5b .ln', { scale: 1.3, opacity: 0, filter: 'blur(10px)' }, { scale: 1, opacity: 1, filter: 'blur(0px)', duration: .45, ease: premium, stagger: .12 }, 24.3);
+tl.fromTo('#zero', { opacity: 0, y: -160 }, { opacity: 1, y: -180, duration: .5, ease: premium }, 24.5);
+tl.to('#seal', { y: 40, duration: 1.6, ease: 'sine.inOut' }, 24.0);
+
+// CENA 6 — CTA (26–30)
+tl.to(['#s5', '#t5b'], { opacity: 0, scale: .9, filter: 'blur(12px)', duration: .4, ease: 'power3.in' }, 25.75);
+tl.to('#floorWrap', { opacity: 0, duration: .4 }, 25.75);
+tl.to('#s6', { opacity: 1, duration: .01 }, 26.1);
+gsap.set('#ctaHead', { opacity: 1 });
+tl.fromTo('#eyebrow', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: .4 }, 26.15);
+tl.fromTo('#ctaHead .ln', { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: .5, ease: premium }, 26.2);
+tl.fromTo('#cta', { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: .6, ease: 'back.out(2.6)' }, 26.25);
+tl.fromTo('#ouBio', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: .4, ease: premium }, 26.6);
+tl.fromTo('#sub', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: .4, ease: premium }, 26.75);
+tl.fromTo('#logoBox', { opacity: 0, scale: .8 }, { opacity: 1, scale: 1, duration: .6, ease: elastico }, 26.9);
+tl.fromTo('#micro > div', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: .4, ease: elastico, stagger: .08 }, 27.1);
+tl.fromTo('#hand', { x: 300, y: 500, opacity: 0, rotation: 20 }, { x: 0, y: -450, opacity: 1, rotation: -10, duration: .6, ease: 'power3.out' }, 27.0);
+tl.to('#hand', { scale: .85, duration: .1, yoyo: true, repeat: 1, ease: 'power2.inOut' }, 27.6);
+tl.to('#cta', { scale: .93, duration: .1, yoyo: true, repeat: 1, ease: 'power2.inOut' }, 27.62);
+tl.fromTo('#beam', { opacity: 0, scaleY: 0 }, { opacity: 1, scaleY: 1, duration: .5, ease: premium }, 27.7);
+tl.to('#beam', { opacity: 0, duration: .8 }, 28.3);
+tl.to('#hand', { x: 200, y: 200, opacity: 0, duration: .5, ease: 'power2.in' }, 28.2);
+tl.to('#black', { opacity: 1, duration: .4, ease: 'power2.in' }, 29.6);
+tl.set({}, {}, 30);
+
+// ---------- movimento contínuo (função do tempo, determinístico) ----------
+const ruido = (t, s) => Math.sin(t * 1.7 + s) * .5 + Math.sin(t * 2.9 + s * 2.1) * .3 + Math.sin(t * 5.3 + s * .7) * .2;
+const impacto = (t, t0, dur, amp) => (t >= t0 && t < t0 + dur) ? amp * Math.pow(1 - (t - t0) / dur, 2) : 0;
+function continuo(t) {
+  // wiggle(2,4) leve nas cenas de produto + micro-shake nos impactos
+  const prod = (t > 3 && t < 26) ? 4 : 1.5;
+  const imp = impacto(t, .86, .35, 22) + impacto(t, 1.38, .25, 10) + impacto(t, 22.4, .5, 30) + impacto(t, 27.62, .2, 8) + impacto(t, .5, .25, 14);
+  const sx = ruido(t * 2, 1) * prod + Math.sin(t * 90) * imp, sy = ruido(t * 2, 4) * prod + Math.cos(t * 77) * imp;
+  gsap.set('#shake', { x: sx, y: sy, rotation: imp * .03 * Math.sin(t * 60) });
+  // tesoura tremendo (cena 1)
+  gsap.set('#c1sc', { rotation: Math.sin(t * 70) * 3 + ruido(t * 8, 2) * 4 });
+  if (t > .9) gsap.set('#c1badge', { scale: 1 + .06 * Math.sin(t * 14) });
+  // partículas: caos → luz (2.6–3.6)
+  const pp = (t - 2.6) / 1.0;
+  parts.forEach((p, i) => {
+    if (pp <= 0 || pp >= 1) { p.el.style.opacity = 0; return; }
+    const out = Math.min(1, pp * 2.2), back = Math.max(0, (pp - .45) / .55), e = 1 - Math.pow(1 - out, 3), b = back * back;
+    const x = p.x0 + Math.cos(p.a) * p.r * e * .5, y = p.y0 + Math.sin(p.a) * p.r * e * .5;
+    const fx = x + (540 - x) * b, fy = y + (1160 - y) * b;
+    p.el.style.transform = `translate(${fx}px,${fy}px)`; p.el.style.opacity = Math.sin(Math.PI * pp);
+  });
+  // elementos 3D flutuantes com profundidade de campo
+  const fv = t > 3.2 && t < 25.8 ? Math.min(1, (t - 3.2) / .6, (25.8 - t) / .4) : 0;
+  gsap.set('#fScissor', { opacity: fv * .9, y: Math.sin(t * 1.1) * 30, rotation: t * 12, filter: 'blur(5px)' });
+  gsap.set('#fBlade', { opacity: fv * .8, y: Math.sin(t * 1.3 + 1) * 26, rotation: -18 + Math.sin(t * .9) * 12, filter: 'blur(3px)' });
+  gsap.set('#fComb', { opacity: fv * .7, y: Math.sin(t * 1.0 + 2) * 22, rotation: 25 + Math.sin(t * .7) * 8, filter: 'blur(7px)' });
+  // celular flutuando
+  if (t > 4.1 && t < 14.8) gsap.set('#phoneWrap', { y: Math.sin((t - 4.1) * 1.4) * 14 });
+  // alerta pulsando
+  const al = $('#alerta'); if (t > 13.9) { const s = (Math.sin((t - 13.9) * 6.5) + 1) / 2; al.style.boxShadow = `0 0 ${10 + s * 30}px rgba(255,182,39,${.2 + s * .45})`; $('#prodAlerta').style.borderColor = `rgba(255,182,39,${.2 + s * .6})`; }
+  // pulso elétrico nos fios + mensagens distribuídas
+  wires.forEach((w, i) => {
+    w.flow.style.strokeDashoffset = -(t * 240) % 60;
+    const st = 19.3 + i * .37, ph = ((t - st) % 1.85) / .55;
+    if (t > st && ph < 1) { const pt = w.base.getPointAtLength(ph * w.L); w.pk.setAttribute('cx', pt.x); w.pk.setAttribute('cy', pt.y); w.pk.style.opacity = 1; } else w.pk.style.opacity = 0;
+    const ns = (t > st && ph >= .9 && ph < 1.6) ? 1 + .12 * Math.sin((ph - .9) / .7 * Math.PI) : 1;
+    w.node.querySelector('.c').style.transform = `scale(${ns})`;
+    const m = msgEls[i], mt = t - (19.4 + i * .42);
+    if (t < 21.85 && mt > 0 && mt < 1.6) { const k = Math.min(1, mt / .25), out = Math.max(0, (mt - 1.2) / .4);
+      m.style.opacity = k * (1 - out); m.style.left = (NX[i] - 110) + 'px'; m.style.top = (NY[i] - 180 - 40 * k) + 'px'; m.style.transform = `scale(${.7 + .3 * k})`; }
+    else m.style.opacity = 0;
+  });
+  if (t > 18.2) gsap.set('#central', { boxShadow: `0 0 ${60 + 40 * Math.sin(t * 5)}px rgba(61,255,140,.35), 0 0 0 ${14 + 6 * Math.sin(t * 5)}px rgba(226,176,74,.08)` });
+  // selo girando em loop (3D)
+  if (t > 22.1) { gsap.set('#sealIn', { rotationY: Math.sin((t - 22.4) * 1.6) * 32, rotationX: Math.cos((t - 22.4) * 1.1) * 8 }); gsap.set('#burst', { rotation: (t - 22) * 25, svgOrigin: '300 300' }); }
+  // CTA: pulso magnético + brilho no gradiente
+  if (t > 26.85) {
+    const k = (t - 26.85); const pul = (k % 1.1) / 1.1;
+    $('#ctaRing').style.transform = `scale(${1 + pul * .22})`; $('#ctaRing').style.opacity = (1 - pul) * .9;
+    $('#ctaShine').style.left = (-200 + ((k % 1.6) / 1.6) * 1400) + 'px';
+    if (!(t > 27.6 && t < 27.85)) $('#cta').style.boxShadow = `0 30px ${80 + 30 * Math.sin(k * 6)}px rgba(226,176,74,${.4 + .2 * Math.sin(k * 6)}), inset 0 3px 0 rgba(255,255,255,.6), inset 0 -6px 0 rgba(0,0,0,.2)`;
+  } else $('#ctaRing').style.opacity = 0;
+  // confete metálico
+  const ct = t - 27.65;
+  confs.forEach((c) => { if (ct <= 0 || ct > 2.2) { c.el.style.opacity = 0; return; }
+    const x = 540 + c.vx * ct * .55, y = 850 + c.vy * ct + 900 * ct * ct;
+    c.el.style.opacity = Math.max(0, 1 - ct / 2.2); c.el.style.transform = `translate(${x}px,${y}px) rotate(${c.rot * ct}deg) scale(${c.s})`; });
+}
+
+function caber(el, max) { const fs = parseFloat(getComputedStyle(el).fontSize); const w = el.scrollWidth; if (w > max) el.style.fontSize = (fs * max / w).toFixed(1) + 'px'; }
+window.preparar = async () => { await document.fonts.ready; await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
+  gsap.set('.titulo .ln', { scale: 1 }); $$('.titulo .ln').forEach((l) => { l.style.width = 'max-content'; l.style.margin = '0 auto'; caber(l, 990); }); caber($('#cta span'), 800); render(0); return true; };
+window.render = (t) => { tl.seek(t, false); continuo(t); };
+render(0);
+</script>
+</body>
+</html>
