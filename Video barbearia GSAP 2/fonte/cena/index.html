@@ -60,7 +60,7 @@ body { font-family: 'Inter', sans-serif; color: var(--text); -webkit-font-smooth
 #wipe { position: absolute; left: -900px; top: -400px; width: 700px; height: 2800px; transform: rotate(24deg); background: linear-gradient(90deg, transparent, rgba(0,221,242,.35) 20%, #00DDF2 45%, #bff8ff 50%, #00DDF2 55%, rgba(7,139,255,.5) 80%, transparent); filter: blur(4px); box-shadow: 0 0 120px #00DDF2; }
 
 /* mascote */
-.masc { position: absolute; width: 480px; height: 768px; background: url(mascote.png) center/contain no-repeat; transform-origin: 50% 96%; filter: drop-shadow(0 30px 40px rgba(0,0,0,.55)); }
+.masc { z-index: 6; position: absolute; width: 480px; height: 768px; transform-origin: 50% 96%; filter: drop-shadow(0 30px 40px rgba(0,0,0,.55)); }
 .mascShadow { position: absolute; width: 360px; height: 60px; border-radius: 50%; background: radial-gradient(ellipse, rgba(0,0,0,.6), transparent 70%); }
 
 /* UI */
@@ -230,7 +230,7 @@ body { font-family: 'Inter', sans-serif; color: var(--text); -webkit-font-smooth
     </section>
 
     <!-- CENA 2/3 -->
-    <img id="logo2" class="abs" src="logo_t.png" style="left:430px;top:150px;width:220px">
+    <div id="logo2" class="abs" style="left:420px;top:150px;width:240px"></div>
     <div id="m2shadow" class="mascShadow" style="left:100px;top:1730px"></div>
     <div id="m2" class="masc" style="left:40px;top:1000px"></div>
     <svg id="arc" class="abs" width="1080" height="1920" style="left:0;top:0"><path id="arcP" d="M380 1180 C 470 1000, 560 930, 700 900" fill="none" stroke="#00DDF2" stroke-width="10" stroke-linecap="round" style="filter:drop-shadow(0 0 14px #00DDF2)"/></svg>
@@ -333,7 +333,7 @@ body { font-family: 'Inter', sans-serif; color: var(--text); -webkit-font-smooth
 
     <!-- CENA 6 -->
     <section id="s6" class="fill">
-      <img id="logo6" class="abs" src="logo_t.png" style="left:400px;top:150px;width:280px">
+      <div id="logo6" class="abs" style="left:360px;top:150px;width:360px"></div>
       <div id="cta"><div id="ctaShine"></div><span>CHAMA A DOKI NO DIRECT</span></div>
       <div class="shock" id="sh1"></div><div class="shock" id="sh2"></div><div class="shock" id="sh3"></div>
       <div id="apoio" class="abs" style="left:0;right:0;top:925px;text-align:center;font-size:34px;font-weight:600;color:#dbe9f5">Condição vitalícia por tempo limitado.</div>
@@ -365,6 +365,7 @@ body { font-family: 'Inter', sans-serif; color: var(--text); -webkit-font-smooth
 </div>
 
 <script src="gsap.min.js"></script>
+<script src="vetores.js"></script>
 <script>
 const $ = (s) => document.querySelector(s), $$ = (s) => [...document.querySelectorAll(s)];
 const brl = (v) => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -397,6 +398,15 @@ NX.forEach((x, i) => {
   n.innerHTML = `<div class="c"><svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#00DDF2" stroke-width="1.9"><path d="M20 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20l1.2-4.2A8.5 8.5 0 1 1 20 11.5z"/></svg></div><div class="tg">W${i + 1}</div><b>${NOME[i]}</b>`;
   $('#hub').appendChild(n); wires.push({ base, flow, pk, L, node: n });
 });
+
+// injeta vetores (mascote articulado + logo)
+['#m2', '#m4', '#m6'].forEach((m) => $(m).innerHTML = MASCOTE_SVG);
+$('#logo2').innerHTML = LOGO_SVG(false); $('#logo6').innerHTML = LOGO_SVG(true);
+gsap.set('.masc .flipL', { svgOrigin: '90 272' }); gsap.set('.masc .flipR', { svgOrigin: '310 272' });
+gsap.set(['.masc .corpo'], { svgOrigin: '200 600' });
+gsap.set('#m2 .flipL, #m2 .flipR', { opacity: 0 });           // cena 2 começa de braços cruzados
+gsap.set('#m4 .cruzados, #m6 .cruzados', { opacity: 0 });
+gsap.set('#m4 .flipL', { rotation: -38 }); gsap.set('#m4 .flipR', { rotation: 38 }); // segurando o tablet
 
 // ---------- timeline ----------
 // "Graph editor": arrancada forte (~80% de influência) e frenagem suave = expo.out / power4.out
@@ -432,13 +442,19 @@ tl.set('#bgNavy', { opacity: 1 }, 4.02); tl.set('#gridBg', { opacity: 1 }, 4.02)
 
 // CENA 2 (4–9)
 tl.fromTo('#logo2', { opacity: 0, y: -30 }, { opacity: 1, y: 0, duration: .5, ease: RAPIDO }, 4.15);
+tl.fromTo('#logo2 .lgDpath', { attr: { 'stroke-dasharray': '0 600' } }, { attr: { 'stroke-dasharray': '600 600' }, duration: .7, ease: 'power3.out' }, 4.15);
+tl.fromTo('#logo2 .lgPeng', { scale: 0, svgOrigin: '270 80' }, { scale: 1, duration: .5, ease: 'back.out(2.5)' }, 4.45);
 tl.fromTo('#m2', { opacity: 0, y: 500, scaleY: .8, scaleX: 1.1 }, { opacity: 1, y: 0, scaleY: 1, scaleX: 1, duration: .75, ease: MOLA }, 4.25);
 tl.fromTo('#m2shadow', { opacity: 0, scale: .4 }, { opacity: 1, scale: 1, duration: .6 }, 4.4);
 entraTitulo('#t2', 4.45);
 tl.fromTo('#t2s', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: .5, ease: RAPIDO }, 4.85);
 // gesto: aponta para a direita (inclina + arco de energia) e traz a UI
-tl.to('#m2', { rotation: 6, x: 30, scaleX: 1.04, duration: .35, ease: 'power3.out' }, 5.75);
-tl.to('#m2', { rotation: 2, x: 20, scaleX: 1, duration: .5, ease: 'power2.out' }, 6.15);
+tl.to('#m2 .cruzados', { opacity: 0, duration: .08 }, 5.7); tl.to('#m2 .flipL, #m2 .flipR', { opacity: 1, duration: .08 }, 5.7);
+tl.fromTo('#m2 .flipR', { rotation: 10 }, { rotation: -100, duration: .45, ease: 'back.out(2)' }, 5.72);
+tl.fromTo('#m2 .flipL', { rotation: -10 }, { rotation: 8, duration: .45, ease: 'power3.out' }, 5.72);
+tl.to('#m2', { rotation: 4, x: 20, duration: .35, ease: 'power3.out' }, 5.75);
+tl.to('#m2', { rotation: 2, x: 16, duration: .5, ease: 'power2.out' }, 6.15);
+tl.to('#m2 .flipR', { rotation: -80, duration: .6, ease: 'power2.inOut' }, 6.9);
 tl.set('#arc', { opacity: 1 }, 5.8);
 tl.fromTo('#arcP', { attr: { 'stroke-dasharray': '0 2000' } }, { attr: { 'stroke-dasharray': '520 2000' }, duration: .35, ease: 'power3.out' }, 5.8);
 tl.to('#arcP', { attr: { 'stroke-dashoffset': -520 }, duration: .35, ease: 'power3.in' }, 6.1);
@@ -496,6 +512,7 @@ tl.fromTo(['#m4', '#m4shadow'], { opacity: 0, y: 300 }, { opacity: 1, y: 0, dura
 tl.fromTo('#tabMini', { opacity: 0, y: 300, rotation: -14 }, { opacity: 1, y: 0, rotation: -8, duration: .7, ease: MOLA }, 16.35);
 tl.fromTo('#approve', { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: .5, ease: 'back.out(3)' }, 18.55);
 tl.to('#m4', { y: -24, duration: .18, yoyo: true, repeat: 1, ease: 'power2.out' }, 18.55);
+tl.to('#m4 .flipR', { rotation: -60, duration: .25, yoyo: true, repeat: 1, ease: 'power2.out' }, 18.5);
 
 // CENA 5 (21–25)
 saiTitulo('#t4', 20.8); saiTitulo('#t4s', 20.8);
@@ -520,6 +537,8 @@ tl.to(['#s5', '#t5', '#t5s'], { opacity: 0, scale: .92, filter: 'blur(10px)', du
 tl.to('#bgNavy', { opacity: 1, duration: .4 }, 24.9);
 tl.to('#s6', { opacity: 1, duration: .01 }, 25.05);
 tl.fromTo('#logo6', { opacity: 0, y: -30 }, { opacity: 1, y: 0, duration: .5, ease: RAPIDO }, 25.05);
+tl.fromTo('#logo6 .lgDpath', { attr: { 'stroke-dasharray': '0 600' } }, { attr: { 'stroke-dasharray': '600 600' }, duration: .6, ease: 'power3.out' }, 25.05);
+tl.fromTo('#logo6 .lgPeng', { scale: 0, svgOrigin: '270 80' }, { scale: 1, duration: .45, ease: 'back.out(2.5)' }, 25.3);
 entraTitulo('#t6', 25.15);
 tl.fromTo('#cta', { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: .55, ease: 'back.out(2.4)' }, 25.3);
 tl.fromTo('#apoio', { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: .4, ease: RAPIDO }, 25.5);
@@ -570,7 +589,11 @@ function continuo(t) {
     const press = (t > 26.5 && t < 26.66) ? .95 : 1;
     gsap.set('#cta', { scale: s * press }); $('#ctaShine').style.left = (-200 + ((k % 1.5) / 1.5) * 1300) + 'px'; }
   // mascote acenando (balanço + ondas)
-  if (t > 26.1) { const k = t - 26.1; gsap.set('#m6', { rotation: Math.sin(k * 7) * 4, y: -Math.abs(Math.sin(k * 7)) * 10 });
+  gsap.set('#m6 .flipR', { rotation: t > 25.6 ? -150 + Math.sin((t - 25.6) * 11) * 22 : 0 });
+  gsap.set('#m6 .flipL', { rotation: t > 25.6 ? 6 + Math.sin(t * 3) * 3 : 0 });
+  ['#m2', '#m4', '#m6'].forEach((m, i) => { const g = ((t * .45 + i * .3) % 1.6); gsap.set(`${m} .brilhoOculos`, { x: g < 1 ? -60 + g * 520 : 600 });
+    gsap.set(`${m} .corpo`, { rotation: Math.sin(t * Math.PI * 2 / 1) * 1.2 }); });
+  if (t > 26.1) { const k = t - 26.1; gsap.set('#m6', { rotation: Math.sin(k * 3.5) * 2, y: -Math.abs(Math.sin(k * 7)) * 8 });
     ['#wv1', '#wv2'].forEach((w, i) => { const ph = ((k * 2.2 - i * .3) % 1 + 1) % 1; $(w).style.opacity = Math.sin(ph * Math.PI); $(w).style.transform = `translateX(${ph * 20}px)`; }); }
   else ['#wv1', '#wv2'].forEach((w) => $(w).style.opacity = 0);
 }

@@ -3,7 +3,8 @@ Reels 2 "DOKI Barbearias" (9:16, 1080x1920, 60 fps, 28 s) - GSAP
 cena/index.html -> animação inteira (timeline GSAP pausada); window.render(t) desenha o instante t.
                    Reaproveita as telas vetorizadas do vídeo 1 (painel, agenda, equipe, estoque, conexões W1..W5)
                    + Conversas/livechat vetorizado do print (../prints-do-sistema e ../../Video barbearia GSAP/prints-do-sistema).
-cena/mascote.png -> mascote barbeiro recortado da peça "cta.png" do vídeo piloto (fundo removido).
+cena/vetores.js  -> mascote DOKI barbeiro e logo 100% vetoriais (SVG), com nadadeiras articuladas
+                   (aponta, segura o tablet, acena). Nenhuma imagem estática no vídeo.
 renderizar.mjs  -> node renderizar.mjs quadros 1,10,23 saida/
                    node renderizar.mjs video video_mudo.mp4 2 60 28   (2 sub-quadros = motion blur, 60 fps, 28 s)
 gerar-audio.mjs -> node gerar-audio.mjs audio.wav
